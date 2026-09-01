@@ -28,6 +28,7 @@ describe('exportBackup', () => {
       expect(file.data.runtimeDemos).toEqual([])
       expect(file.data.libraryCategories).toEqual([])
       expect(file.data.runtimeProjects).toEqual([])
+      expect(file.data.deletedDocs).toEqual([])
     } finally {
       await db.delete()
     }
@@ -51,6 +52,14 @@ describe('exportBackup', () => {
       expect(validateBackup(file).ok).toBe(true)
       expect(file.data.libraryCategories).toHaveLength(2)
       expect(file.data.runtimeProjects).toHaveLength(2)
+      await db.deletedDocs.bulkPut([{ id: 'java-notes' }])
+      const withDeleted = await exportBackup(db)
+      expect(validateBackup(withDeleted).ok).toBe(true)
+      expect(withDeleted.data.deletedDocs).toEqual([{ id: 'java-notes' }])
+      const restored2 = createDb(`restore2-${newId()}`)
+      await importBackup(restored2, withDeleted, 'overwrite')
+      expect(await restored2.deletedDocs.get('java-notes')).toBeDefined()
+      await restored2.delete()
       const restored = createDb(`restore-${newId()}`)
       await importBackup(restored, file, 'overwrite')
       expect(await restored.libraryCategories.toArray()).toEqual(

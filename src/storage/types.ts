@@ -41,8 +41,9 @@ export interface AwardEntry {
   id: string
   text: string
 }
+/** 资料池按简历版本独立存放：id = 所属 ResumeVersion 的 id（v4 起不再有全局 'main'） */
 export interface Profile {
-  id: 'main'
+  id: string
   basic: BasicInfo
   education: EducationEntry[]
   skills: SkillGroup[]
@@ -165,6 +166,10 @@ export interface LibraryDoc {
   updatedAt: string
   /** 运行时创建/覆盖的文档标记；内置编译时文档不入库 */
   source?: 'runtime'
+}
+/** 已删除内置文档的墓碑行（deletedDocs 表）：内置 md 是编译期产物删不掉源文件，删除以墓碑表达 */
+export interface DeletedDocRow {
+  id: string
 }
 
 /** 运行时上传的交互式 HTML 演示页 */

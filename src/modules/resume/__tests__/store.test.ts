@@ -30,16 +30,19 @@ describe('resume store', () => {
     expect(store.loaded).toBe(true)
   })
 
-  it('ensureProfile 创建主数据并可更新基本信息', async () => {
+  it('ensureProfile 无版本时先建默认版本，资料池挂在版本上', async () => {
     const store = useResumeStore()
     await store.load()
     await store.ensureProfile('王小明')
-    expect(store.profile?.id).toBe('main')
+    expect(store.versions).toHaveLength(1)
+    expect(store.versions[0]!.name).toBe('默认版本')
+    expect(store.profile?.id).toBe(store.activeVersionId)
     expect(store.profile?.basic.name).toBe('王小明')
     await store.updateBasic({ name: '王小明', email: 'c@example.com' })
     expect(store.profile?.basic.email).toBe('c@example.com')
-    const row = await db.profile.get('main')
+    const row = await db.profile.get(store.activeVersionId)
     expect(row?.basic.email).toBe('c@example.com')
+    expect(await db.profile.get('main')).toBeUndefined()
   })
 
   it('upsertEntry 新增与更新五类条目，removeEntry 删除', async () => {
@@ -81,6 +84,42 @@ describe('resume store', () => {
     await store.ensureProfile('王小明')
     await store.setSelfEvaluation(['第一条', '第二条'])
     expect(store.profile?.selfEvaluation).toEqual(['第一条', '第二条'])
+  })
+
+  it('资料池按版本独立：新建复制起点，修改互不影响，删除连带清理', async () => {
+    const store = useResumeStore()
+    await store.load()
+    await store.ensureProfile('王小明')
+    await store.upsertEntry('skills', skill({ group: '共有技能' }))
+    const v1 = store.activeVersionId
+    // 新建版本以当前资料池为起点复制
+    const v2 = await store.createVersion('开发岗版', '')
+    expect(store.profile?.id).toBe(v2.id)
+    expect(store.profile?.skills.map((s) => s.group)).toContain('共有技能')
+    // 修改 v2 不影响 v1
+    await store.upsertEntry('skills', skill({ group: 'v2 新增' }))
+    await store.removeEntry('skills', store.profile!.skills.find((s) => s.group === '共有技能')!.id)
+    await store.setActive(v1)
+    expect(store.profile?.id).toBe(v1)
+    expect(store.profile?.skills.map((s) => s.group)).toEqual(['共有技能'])
+    // 删除版本连带删除其资料池
+    await store.deleteVersion(v2.id)
+    expect(await db.profile.get(v2.id)).toBeUndefined()
+    expect(store.profile?.id).toBe(v1)
+    expect(store.profile?.skills).toHaveLength(1)
+  })
+
+  it('duplicateVersion 连资料池一并复制', async () => {
+    const store = useResumeStore()
+    await store.load()
+    await store.ensureProfile('王小明')
+    await store.upsertEntry('skills', skill({ group: '独有技能' }))
+    const v1 = store.activeVersionId
+    const v2 = await store.duplicateVersion(v1)
+    expect(await db.profile.get(v2!.id)).toBeDefined()
+    expect(store.profile?.id).toBe(v2!.id)
+    await store.setActive(v1)
+    expect(store.profile?.skills.map((s) => s.group)).toEqual(['独有技能'])
   })
 
   it('createVersion/duplicateVersion/renameVersion/deleteVersion', async () => {

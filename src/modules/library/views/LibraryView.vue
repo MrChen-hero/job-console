@@ -111,7 +111,7 @@ async function removeCategory(name: string) {
 }
 
 function sourceLabel(doc: MergedDoc): string {
-  if (doc.kind === 'runtime') return doc.overridden ? '已修改 · 可重置' : '我的文档'
+  if (doc.kind === 'runtime') return doc.overridden ? '已修改' : '我的文档'
   return '内置'
 }
 
@@ -137,19 +137,18 @@ async function onSave(input: { id?: string; category: LibraryCategory; title: st
 }
 
 async function onRemove(doc: MergedDoc) {
-  const isReset = doc.kind === 'local'
   try {
-    await ElMessageBox.confirm(
-      isReset ? `「${doc.title}」将恢复为内置版本，你的修改会丢失。继续？` : `确定删除「${doc.title}」？`,
-      isReset ? '重置确认' : '删除确认',
-      { confirmButtonText: isReset ? '重置' : '删除', cancelButtonText: '取消', type: 'warning' },
-    )
+    await ElMessageBox.confirm(`确定删除「${doc.title}」？`, '删除确认', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
   } catch {
     return
   }
   await store.removeDoc(doc.id)
   if (activeId.value === doc.id) activeId.value = store.docs[0]?.id ?? ''
-  ElMessage.success(isReset ? '已重置为内置版本' : '已删除')
+  ElMessage.success('已删除')
 }
 
 function pickFile() {
@@ -312,23 +311,14 @@ async function onFileChange(event: Event) {
             </h3>
             <div class="reader-acts doc-actions">
               <ElButton
-                v-if="activeDoc.kind === 'runtime' && activeDoc.overridden"
-                size="small"
-                class="reset-btn"
-                @click="onRemove(activeDoc)"
-              >
-                重置为内置
-              </ElButton>
-              <ElButton
                 size="small"
                 type="primary"
                 class="edit-btn"
                 @click="openEdit(activeDoc)"
               >
-                {{ activeDoc.kind === 'local' ? '编辑（保存后覆盖内置）' : '编辑' }}
+                编辑
               </ElButton>
               <ElButton
-                v-if="activeDoc.kind === 'runtime' && !activeDoc.overridden"
                 size="small"
                 text
                 type="danger"

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { db } from '../../storage/db'
 import type { LibraryCategory, LibraryCategoryRow, LibraryDoc } from '../../storage/types'
+import { localDocIds } from './localContent'
 import { LIBRARY_CATEGORIES, newId } from '../../storage/types'
 import { parseFrontmatter } from '../../shared/markdown/frontmatter'
 import { localDocs, type LocalDoc } from './localContent'
@@ -40,6 +41,7 @@ export const useLibraryStore = defineStore('library', {
   state: () => ({
     runtimeDocs: [] as LibraryDoc[],
     categoryRows: [] as LibraryCategoryRow[],
+    deletedDocIds: [] as string[],
     loaded: false,
   }),
 
@@ -50,17 +52,20 @@ export const useLibraryStore = defineStore('library', {
      */
     docs(state): MergedDoc[] {
       const map = (c: string) => mapCategoryWith(state.categoryRows, c)
+      const deleted = new Set(state.deletedDocIds)
       const runtimeById = new Map(state.runtimeDocs.map((d) => [d.id, d]))
-      const local: MergedDoc[] = localDocs().map((doc) => {
-        const runtime = runtimeById.get(doc.id)
-        if (runtime) {
-          return { kind: 'runtime', overridden: true, ...runtime, category: map(runtime.category) }
-        }
-        return { kind: 'local', overridden: false, ...doc, category: map(doc.category) }
-      })
-      const localIds = new Set(local.map((d) => d.id))
+      const local: MergedDoc[] = localDocs()
+        .filter((doc) => !deleted.has(doc.id))
+        .map((doc) => {
+          const runtime = runtimeById.get(doc.id)
+          if (runtime) {
+            return { kind: 'runtime', overridden: true, ...runtime, category: map(runtime.category) }
+          }
+          return { kind: 'local', overridden: false, ...doc, category: map(doc.category) }
+        })
+      const localIds = new Set(localDocs().map((d) => d.id))
       const runtimeOnly = state.runtimeDocs
-        .filter((d) => !localIds.has(d.id))
+        .filter((d) => !localIds.has(d.id) && !deleted.has(d.id))
         .map((d): MergedDoc => ({ kind: 'runtime', overridden: false, ...d, category: map(d.category) }))
       return [...local, ...runtimeOnly].sort((a, b) => a.title.localeCompare(b.title, 'zh'))
     },
@@ -89,9 +94,14 @@ export const useLibraryStore = defineStore('library', {
 
   actions: {
     async load() {
-      const [docs, categoryRows] = await Promise.all([db.libraryDocs.toArray(), db.libraryCategories.toArray()])
+      const [docs, categoryRows, deletedRows] = await Promise.all([
+        db.libraryDocs.toArray(),
+        db.libraryCategories.toArray(),
+        db.deletedDocs.toArray(),
+      ])
       this.runtimeDocs = docs
       this.categoryRows = categoryRows
+      this.deletedDocIds = deletedRows.map((r) => r.id)
       this.loaded = true
     },
 
@@ -109,9 +119,15 @@ export const useLibraryStore = defineStore('library', {
       await this.load()
     },
 
-    /** 删除 runtime 文档；若 id 对应内置文档则等于「重置为内置」 */
+    /**
+     * 删除文档：纯 runtime 文档删行；内置文档（或其 runtime 覆盖行）写 deletedDocs 墓碑，
+     * 使内置 md 不再出现在合并清单（内置源文件删不掉，删除以墓碑表达）。
+     */
     async removeDoc(id: string) {
       await db.libraryDocs.delete(id)
+      if (localDocIds().includes(id)) {
+        await db.deletedDocs.put({ id })
+      }
       await this.load()
     },
 

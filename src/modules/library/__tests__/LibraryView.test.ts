@@ -50,24 +50,17 @@ describe('LibraryView', () => {
     expect(wrapper.text()).toContain('我的文档')
   })
 
-  it('覆盖内置并重置', async () => {
+  it('内置文档与普通文档一样可删除（墓碑）', async () => {
     const store = useLibraryStore()
     const wrapper = mount(LibraryView)
     await flushPromises()
-    // 覆盖内置
-    const target = store.docs.find((d) => d.id === 'java-notes')!
-    await store.upsertDoc({ id: target.id, category: target.category, title: 'Java 基础（改）', body: target.body, tags: target.tags })
-    await store.load()
-    await flushPromises()
-    // 默认选中首篇（zh 排序为八股题库），覆盖后应出现重置按钮
-    const item = wrapper.findAll('.lib-item').find((i) => i.text().includes('Java 基础（改）'))!
+    const item = wrapper.findAll('.lib-item').find((i) => i.text().includes('八股题库'))!
     await item.trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('已修改 · 可重置')
     vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
-    await wrapper.find('.reset-btn').trigger('click')
-    await vi.waitFor(() => expect(store.docs.find((d) => d.id === 'java-notes')!.kind).toBe('local'))
-    expect(store.docs.find((d) => d.id === 'java-notes')!.title).toBe('八股题库 · Java 基础（节选）')
+    await wrapper.find('.delete-btn').trigger('click')
+    await vi.waitFor(() => expect(store.docs.some((d) => d.id === 'java-notes')).toBe(false))
+    expect(wrapper.text()).not.toContain('八股题库')
   })
 
   it('内置文档编辑入口为「另存并编辑副本」且保存产生 runtime 覆盖', async () => {
@@ -77,7 +70,7 @@ describe('LibraryView', () => {
     const item = wrapper.findAll('.lib-item').find((i) => i.text().includes('八股题库'))!
     await item.trigger('click')
     await flushPromises()
-    expect(wrapper.find('.edit-btn').text()).toBe('编辑（保存后覆盖内置）')
+    expect(wrapper.find('.edit-btn').text()).toBe('编辑')
     await wrapper.find('.edit-btn').trigger('click')
     const editor = wrapper.find('[data-testid="doc-editor"]')
     await editor.find('input[data-field="title"]').setValue('八股题库 · 我的版本')

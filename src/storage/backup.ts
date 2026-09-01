@@ -4,6 +4,7 @@ import { createSnapshot } from './snapshots'
 import type {
   Application,
   CompanyPoolEntry,
+  DeletedDocRow,
   LibraryCategoryRow,
   LibraryDoc,
   Milestone,
@@ -13,7 +14,7 @@ import type {
   RuntimeProject,
 } from './types'
 
-export const BACKUP_SCHEMA_VERSION = 3
+export const BACKUP_SCHEMA_VERSION = 4
 
 export interface BackupData {
   profile: Profile[]
@@ -28,6 +29,8 @@ export interface BackupData {
   libraryCategories: LibraryCategoryRow[]
   /** v3：演示站运行时项目（含内置项目的覆盖行与隐藏墓碑） */
   runtimeProjects: RuntimeProject[]
+  /** v4：已删除内置文档的墓碑 */
+  deletedDocs: DeletedDocRow[]
 }
 
 export interface BackupFile {
@@ -37,7 +40,7 @@ export interface BackupFile {
 }
 
 export async function exportBackup(db: JobConsoleDb): Promise<BackupFile> {
-  const [profile, resumeVersions, applications, companyPool, libraryDocs, milestones, runtimeDemos, libraryCategories, runtimeProjects] =
+  const [profile, resumeVersions, applications, companyPool, libraryDocs, milestones, runtimeDemos, libraryCategories, runtimeProjects, deletedDocs] =
     await Promise.all([
       db.profile.toArray(),
       db.resumeVersions.toArray(),
@@ -48,11 +51,12 @@ export async function exportBackup(db: JobConsoleDb): Promise<BackupFile> {
       db.runtimeDemos.toArray(),
       db.libraryCategories.toArray(),
       db.runtimeProjects.toArray(),
+      db.deletedDocs.toArray(),
     ])
   return {
     schemaVersion: BACKUP_SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
-    data: { profile, resumeVersions, applications, companyPool, libraryDocs, milestones, runtimeDemos, libraryCategories, runtimeProjects },
+    data: { profile, resumeVersions, applications, companyPool, libraryDocs, milestones, runtimeDemos, libraryCategories, runtimeProjects, deletedDocs },
   }
 }
 
@@ -96,7 +100,7 @@ export function validateBackup(
     return { ok: false, issues }
   }
   const data = raw.data as Record<string, unknown>
-  const tableKeys = ['profile', 'resumeVersions', 'applications', 'companyPool', 'libraryDocs', 'milestones', 'runtimeDemos', 'libraryCategories', 'runtimeProjects'] as const
+  const tableKeys = ['profile', 'resumeVersions', 'applications', 'companyPool', 'libraryDocs', 'milestones', 'runtimeDemos', 'libraryCategories', 'runtimeProjects', 'deletedDocs'] as const
   for (const key of tableKeys) {
     if (!Array.isArray(data[key])) issues.push({ path: `$.data.${key}`, message: '必须是数组' })
   }
@@ -182,6 +186,7 @@ export async function importBackup(db: JobConsoleDb, file: BackupFile, mode: Imp
     db.runtimeDemos,
     db.libraryCategories,
     db.runtimeProjects,
+    db.deletedDocs,
   ] as const
   const rows = [
     data.profile,
@@ -193,6 +198,7 @@ export async function importBackup(db: JobConsoleDb, file: BackupFile, mode: Imp
     data.runtimeDemos,
     data.libraryCategories,
     data.runtimeProjects,
+    data.deletedDocs,
   ] as const
 
   if (mode === 'overwrite') {

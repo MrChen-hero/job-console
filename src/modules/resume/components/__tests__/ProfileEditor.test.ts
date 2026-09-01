@@ -207,9 +207,9 @@ describe('ProfileEditor', () => {
     return { store, wrapper }
   }
 
-  it('无版本时不显示区块编排入口', async () => {
+  it('有版本（ensureProfile 自动建默认版本）即显示区块编排入口', async () => {
     const { wrapper } = await setup()
-    expect(wrapper.find('.pool-arrange').exists()).toBe(false)
+    expect(wrapper.find('.pool-arrange').exists()).toBe(true)
   })
 
   it('开启编排：七行区块，基本信息在首位且无 grip', async () => {

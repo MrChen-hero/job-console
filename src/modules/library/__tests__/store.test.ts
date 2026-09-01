@@ -22,7 +22,7 @@ describe('library store（双通道合并）', () => {
     expect(store.docs.length).toBeGreaterThanOrEqual(5)
   })
 
-  it('runtime 覆盖同 id 内置：显示 runtime 并可重置', async () => {
+  it('runtime 覆盖同 id 内置：显示 runtime 且标注已修改', async () => {
     const store = useLibraryStore()
     await store.load()
     await store.upsertDoc({
@@ -36,10 +36,21 @@ describe('library store（双通道合并）', () => {
     expect(overridden.kind).toBe('runtime')
     expect(overridden.overridden).toBe(true)
     expect(overridden.body).toBe('我的修改版')
-    await store.removeDoc('self-intro-ai') // 重置为内置
-    const restored = store.docs.find((d) => d.id === 'self-intro-ai')!
-    expect(restored.kind).toBe('local')
-    expect(restored.body).toContain('面试官您好')
+  })
+
+  it('删除内置文档：写墓碑，彻底从清单消失（含其 runtime 覆盖行）', async () => {
+    const store = useLibraryStore()
+    await store.load()
+    expect(store.docs.some((d) => d.id === 'java-notes')).toBe(true)
+    await store.upsertDoc({ id: 'java-notes', category: '八股', title: '改过的内置', body: 'x', tags: [] })
+    await store.removeDoc('java-notes')
+    expect(store.docs.some((d) => d.id === 'java-notes')).toBe(false)
+    expect(await db.libraryDocs.get('java-notes')).toBeUndefined()
+    expect(await db.deletedDocs.get('java-notes')).toBeDefined()
+    // 清掉墓碑后内置文档回来（等价于「恢复内置」，供测试与数据修复用）
+    await db.deletedDocs.delete('java-notes')
+    await store.load()
+    expect(store.docs.some((d) => d.id === 'java-notes')).toBe(true)
   })
 
   it('runtime 新建文档出现在清单并按分类过滤', async () => {
@@ -169,9 +180,9 @@ describe('library 自定义分类', () => {
     expect(store.categories).toContain('八股')
     expect(store.hasBuiltinOverrides).toBe(false)
     // 文档本身的编辑是独立的 runtime 覆盖：恢复默认只还原分类清单，不回滚文档
-    // （回到八股需用文档自身的「重置为内置」）
     expect(store.docs.find((d) => d.id === 'java-notes')!.category).toBe('高频问题')
-    await store.removeDoc('java-notes') // 重置为内置
+    await db.libraryDocs.delete('java-notes') // 撤销文档编辑（等价旧「重置为内置」）
+    await store.load()
     expect(store.docs.find((d) => d.id === 'java-notes')!.category).toBe('八股')
   })
 

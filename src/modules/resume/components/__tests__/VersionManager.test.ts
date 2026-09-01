@@ -11,7 +11,6 @@ async function setup() {
   setActivePinia(pinia)
   const store = useResumeStore()
   await store.load()
-  await store.ensureProfile('王小明')
   const wrapper = mount(VersionManager, { global: { plugins: [pinia] } })
   return { store, wrapper }
 }

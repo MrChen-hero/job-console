@@ -30,6 +30,11 @@ function idFromPath(path: string): string {
   return base.replace(/\.(md|html)$/, '')
 }
 
+/** 内置文档 id 清单（删除墓碑判定用） */
+export function localDocIds(): string[] {
+  return localDocs().map((d) => d.id)
+}
+
 export function localDocs(): LocalDoc[] {
   return Object.entries(mdModules)
     .map(([path, raw]) => {

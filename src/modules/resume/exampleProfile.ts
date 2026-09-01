@@ -104,9 +104,12 @@ export const EXAMPLE_PROFILE: Omit<Profile, 'id' | 'updatedAt'> = {
   ],
 }
 
-/** 一键灌入示例资料；重复调用会以示例内容覆盖同名条目（UI 仅在空资料态提供入口）。 */
+/** 一键灌入示例资料（写入当前激活版本的资料池；无版本时先建「AI 岗版」）；重复调用会以示例内容覆盖同名条目（UI 仅在空资料态提供入口）。 */
 export async function applyExampleProfile(store: ReturnType<typeof useResumeStore>): Promise<void> {
-  if (!store.profile) await store.ensureProfile(EXAMPLE_PROFILE.basic.name)
+  if (store.versions.length === 0) {
+    await store.createVersion('AI 岗版', 'AI 应用开发 / 大模型应用落地')
+  }
+  await store.ensureProfile(EXAMPLE_PROFILE.basic.name)
   await store.updateBasic(EXAMPLE_PROFILE.basic)
   for (const key of ['education', 'skills', 'experiences', 'projects', 'awards'] as const) {
     for (const entry of EXAMPLE_PROFILE[key]) {
@@ -114,7 +117,4 @@ export async function applyExampleProfile(store: ReturnType<typeof useResumeStor
     }
   }
   await store.setSelfEvaluation(EXAMPLE_PROFILE.selfEvaluation)
-  if (store.versions.length === 0) {
-    await store.createVersion('AI 岗版', 'AI 应用开发 / 大模型应用落地')
-  }
 }

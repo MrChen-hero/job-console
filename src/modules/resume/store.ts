@@ -40,6 +40,10 @@ function defaultSections(): ResumeSection[] {
   ]
 }
 
+/**
+ * 资料池按版本独立（v4 起 Profile.id = versionId）：
+ * state.profile 始终是当前激活版本的资料池；切换版本时随 setActive 换载。
+ */
 export const useResumeStore = defineStore('resume', {
   state: () => ({
     profile: null as Profile | null,
@@ -56,8 +60,7 @@ export const useResumeStore = defineStore('resume', {
 
   actions: {
     async load() {
-      const [profile, versions] = await Promise.all([db.profile.get('main'), db.resumeVersions.toArray()])
-      this.profile = profile ?? null
+      const versions = await db.resumeVersions.toArray()
       this.versions = versions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
       try {
         this.activeVersionId = localStorage.getItem(ACTIVE_KEY) ?? ''
@@ -65,15 +68,33 @@ export const useResumeStore = defineStore('resume', {
         this.activeVersionId = ''
       }
       if (!this.activeVersionId || !this.versions.some((v) => v.id === this.activeVersionId)) {
-        this.setActive(this.versions[0]?.id ?? '')
+        await this.setActive(this.versions[0]?.id ?? '')
+        this.loaded = true
+        return
       }
+      this.profile = (await db.profile.get(this.activeVersionId)) ?? null
       this.loaded = true
     },
 
+    /** 切换激活版本并换载该版本的资料池 */
+    async setActive(id: string) {
+      this.activeVersionId = id
+      try {
+        localStorage.setItem(ACTIVE_KEY, id)
+      } catch {
+        /* 存储不可用时忽略 */
+      }
+      this.profile = id ? ((await db.profile.get(id)) ?? null) : null
+    },
+
+    /** 确保当前版本有资料池；无版本时先建一个默认版本承接（资料池必须挂在版本上） */
     async ensureProfile(name: string): Promise<Profile> {
+      if (!this.activeVersionId) {
+        await this.createVersion('默认版本', '')
+      }
       if (!this.profile) {
         const profile: Profile = {
-          id: 'main',
+          id: this.activeVersionId,
           basic: { name },
           education: [],
           skills: [],
@@ -92,7 +113,7 @@ export const useResumeStore = defineStore('resume', {
     async persistProfile() {
       if (!this.profile) return
       this.profile.updatedAt = nowIso()
-      await db.profile.put(plain(this.profile))
+      await db.profile.put(plain({ ...this.profile, id: this.activeVersionId }))
     },
 
     async updateBasic(basic: Profile['basic']) {
@@ -141,15 +162,7 @@ export const useResumeStore = defineStore('resume', {
       await this.persistProfile()
     },
 
-    setActive(id: string) {
-      this.activeVersionId = id
-      try {
-        localStorage.setItem(ACTIVE_KEY, id)
-      } catch {
-        /* 存储不可用时忽略 */
-      }
-    },
-
+    /** 新建版本：以当前资料池为起点复制一份（此后各自独立），并激活新版本 */
     async createVersion(name: string, targetRole: string): Promise<ResumeVersion> {
       const now = nowIso()
       const version: ResumeVersion = {
@@ -161,11 +174,15 @@ export const useResumeStore = defineStore('resume', {
         updatedAt: now,
       }
       await db.resumeVersions.put(plain(version))
+      if (this.profile) {
+        await db.profile.put(plain({ ...this.profile, id: version.id, updatedAt: now }))
+      }
       await this.load()
-      this.setActive(version.id)
+      await this.setActive(version.id)
       return version
     },
 
+    /** 复制版本：区块与资料池一并复制，从此互不影响 */
     async duplicateVersion(id: string): Promise<ResumeVersion | undefined> {
       const source = this.versions.find((v) => v.id === id)
       if (!source) return undefined
@@ -179,8 +196,12 @@ export const useResumeStore = defineStore('resume', {
         updatedAt: now,
       }
       await db.resumeVersions.put(plain(copy))
+      const sourceProfile = await db.profile.get(id)
+      if (sourceProfile) {
+        await db.profile.put(plain({ ...sourceProfile, id: copy.id, updatedAt: now }))
+      }
       await this.load()
-      this.setActive(copy.id)
+      await this.setActive(copy.id)
       return copy
     },
 
@@ -202,12 +223,11 @@ export const useResumeStore = defineStore('resume', {
       await this.load()
     },
 
+    /** 删除版本：其资料池一并删除（各版本资料池独立，删除即彻底清理） */
     async deleteVersion(id: string) {
       await db.resumeVersions.delete(id)
+      await db.profile.delete(id)
       await this.load()
-      if (this.activeVersionId === id) {
-        this.setActive(this.versions[0]?.id ?? '')
-      }
     },
   },
 })

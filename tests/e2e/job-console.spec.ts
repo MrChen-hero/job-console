@@ -49,6 +49,26 @@ test.describe('求职工作台主流程', () => {
     await expect(page.getByRole('button', { name: '打印 / 导出 PDF' })).toBeVisible()
   })
 
+  test('简历：版本资料池独立（新建复制起点 / 删除连带清理）', async ({ page }) => {
+    await page.goto('/#/resume')
+    await page.getByRole('button', { name: '一键填入示例资料' }).click()
+    await expect(page.locator('[data-testid="resume-sheet"]')).toContainText('王小明')
+
+    // 新建版本：资料池以当前为起点复制并激活
+    await page.getByRole('button', { name: '＋ 新建' }).click()
+    await page.locator('.el-message-box__input input').fill('开发岗版')
+    await page.locator('.el-message-box').getByRole('button', { name: '创建' }).click()
+    await expect(page.locator('.ver.active')).toHaveText('开发岗版')
+    await expect(page.locator('[data-testid="resume-sheet"]')).toContainText('王小明')
+
+    // 删除当前版本：资料池一并清理，回落到 AI 岗版
+    await page.locator('.vm-delete').click()
+    await page.locator('.el-message-box').getByRole('button', { name: '删除' }).click()
+    await expect(page.locator('.ver.active')).toHaveText('AI 岗版')
+    await expect(page.locator('[data-testid="resume-sheet"]')).toContainText('王小明')
+    await expect(page.locator('.ver', { hasText: '开发岗版' })).toHaveCount(0)
+  })
+
   test('材料库：内置可读 + 上传 md', async ({ page }) => {
     await page.goto('/#/library')
     await expect(page.locator('[data-testid="doc-body"]')).toContainText('HashMap')
