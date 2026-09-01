@@ -30,7 +30,7 @@ describe('LibraryView', () => {
     const titles = wrapper.findAll('.lib-item').map((i) => i.text())
     expect(titles.length).toBe(2)
     expect(titles.join()).toContain('AI 岗版')
-    expect(titles.join()).not.toContain('八股')
+    expect(titles.join()).not.toContain('八股题库')
   })
 
   it('新建文档：编辑器保存后进入列表（runtime）', async () => {
@@ -105,11 +105,11 @@ describe('LibraryView 分类管理', () => {
     const store = useLibraryStore()
     const wrapper = mount(LibraryView)
     await flushPromises()
-    const prompt = vi.spyOn(ElMessageBox, 'prompt').mockResolvedValue({ value: '八股' } as never)
+    const prompt = vi.spyOn(ElMessageBox, 'prompt').mockResolvedValue({ value: '八股面经' } as never)
     const message = vi.spyOn(vi.mocked(await import('element-plus')).ElMessage, 'warning').mockImplementation(() => ({}) as never)
     await wrapper.find('.cat-add').trigger('click')
     await vi.waitFor(() => expect(message).toHaveBeenCalled())
-    expect(store.customCategories).not.toContain('八股')
+    expect(store.customCategories).not.toContain('八股面经')
     prompt.mockRestore()
     message.mockRestore()
   })

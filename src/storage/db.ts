@@ -97,6 +97,20 @@ export class JobConsoleDb extends Dexie {
         }
         await tx.table('profile').delete('main')
       })
+    this.version(5).upgrade(async (tx) => {
+      /* v5：内置分类「八股」更名为「八股面经」。内置分类名是编译期常量，
+         改名后库里遗留的 category 字符串会指向不存在的分类（文档只剩「全部」可见），
+         故把文档归属与内置覆盖行一并迁移。 */
+      const FROM = '八股'
+      const TO = '八股面经'
+      await tx.table('libraryDocs').where('category').equals(FROM).modify({ category: TO })
+      const legacy = await tx.table('libraryCategories').get(FROM)
+      // 目标名已被自定义分类占用时不迁移覆盖行，避免主键冲突覆盖用户数据
+      if (legacy?.builtin && !(await tx.table('libraryCategories').get(TO))) {
+        await tx.table('libraryCategories').delete(FROM)
+        await tx.table('libraryCategories').put({ ...legacy, name: TO })
+      }
+    })
   }
 }
 

@@ -1,6 +1,6 @@
 ---
 title: 八股题库 · Java 基础（节选）
-category: 八股
+category: 八股面经
 tags: [Java, 并发]
 ---
 - HashMap 扩容机制与 1.7 / 1.8 差异

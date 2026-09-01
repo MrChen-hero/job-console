@@ -142,7 +142,7 @@ export interface CompanyPoolEntry {
  * 材料库分类：内置默认集（LIBRARY_CATEGORIES，编译时固定）∪ 运行时自定义（libraryCategories 表）。
  * category 在文档上存字符串；内置分类不可删改，自定义分类支持增删改。
  */
-export const LIBRARY_CATEGORIES = ['自我介绍', '高频问题', '项目深挖', '八股'] as const
+export const LIBRARY_CATEGORIES = ['自我介绍', '高频问题', '项目深挖', '八股面经'] as const
 export type LibraryCategory = string
 /**
  * 材料库分类行（libraryCategories 表，name 即主键）：

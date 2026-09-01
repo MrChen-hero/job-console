@@ -42,7 +42,7 @@ describe('library store（双通道合并）', () => {
     const store = useLibraryStore()
     await store.load()
     expect(store.docs.some((d) => d.id === 'java-notes')).toBe(true)
-    await store.upsertDoc({ id: 'java-notes', category: '八股', title: '改过的内置', body: 'x', tags: [] })
+    await store.upsertDoc({ id: 'java-notes', category: '八股面经', title: '改过的内置', body: 'x', tags: [] })
     await store.removeDoc('java-notes')
     expect(store.docs.some((d) => d.id === 'java-notes')).toBe(false)
     expect(await db.libraryDocs.get('java-notes')).toBeUndefined()
@@ -56,10 +56,10 @@ describe('library store（双通道合并）', () => {
   it('runtime 新建文档出现在清单并按分类过滤', async () => {
     const store = useLibraryStore()
     await store.load()
-    await store.upsertDoc({ category: '八股', title: 'Redis 持久化', body: 'RDB 与 AOF', tags: ['Redis'] })
+    await store.upsertDoc({ category: '八股面经', title: 'Redis 持久化', body: 'RDB 与 AOF', tags: ['Redis'] })
     const doc = store.docs.find((d) => d.title === 'Redis 持久化')!
     expect(doc.kind).toBe('runtime')
-    expect(filterByCategory(store.docs, '八股').map((d) => d.title)).toContain('Redis 持久化')
+    expect(filterByCategory(store.docs, '八股面经').map((d) => d.title)).toContain('Redis 持久化')
     expect(filterByCategory(store.docs, '自我介绍').map((d) => d.title)).not.toContain('Redis 持久化')
   })
 
@@ -80,7 +80,7 @@ describe('library store（双通道合并）', () => {
   it('删除 runtime 新建文档后从清单消失', async () => {
     const store = useLibraryStore()
     await store.load()
-    await store.upsertDoc({ category: '八股', title: '临时文档', body: 'x', tags: [] })
+    await store.upsertDoc({ category: '八股面经', title: '临时文档', body: 'x', tags: [] })
     const doc = store.docs.find((d) => d.title === '临时文档')!
     await store.removeDoc(doc.id)
     expect(store.docs.some((d) => d.title === '临时文档')).toBe(false)
@@ -98,10 +98,10 @@ describe('library 自定义分类', () => {
   it('分类清单：内置 ∪ 自定义（zh 排序）', async () => {
     const store = useLibraryStore()
     await store.load()
-    expect(store.categories).toEqual(['自我介绍', '高频问题', '项目深挖', '八股'])
+    expect(store.categories).toEqual(['自我介绍', '高频问题', '项目深挖', '八股面经'])
     await store.addCategory('行为面')
     await store.addCategory('复盘')
-    expect(store.categories).toEqual(['自我介绍', '高频问题', '项目深挖', '八股', '复盘', '行为面'])
+    expect(store.categories).toEqual(['自我介绍', '高频问题', '项目深挖', '八股面经', '复盘', '行为面'])
     expect(store.customCategories).toEqual(['复盘', '行为面'])
   })
 
@@ -109,7 +109,7 @@ describe('library 自定义分类', () => {
     const store = useLibraryStore()
     await store.load()
     expect(await store.addCategory('  ')).toBe(false)
-    expect(await store.addCategory('八股')).toBe(false) // 撞内置名
+    expect(await store.addCategory('八股面经')).toBe(false) // 撞内置名
     await store.addCategory('行为面')
     expect(await store.addCategory('行为面')).toBe(false) // 撞自定义名
   })
@@ -123,20 +123,20 @@ describe('library 自定义分类', () => {
     expect(store.customCategories).toEqual(['行为面试'])
     const doc = store.docs.find((d) => d.title === '宝洁八大问')!
     expect(doc.category).toBe('行为面试')
-    expect(await store.renameCategory('行为面试', '八股')).toBe(false) // 目标撞内置
+    expect(await store.renameCategory('行为面试', '八股面经')).toBe(false) // 目标撞内置
   })
 
   it('重命名内置分类：覆盖行映射，内置/运行时文档读取时跟随新名', async () => {
     const store = useLibraryStore()
     await store.load()
-    expect(await store.renameCategory('八股', '基础知识')).toBe(true)
+    expect(await store.renameCategory('八股面经', '基础知识')).toBe(true)
     expect(store.categories).toContain('基础知识')
-    expect(store.categories).not.toContain('八股')
+    expect(store.categories).not.toContain('八股面经')
     // 内置 java-notes 的 frontmatter 是编译期产物，读取时映射到新名
     const javaNotes = store.docs.find((d) => d.id === 'java-notes')!
     expect(javaNotes.category).toBe('基础知识')
     // 运行时文档同样映射
-    await store.upsertDoc({ category: '八股', title: '老分类文档', body: 'x', tags: [] })
+    await store.upsertDoc({ category: '八股面经', title: '老分类文档', body: 'x', tags: [] })
     expect(store.docs.find((d) => d.title === '老分类文档')!.category).toBe('基础知识')
     expect(await store.renameCategory('不存在的分类', '任意')).toBe(false)
     expect(await store.renameCategory('基础知识', '自我介绍')).toBe(false) // 目标撞内置
@@ -145,13 +145,13 @@ describe('library 自定义分类', () => {
   it('重命名内置分类：再次改名与改回原名（清理覆盖行）', async () => {
     const store = useLibraryStore()
     await store.load()
-    await store.renameCategory('八股', '基础知识')
+    await store.renameCategory('八股面经', '基础知识')
     expect(await store.renameCategory('基础知识', '计算机基础')).toBe(true)
     expect(store.docs.find((d) => d.id === 'java-notes')!.category).toBe('计算机基础')
-    expect(await store.renameCategory('计算机基础', '八股')).toBe(true)
-    expect(store.categories).toContain('八股')
+    expect(await store.renameCategory('计算机基础', '八股面经')).toBe(true)
+    expect(store.categories).toContain('八股面经')
     expect(store.hasBuiltinOverrides).toBe(false) // 改回原名即清理覆盖行
-    expect(store.docs.find((d) => d.id === 'java-notes')!.category).toBe('八股')
+    expect(store.docs.find((d) => d.id === 'java-notes')!.category).toBe('八股面经')
   })
 
   it('删除：非空分类被拒绝（含内置文档），清空后可删', async () => {
@@ -163,8 +163,8 @@ describe('library 自定义分类', () => {
     await store.removeDoc(store.docs.find((d) => d.title === '宝洁八大问')!.id)
     expect(await store.removeCategory('行为面')).toBe(true)
     expect(store.categories).not.toContain('行为面')
-    // 内置分类下有内置文档（java-notes 在八股）同样拒绝
-    expect(await store.removeCategory('八股')).toBe(false)
+    // 内置分类下有内置文档（java-notes 在八股面经）同样拒绝
+    expect(await store.removeCategory('八股面经')).toBe(false)
   })
 
   it('删除内置分类：文档移走后可删（隐藏覆盖行），恢复默认可找回', async () => {
@@ -173,28 +173,28 @@ describe('library 自定义分类', () => {
     // 把内置文档挪到别的分类（编辑产生 runtime 覆盖）
     const javaNotes = store.docs.find((d) => d.id === 'java-notes')!
     await store.upsertDoc({ id: javaNotes.id, category: '高频问题', title: javaNotes.title, body: javaNotes.body, tags: javaNotes.tags })
-    expect(await store.removeCategory('八股')).toBe(true)
-    expect(store.categories).not.toContain('八股')
+    expect(await store.removeCategory('八股面经')).toBe(true)
+    expect(store.categories).not.toContain('八股面经')
     expect(store.hasBuiltinOverrides).toBe(true)
     await store.restoreDefaultCategories()
-    expect(store.categories).toContain('八股')
+    expect(store.categories).toContain('八股面经')
     expect(store.hasBuiltinOverrides).toBe(false)
     // 文档本身的编辑是独立的 runtime 覆盖：恢复默认只还原分类清单，不回滚文档
     expect(store.docs.find((d) => d.id === 'java-notes')!.category).toBe('高频问题')
     await db.libraryDocs.delete('java-notes') // 撤销文档编辑（等价旧「重置为内置」）
     await store.load()
-    expect(store.docs.find((d) => d.id === 'java-notes')!.category).toBe('八股')
+    expect(store.docs.find((d) => d.id === 'java-notes')!.category).toBe('八股面经')
   })
 
   it('恢复默认：改名期间归到新名的文档迁回原名', async () => {
     const store = useLibraryStore()
     await store.load()
-    await store.renameCategory('八股', '基础知识')
+    await store.renameCategory('八股面经', '基础知识')
     // 改名后新建的文档落在新名下（编辑器只见过生效名）
     await store.upsertDoc({ category: '基础知识', title: '新分类文档', body: 'x', tags: [] })
     await store.restoreDefaultCategories()
-    expect(store.categories).toEqual(['自我介绍', '高频问题', '项目深挖', '八股'])
-    expect(store.docs.find((d) => d.title === '新分类文档')!.category).toBe('八股')
+    expect(store.categories).toEqual(['自我介绍', '高频问题', '项目深挖', '八股面经'])
+    expect(store.docs.find((d) => d.title === '新分类文档')!.category).toBe('八股面经')
     expect(store.hasBuiltinOverrides).toBe(false)
   })
 

@@ -164,16 +164,16 @@ test.describe('求职工作台主流程', () => {
 
   test('材料库：内置分类重命名与恢复默认', async ({ page }) => {
     await page.goto('/#/library')
-    // 内置文档 java-notes 在「八股」下
-    await page.locator('.cat-row', { hasText: '八股' }).locator('.chip').click()
+    // 内置文档 java-notes 在「八股面经」下
+    await page.locator('.cat-row', { hasText: '八股面经' }).locator('.chip').click()
     await expect(page.locator('.lib-item', { hasText: '八股题库' })).toBeVisible()
 
-    // 重命名八股 → 基础知识（分类行 hover 出现操作按钮，Playwright 点击自带 hover）
-    await page.locator('.cat-row', { hasText: '八股' }).locator('button[aria-label="重命名分类 八股"]').click()
+    // 重命名八股面经 → 基础知识（分类行 hover 出现操作按钮，Playwright 点击自带 hover）
+    await page.locator('.cat-row', { hasText: '八股面经' }).locator('button[aria-label="重命名分类 八股面经"]').click()
     await page.locator('.el-message-box__input input').fill('基础知识')
     await page.locator('.el-message-box').getByRole('button', { name: '保存' }).click()
     await expect(page.locator('.cat-row', { hasText: '基础知识' })).toBeVisible()
-    await expect(page.locator('.cat-row', { hasText: '八股' })).toHaveCount(0)
+    await expect(page.locator('.cat-row', { hasText: '八股面经' })).toHaveCount(0)
     // 内置文档经映射跟随新分类
     await page.locator('.cat-row', { hasText: '基础知识' }).locator('.chip').click()
     await expect(page.locator('.lib-item', { hasText: '八股题库' })).toBeVisible()
@@ -181,9 +181,9 @@ test.describe('求职工作台主流程', () => {
     // 恢复默认
     await page.getByRole('button', { name: '↺ 恢复默认' }).click()
     await page.locator('.el-message-box').getByRole('button', { name: '恢复' }).click()
-    await expect(page.locator('.cat-row', { hasText: '八股' })).toBeVisible()
+    await expect(page.locator('.cat-row', { hasText: '八股面经' })).toBeVisible()
     await expect(page.locator('.cat-row', { hasText: '基础知识' })).toHaveCount(0)
-    await page.locator('.cat-row', { hasText: '八股' }).locator('.chip').click()
+    await page.locator('.cat-row', { hasText: '八股面经' }).locator('.chip').click()
     await expect(page.locator('.lib-item', { hasText: '八股题库' })).toBeVisible()
   })
 

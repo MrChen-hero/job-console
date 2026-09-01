@@ -30,7 +30,7 @@ const CATEGORY_ICONS: Record<string, string> = {
   自我介绍: 'user',
   高频问题: 'help',
   项目深挖: 'mark',
-  八股: 'book',
+  八股面经: 'book',
 }
 
 function catCount(tab: string): number {

@@ -63,6 +63,45 @@ describe('db', () => {
     }
   })
 
+  it('v4 → v5 迁移：内置分类「八股」改名后，文档与内置覆盖行一并迁移', async () => {
+    const name = `test-${newId()}`
+    const legacy = new Dexie(name)
+    legacy.version(4).stores({
+      profile: 'id',
+      resumeVersions: 'id, updatedAt',
+      applications: 'id, status, appliedAt, nextActionAt',
+      companyPool: 'id, track',
+      libraryDocs: 'id, category, updatedAt',
+      libraryCategories: 'name',
+      deletedDocs: 'id',
+      milestones: 'id, date',
+      runtimeDemos: 'id, projectId, updatedAt',
+      runtimeProjects: 'id, updatedAt',
+      snapshots: '++id, createdAt',
+    })
+    await legacy.open()
+    await legacy.table('libraryDocs').bulkPut([
+      { id: 'd1', category: '八股', title: '旧分类文档', body: 'x', tags: [], updatedAt: '2026-09-01', source: 'runtime' },
+      { id: 'd2', category: '高频问题', title: '别的分类', body: 'y', tags: [], updatedAt: '2026-09-01', source: 'runtime' },
+    ])
+    // 用户曾把「八股」改名过：覆盖行以原始内置名为主键，迁移后主键要跟着换
+    await legacy.table('libraryCategories').put({ name: '八股', builtin: true, renamedTo: '我的八股' })
+    await legacy.close()
+
+    const db = createDb(name)
+    try {
+      await db.open()
+      expect((await db.libraryDocs.get('d1'))?.category).toBe('八股面经')
+      expect((await db.libraryDocs.get('d2'))?.category).toBe('高频问题')
+      expect(await db.libraryCategories.get('八股')).toBeUndefined()
+      const row = await db.libraryCategories.get('八股面经')
+      expect(row?.builtin).toBe(true)
+      expect(row?.renamedTo).toBe('我的八股')
+    } finally {
+      await db.delete()
+    }
+  })
+
   it('v3 → v4 迁移：全局 main 资料池拆分为各版本独立资料池', async () => {
     const name = `test-${newId()}`
     await createV3Db(name, true, 2)
