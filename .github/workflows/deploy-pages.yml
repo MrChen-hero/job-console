@@ -26,7 +26,12 @@ jobs:
       - run: npm run lint
       - run: npm run test:run
       - run: npm run build
+      # enablement: 仓库尚未创建 Pages 站点时由本 action 直接建（需 pages: write）。
+      # 删库重建后 Settings → Pages 只给「选起步 workflow」的界面、并不会真正建站，
+      # 缺这个参数会在此步 404：Get Pages site failed。
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
