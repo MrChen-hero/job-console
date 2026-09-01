@@ -17,6 +17,25 @@ function plain<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
+function zh(a: string, b: string): number {
+  return a.localeCompare(b, 'zh')
+}
+
+function isBuiltinName(name: string): boolean {
+  return (LIBRARY_CATEGORIES as readonly string[]).includes(name)
+}
+
+/** 内置分类的覆盖行（name = 原始内置名） */
+function builtinRows(rows: LibraryCategoryRow[]): Map<string, LibraryCategoryRow> {
+  return new Map(rows.filter((r) => r.builtin).map((r) => [r.name, r]))
+}
+
+/** 原始分类名 → 生效名：仅内置分类有覆盖行；自定义与未覆盖的内置原名即生效名 */
+function mapCategoryWith(rows: LibraryCategoryRow[], raw: string): string {
+  const o = builtinRows(rows).get(raw)
+  return o && !o.hidden ? (o.renamedTo ?? raw) : raw
+}
+
 export const useLibraryStore = defineStore('library', {
   state: () => ({
     runtimeDocs: [] as LibraryDoc[],
@@ -25,31 +44,46 @@ export const useLibraryStore = defineStore('library', {
   }),
 
   getters: {
-    /** 合并清单：本地内置（被 runtime 同 id 覆盖时标「已修改」）∪ runtime */
+    /**
+     * 合并清单：本地内置（被 runtime 同 id 覆盖时标「已修改」）∪ runtime。
+     * 文档 category 经内置改名映射后输出，视图与筛选只面对生效名。
+     */
     docs(state): MergedDoc[] {
+      const map = (c: string) => mapCategoryWith(state.categoryRows, c)
       const runtimeById = new Map(state.runtimeDocs.map((d) => [d.id, d]))
       const local: MergedDoc[] = localDocs().map((doc) => {
-        const overridden = runtimeById.has(doc.id)
-        return overridden
-          ? { kind: 'runtime', overridden: true, ...runtimeById.get(doc.id)! }
-          : { kind: 'local', overridden: false, ...doc }
+        const runtime = runtimeById.get(doc.id)
+        if (runtime) {
+          return { kind: 'runtime', overridden: true, ...runtime, category: map(runtime.category) }
+        }
+        return { kind: 'local', overridden: false, ...doc, category: map(doc.category) }
       })
       const localIds = new Set(local.map((d) => d.id))
       const runtimeOnly = state.runtimeDocs
         .filter((d) => !localIds.has(d.id))
-        .map((d): MergedDoc => ({ kind: 'runtime', overridden: false, ...d }))
+        .map((d): MergedDoc => ({ kind: 'runtime', overridden: false, ...d, category: map(d.category) }))
       return [...local, ...runtimeOnly].sort((a, b) => a.title.localeCompare(b.title, 'zh'))
     },
 
-    /** 全部分类：内置默认 ∪ 自定义（排序稳定：内置序在前，自定义按 zh 排序） */
+    /** 全部分类（生效名）：内置（经改名/隐藏覆盖）∪ 自定义（zh 排序） */
     categories(state): LibraryCategory[] {
-      const custom = state.categoryRows.map((r) => r.name).sort((a, b) => a.localeCompare(b, 'zh'))
-      return [...LIBRARY_CATEGORIES, ...custom]
+      const overrides = builtinRows(state.categoryRows)
+      const builtins = LIBRARY_CATEGORIES.flatMap((b) => {
+        const o = overrides.get(b)
+        return o?.hidden ? [] : [o?.renamedTo ?? b]
+      })
+      const customs = state.categoryRows.filter((r) => !r.builtin).map((r) => r.name).sort(zh)
+      return [...builtins, ...customs]
     },
 
-    /** 仅自定义分类（内置固定，不可删改） */
+    /** 仅自定义分类行（不含内置覆盖行） */
     customCategories(state): LibraryCategory[] {
-      return state.categoryRows.map((r) => r.name).sort((a, b) => a.localeCompare(b, 'zh'))
+      return state.categoryRows.filter((r) => !r.builtin).map((r) => r.name).sort(zh)
+    },
+
+    /** 内置分类是否存在改名/隐藏覆盖（决定是否显示「恢复默认分类」） */
+    hasBuiltinOverrides(state): boolean {
+      return state.categoryRows.some((r) => r.builtin)
     },
   },
 
@@ -81,9 +115,9 @@ export const useLibraryStore = defineStore('library', {
       await this.load()
     },
 
-    /* ---------- 自定义分类 ---------- */
+    /* ---------- 分类管理（内置与自定义统一入口） ---------- */
 
-    /** 新增自定义分类；重名或撞内置名返回 false */
+    /** 新增分类；空名或与现有生效分类重名返回 false */
     async addCategory(name: string): Promise<boolean> {
       const trimmed = name.trim()
       if (trimmed === '' || this.categories.includes(trimmed)) return false
@@ -93,37 +127,66 @@ export const useLibraryStore = defineStore('library', {
     },
 
     /**
-     * 重命名自定义分类：换主键 + 迁移该分类下 runtime 文档的 category。
-     * 目标名已存在（内置或自定义）时返回 false。
+     * 重命名分类：
+     * - 内置分类（含已改名后的再次改名）：写覆盖行 renamedTo，文档不重写（读取时映射）；
+     *   改回原名时删除覆盖行，回到编译期默认。
+     * - 自定义分类：换主键 + 事务内迁移该分类下文档的 category。
      */
     async renameCategory(from: string, to: string): Promise<boolean> {
       const target = to.trim()
-      if (target === '' || !this.customCategories.includes(from) || this.categories.includes(target)) return false
+      if (target === '' || !this.categories.includes(from) || this.categories.includes(target)) return false
+      const row = this.categoryRows.find((r) => r.builtin && (r.renamedTo ?? r.name) === from)
+      if (row || isBuiltinName(from)) {
+        if (row && target === row.name) {
+          await db.libraryCategories.delete(row.name)
+        } else {
+          await db.libraryCategories.put({ name: row?.name ?? from, builtin: true, renamedTo: target })
+        }
+      } else {
+        await db.transaction('rw', [db.libraryCategories, db.libraryDocs], async () => {
+          await db.libraryCategories.delete(from)
+          await db.libraryCategories.put({ name: target })
+          await db.libraryDocs.where('category').equals(from).modify({ category: target })
+        })
+      }
+      await this.load()
+      return true
+    },
+
+    /** 删除分类：分类下仍有文档时拒绝（含内置文档）；内置分类写隐藏覆盖行，可恢复 */
+    async removeCategory(name: string): Promise<boolean> {
+      if (!this.categories.includes(name)) return false
+      if (this.docs.some((d) => d.category === name)) return false
+      const row = this.categoryRows.find((r) => r.builtin && (r.renamedTo ?? r.name) === name)
+      if (row || isBuiltinName(name)) {
+        // 内置分类：写隐藏覆盖行（未曾改名的也要写，否则 const 默认清单仍会显示它）
+        await db.libraryCategories.put({ name: row?.name ?? name, builtin: true, hidden: true })
+      } else {
+        await db.libraryCategories.delete(name)
+      }
+      await this.load()
+      return true
+    },
+
+    /** 恢复默认分类：清掉内置覆盖行；改名期间归到新名的文档迁回原名 */
+    async restoreDefaultCategories(): Promise<void> {
+      const rows = this.categoryRows.filter((r) => r.builtin)
       await db.transaction('rw', [db.libraryCategories, db.libraryDocs], async () => {
-        await db.libraryCategories.delete(from)
-        await db.libraryCategories.put({ name: target })
-        await db.libraryDocs.where('category').equals(from).modify({ category: target })
+        for (const r of rows) {
+          if (r.renamedTo) {
+            await db.libraryDocs.where('category').equals(r.renamedTo).modify({ category: r.name })
+          }
+          await db.libraryCategories.delete(r.name)
+        }
       })
       await this.load()
-      return true
     },
 
-    /** 删除自定义分类；分类下仍有 runtime 文档时拒绝（返回 false），避免文档变成「无分类可见」 */
-    async removeCategory(name: string): Promise<boolean> {
-      if (!this.customCategories.includes(name)) return false
-      const used = await db.libraryDocs.where('category').equals(name).count()
-      if (used > 0) return false
-      await db.libraryCategories.delete(name)
-      await this.load()
-      return true
-    },
-
-    /** 上传 .md 文本：frontmatter 解析，成功返回文档预览（不落库）。未知分类回落「高频问题」 */
+    /** 上传 .md 文本：frontmatter 解析，成功返回文档预览（不落库）。分类名经映射后仍未知则回落「高频问题」 */
     parseUploaded(raw: string, fallbackTitle: string): { title: string; category: LibraryCategory; tags: string[]; body: string } {
       const { attrs, body } = parseFrontmatter(raw)
-      const category = this.categories.includes(String(attrs.category))
-        ? (attrs.category as LibraryCategory)
-        : '高频问题'
+      const mapped = mapCategoryWith(this.categoryRows, String(attrs.category))
+      const category = this.categories.includes(mapped) ? mapped : '高频问题'
       return {
         title: String(attrs.title ?? fallbackTitle),
         category,

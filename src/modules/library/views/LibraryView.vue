@@ -2,7 +2,6 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
 import type { LibraryCategory } from '../../../storage/types'
-import { LIBRARY_CATEGORIES } from '../../../storage/types'
 import { useLibraryStore, filterByCategory, type MergedDoc } from '../store'
 import { renderMarkdown } from '../../../shared/markdown/render'
 import AppIcon from '../../../shared/ui/AppIcon.vue'
@@ -36,11 +35,6 @@ const CATEGORY_ICONS: Record<string, string> = {
 
 function catCount(tab: string): number {
   return tab === '全部' ? store.docs.length : filterByCategory(store.docs, tab).length
-}
-
-/** 内置分类固定不可删改（内置 md 的归属依赖它们）；自定义分类支持重命名/删除 */
-function isCustomCategory(name: string): boolean {
-  return !(LIBRARY_CATEGORIES as readonly string[]).includes(name)
 }
 
 async function addCategory() {
@@ -82,6 +76,20 @@ async function renameCategory(name: string) {
   } else {
     ElMessage.warning('目标分类名已存在')
   }
+}
+
+async function restoreDefaults() {
+  try {
+    await ElMessageBox.confirm('恢复默认分类？内置分类的改名与删除会被撤销，自定义分类不受影响。', '恢复确认', {
+      confirmButtonText: '恢复',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+  await store.restoreDefaultCategories()
+  activeTab.value = '全部'
+  ElMessage.success('已恢复默认分类')
 }
 
 async function removeCategory(name: string) {
@@ -196,10 +204,7 @@ async function onFileChange(event: Event) {
             <span>{{ tab }}</span>
           </button>
           <span class="cat-n mono">{{ catCount(tab) }}</span>
-          <span
-            v-if="isCustomCategory(tab)"
-            class="cat-acts"
-          >
+          <span class="cat-acts">
             <button
               class="cat-act"
               :aria-label="`重命名分类 ${tab}`"
@@ -216,14 +221,25 @@ async function onFileChange(event: Event) {
             </button>
           </span>
         </div>
-        <ElButton
-          size="small"
-          text
-          class="cat-add"
-          @click="addCategory"
-        >
-          ＋ 新增分类
-        </ElButton>
+        <div class="cat-manage">
+          <ElButton
+            size="small"
+            text
+            class="cat-add"
+            @click="addCategory"
+          >
+            ＋ 新增分类
+          </ElButton>
+          <ElButton
+            v-if="store.hasBuiltinOverrides"
+            size="small"
+            text
+            class="cat-restore"
+            @click="restoreDefaults"
+          >
+            ↺ 恢复默认
+          </ElButton>
+        </div>
         <div class="lib-cats-foot">
           <ElButton
             size="small"
@@ -437,13 +453,24 @@ async function onFileChange(event: Event) {
   color: var(--text);
   background: var(--surface-muted);
 }
-.cat-add {
-  justify-content: flex-start;
+.cat-manage {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   margin-top: 4px;
+}
+.cat-manage :deep(.el-button + .el-button) {
+  margin-left: 0;
+  margin-top: 2px;
+}
+.cat-add,
+.cat-restore {
+  justify-content: flex-start;
   padding: 0 10px;
   color: var(--muted);
 }
-.cat-add:hover {
+.cat-add:hover,
+.cat-restore:hover {
   color: var(--primary-text);
 }
 .lib-cats-foot {
@@ -682,12 +709,17 @@ async function onFileChange(event: Event) {
   .cat-n {
     display: none;
   }
-  /* 窄屏分类横滚：管理按钮常驻可点（无 hover），新增分类收窄为图标按钮 */
+  /* 窄屏分类横滚：管理按钮常驻可点（无 hover） */
   .cat-acts {
     display: inline-flex;
   }
-  .cat-add {
+  .cat-manage {
+    flex-direction: row;
     flex-shrink: 0;
+    margin: 0 0 0 auto;
+  }
+  .cat-add,
+  .cat-restore {
     padding: 0 6px;
   }
   .lib-cats-foot {

@@ -364,7 +364,7 @@ async function removeDemo(demo: MergedDemo) {
   font-size: 13px;
   text-align: center;
 }
-/* 卡片右上：来源标签 + 编辑/删除（常驻可点，触屏无 hover 也可达） */
+/* 卡片右上：来源标签常驻；编辑/删除悬停浮现（触屏无 hover，常驻可点） */
 .proj-top-right {
   display: flex;
   align-items: center;
@@ -374,12 +374,43 @@ async function removeDemo(demo: MergedDemo) {
 .proj-acts {
   display: inline-flex;
 }
+/* 悬停类设备：默认隐藏，卡片 hover / 焦点进入时浮现 */
+@media (hover: hover) {
+  .proj-acts {
+    display: none;
+  }
+  .proj:hover .proj-acts,
+  .proj:focus-within .proj-acts {
+    display: inline-flex;
+  }
+}
 .proj-acts :deep(.el-button) {
   margin: 0;
-  padding: 4px 6px;
+  padding: 4px 9px;
+  border-radius: var(--r-sm);
+  font-weight: var(--fw-medium);
 }
 .proj-acts :deep(.el-button + .el-button) {
-  margin-left: 2px;
+  margin-left: 4px;
+}
+/* 编辑：主色淡底；删除：危险色淡底——一眼可区分，不与卡片语义色打架 */
+.proj-acts :deep(.el-button.proj-edit) {
+  color: var(--primary-text);
+  background: var(--primary-soft);
+  border: 1px solid var(--primary-border);
+}
+.proj-acts :deep(.el-button.proj-edit:hover) {
+  color: var(--primary-text);
+  background: var(--primary-border);
+}
+.proj-acts :deep(.el-button.proj-remove) {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-border);
+}
+.proj-acts :deep(.el-button.proj-remove:hover) {
+  color: var(--danger);
+  background: var(--danger-border);
 }
 .demo-actions {
   margin-left: auto;

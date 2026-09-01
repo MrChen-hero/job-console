@@ -96,8 +96,9 @@ test.describe('求职工作台主流程', () => {
     await expect(cards).toHaveCount(5)
     await expect(page.locator('.proj', { hasText: '我的毕设展示站' })).toContainText('我的')
 
-    // 删除内置示例项目（确认框）
+    // 删除内置示例项目（确认框）。操作按钮悬停卡片才显示：先 hover 卡片再点
     const builtin = page.locator('.proj', { hasText: '企业人事管理系统' })
+    await builtin.hover()
     await builtin.getByRole('button', { name: '删除项目 企业人事管理系统' }).click()
     await page.locator('.el-message-box').getByRole('button', { name: '删除' }).click()
     await expect(cards).toHaveCount(4)
@@ -109,7 +110,9 @@ test.describe('求职工作台主流程', () => {
     await expect(cards).toHaveCount(5)
 
     // 删除自建项目（不入墓碑，直接删行）
-    await page.locator('.proj', { hasText: '我的毕设展示站' }).getByRole('button', { name: '删除项目 我的毕设展示站' }).click()
+    const mine = page.locator('.proj', { hasText: '我的毕设展示站' })
+    await mine.hover()
+    await mine.getByRole('button', { name: '删除项目 我的毕设展示站' }).click()
     await page.locator('.el-message-box').getByRole('button', { name: '删除' }).click()
     await expect(cards).toHaveCount(4)
   })
@@ -131,6 +134,31 @@ test.describe('求职工作台主流程', () => {
     await expect(page.locator('.lib-item', { hasText: '宝洁八大问' })).toBeVisible()
     await page.locator('.cat-row', { hasText: '行为面' }).locator('.chip').click()
     await expect(page.locator('.lib-item')).toHaveCount(1)
+  })
+
+  test('材料库：内置分类重命名与恢复默认', async ({ page }) => {
+    await page.goto('/#/library')
+    // 内置文档 java-notes 在「八股」下
+    await page.locator('.cat-row', { hasText: '八股' }).locator('.chip').click()
+    await expect(page.locator('.lib-item', { hasText: '八股题库' })).toBeVisible()
+
+    // 重命名八股 → 基础知识（分类行 hover 出现操作按钮，Playwright 点击自带 hover）
+    await page.locator('.cat-row', { hasText: '八股' }).locator('button[aria-label="重命名分类 八股"]').click()
+    await page.locator('.el-message-box__input input').fill('基础知识')
+    await page.locator('.el-message-box').getByRole('button', { name: '保存' }).click()
+    await expect(page.locator('.cat-row', { hasText: '基础知识' })).toBeVisible()
+    await expect(page.locator('.cat-row', { hasText: '八股' })).toHaveCount(0)
+    // 内置文档经映射跟随新分类
+    await page.locator('.cat-row', { hasText: '基础知识' }).locator('.chip').click()
+    await expect(page.locator('.lib-item', { hasText: '八股题库' })).toBeVisible()
+
+    // 恢复默认
+    await page.getByRole('button', { name: '↺ 恢复默认' }).click()
+    await page.locator('.el-message-box').getByRole('button', { name: '恢复' }).click()
+    await expect(page.locator('.cat-row', { hasText: '八股' })).toBeVisible()
+    await expect(page.locator('.cat-row', { hasText: '基础知识' })).toHaveCount(0)
+    await page.locator('.cat-row', { hasText: '八股' }).locator('.chip').click()
+    await expect(page.locator('.lib-item', { hasText: '八股题库' })).toBeVisible()
   })
 
   test('里程碑：添加 → 倒计时 → 完成 → 刷新持久化', async ({ page }) => {

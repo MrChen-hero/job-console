@@ -47,7 +47,7 @@
 ### 内容双通道（材料库/演示）
 - 编译时：`src/content/library/*.md`（frontmatter: title/category/tags）、`src/content/demos/<projectId>--<name>.html`（前缀决定归属项目）；由 `import.meta.glob(..., { query: '?raw', eager: true })` 收集。
 - 运行时：上传/编辑入 IndexedDB（libraryDocs 带 `source: 'runtime'`、runtimeDemos 表）；同 id runtime 覆盖内置展示并可重置。
-- 材料库分类：内置 4 类（LIBRARY_CATEGORIES）固定不可删改，自定义分类存 libraryCategories 表（name 即主键），改名会迁移文档的 category。
+- 材料库分类：全部可增删改。自定义分类是 libraryCategories 表的普通行（name 即主键，改名换主键并迁移文档）；内置 4 类的改名/删除是同表的覆盖行（`builtin: true`，`renamedTo`/`hidden`），内置 md 的 frontmatter 是编译期产物改不动——文档归类在 store 读取时经映射生效，`restoreDefaultCategories` 整体还原。删除任何分类都要求分类下无文档。
 - 演示站项目：runtimeProjects 表，同 id 行覆盖内置项目（hidden:true 为删除墓碑），自建项目直接删行；合并视图在 showcase 模块 projectStore。
 - 交互 demo 用 Blob URL + `<iframe sandbox="allow-scripts">` 渲染，禁止外链依赖。
 

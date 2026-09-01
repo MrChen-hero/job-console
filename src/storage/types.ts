@@ -143,9 +143,18 @@ export interface CompanyPoolEntry {
  */
 export const LIBRARY_CATEGORIES = ['自我介绍', '高频问题', '项目深挖', '八股'] as const
 export type LibraryCategory = string
-/** 自定义分类行（name 即主键；重命名 = 换主键并迁移文档的 category 字段） */
+/**
+ * 材料库分类行（libraryCategories 表，name 即主键）：
+ * - 自定义分类：{ name }，重命名 = 换主键并迁移文档的 category 字段；
+ * - 内置分类的覆盖行：{ name: 原始内置名, builtin: true, renamedTo?: 新名, hidden?: true }。
+ *   内置 md 的 frontmatter 是编译期产物，运行时改不动——改名/删除以覆盖行表达，
+ *   文档归类在读取时经映射生效（等价于改写 frontmatter，且可整体恢复默认）。
+ */
 export interface LibraryCategoryRow {
   name: string
+  builtin?: true
+  renamedTo?: string
+  hidden?: true
 }
 export interface LibraryDoc {
   id: string
