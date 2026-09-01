@@ -92,6 +92,7 @@ test.describe('求职工作台主流程', () => {
     await page.locator('input[data-field="title"]').fill('我的毕设展示站')
     await page.locator('input[data-field="stack"]').fill('Vue, Vite')
     await page.locator('textarea[data-field="demoPoints"]').fill('要点一\n要点二')
+    await page.getByRole('button', { name: '选择主题色' }).click()
     await page.getByRole('button', { name: '主题色 绿' }).click()
     await page.getByRole('button', { name: '保存项目' }).click()
     await expect(cards).toHaveCount(4)
