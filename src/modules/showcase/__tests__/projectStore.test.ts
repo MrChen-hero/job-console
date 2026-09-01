@@ -25,10 +25,10 @@ describe('showcase projectStore', () => {
     setActivePinia(createPinia())
   })
 
-  it('默认状态：内置 4 个示例项目全部可见', async () => {
+  it('默认状态：内置 3 个示例项目全部可见', async () => {
     const store = useProjectStore()
     await store.load()
-    expect(store.visible).toHaveLength(4)
+    expect(store.visible).toHaveLength(3)
     expect(store.visible.every((p) => p.source === 'local')).toBe(true)
     expect(store.hasBuiltinChanges).toBe(false)
   })
@@ -37,7 +37,7 @@ describe('showcase projectStore', () => {
     const store = useProjectStore()
     await store.load()
     const row = await store.addProject(input())
-    expect(store.visible).toHaveLength(5)
+    expect(store.visible).toHaveLength(4)
     const mine = store.find(row.id)!
     expect(mine.source).toBe('runtime')
     expect(mine.overridden).toBe(false)
@@ -65,11 +65,11 @@ describe('showcase projectStore', () => {
     await store.load()
     const builtinId = store.visible[0]!.id
     await store.removeProject(builtinId)
-    expect(store.visible).toHaveLength(3)
+    expect(store.visible).toHaveLength(2)
     expect(store.visible.some((p) => p.id === builtinId)).toBe(false)
     expect(store.hasBuiltinChanges).toBe(true)
     await store.resetBuiltins()
-    expect(store.visible).toHaveLength(4)
+    expect(store.visible).toHaveLength(3)
   })
 
   it('删除自建项目：直接删行；挂在项目上的演示页不动', async () => {
@@ -78,7 +78,7 @@ describe('showcase projectStore', () => {
     const row = await store.addProject(input())
     await db.runtimeDemos.put({ id: 'demo-1', projectId: row.id, title: '交互页', html: '<p>x</p>', createdAt: '2026-09-02', updatedAt: '2026-09-02' })
     await store.removeProject(row.id)
-    expect(store.visible).toHaveLength(4)
+    expect(store.visible).toHaveLength(3)
     expect(await db.runtimeDemos.get('demo-1')).toBeDefined()
   })
 

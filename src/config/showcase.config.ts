@@ -52,22 +52,6 @@ export const SHOWCASE_PROJECTS: ShowcaseProject[] = [
     },
   },
   {
-    id: 'modeling-contest',
-    title: '轴承故障诊断 · 数模竞赛',
-    eyebrow: '研究生数学建模竞赛 · 国家级二等奖（虚构示例）',
-    accent: 'amber',
-    summary: '对多维轴承振动信号做探索性分析与特征提取，XGBoost-RFE 特征选择 + 多模型对比，SHAP / t-SNE 可解释性分析，主笔参赛论文。',
-    stack: ['Python', 'scikit-learn', 'XGBoost', 'SHAP / t-SNE'],
-    demo: {
-      title: '演示页 · 特征工程链路',
-      points: [
-        '特征选择：XGBoost-RFE 从高维特征中筛选关键诊断指标',
-        '模型对比：多分类模型搭建、调参与评估',
-        '可解释性：SHAP 归因 + t-SNE 降维可视化',
-      ],
-    },
-  },
-  {
     id: 'motor-platform',
     title: '设备监控数据平台',
     eyebrow: '示例科技公司 · 开发实习生（虚构示例）',

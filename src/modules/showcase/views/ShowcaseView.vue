@@ -53,7 +53,6 @@ async function onSaveProject(input: ProjectInput) {
     await projectStore.addProject(input)
     ElMessage.success('项目已创建')
   }
-  editorOpen.value = false
 }
 
 async function onRemoveProject(project: MergedProject) {
@@ -128,7 +127,7 @@ async function removeDemo(demo: MergedDemo) {
         <ElButton
           size="large"
           class="upload-open"
-          @click="uploadOpen = !uploadOpen"
+          @click="uploadOpen = true"
         >
           ⬆ 上传交互演示
         </ElButton>
@@ -152,10 +151,9 @@ async function removeDemo(demo: MergedDemo) {
     </div>
 
     <ProjectEditor
-      v-if="editorOpen"
+      v-model="editorOpen"
       :initial="editorInitial"
       @save="onSaveProject"
-      @cancel="editorOpen = false"
     />
 
     <DemoUploadDialog v-model="uploadOpen" />
