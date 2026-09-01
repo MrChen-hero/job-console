@@ -26,8 +26,58 @@ describe('exportBackup', () => {
       expect(file.data.libraryDocs).toEqual([])
       expect(file.data.milestones).toEqual([])
       expect(file.data.runtimeDemos).toEqual([])
+      expect(file.data.libraryCategories).toEqual([])
+      expect(file.data.runtimeProjects).toEqual([])
     } finally {
       await db.delete()
+    }
+  })
+
+  it('v3 新表（自定义分类 / 运行时项目）在导出与导入之间往返', async () => {
+    const db = createDb(`test-${newId()}`)
+    try {
+      await db.libraryCategories.bulkPut([{ name: '行为面' }, { name: '复盘' }])
+      await db.runtimeProjects.put({
+        id: 'proj-1', title: '我的项目', eyebrow: '独立开发', accent: 'teal',
+        summary: '简介', stack: ['Vue'], demo: { title: '演示页', points: ['要点'] },
+        createdAt: '2026-09-02', updatedAt: '2026-09-02',
+      })
+      await db.runtimeProjects.put({
+        id: 'organs-system', title: '隐藏的内置项目', eyebrow: 'x', accent: 'violet',
+        summary: 'x', stack: [], demo: { title: 'x', points: [] }, hidden: true,
+        createdAt: '2026-09-02', updatedAt: '2026-09-02',
+      })
+      const file = await exportBackup(db)
+      expect(validateBackup(file).ok).toBe(true)
+      expect(file.data.libraryCategories).toHaveLength(2)
+      expect(file.data.runtimeProjects).toHaveLength(2)
+      const restored = createDb(`restore-${newId()}`)
+      await importBackup(restored, file, 'overwrite')
+      expect(await restored.libraryCategories.toArray()).toEqual(
+        expect.arrayContaining([{ name: '行为面' }, { name: '复盘' }]),
+      )
+      const projects = await restored.runtimeProjects.toArray()
+      expect(projects.find((p) => p.id === 'organs-system')?.hidden).toBe(true)
+      await restored.delete()
+    } finally {
+      await db.delete()
+    }
+  })
+
+  it('runtimeProjects 缺 id/title 时被校验拒绝', () => {
+    const result = validateBackup({
+      schemaVersion: BACKUP_SCHEMA_VERSION,
+      exportedAt: '2026-09-02T00:00:00.000Z',
+      data: {
+        profile: [], resumeVersions: [], applications: [],
+        companyPool: [], libraryDocs: [], milestones: [], runtimeDemos: [],
+        libraryCategories: [],
+        runtimeProjects: [{ title: '缺 id' }],
+      },
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.issues.map((i) => i.path)).toContain('$.data.runtimeProjects[0].id')
     }
   })
 })

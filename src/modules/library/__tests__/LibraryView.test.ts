@@ -87,3 +87,69 @@ describe('LibraryView', () => {
     expect(doc.kind).toBe('runtime')
   })
 })
+
+describe('LibraryView 分类管理', () => {
+  beforeEach(async () => {
+    localStorage.clear()
+    await db.delete()
+    await db.open()
+    setActivePinia(createPinia())
+  })
+
+  it('新增分类：出现在左侧清单并可筛选文档', async () => {
+    const store = useLibraryStore()
+    const wrapper = mount(LibraryView)
+    await flushPromises()
+    const prompt = vi.spyOn(ElMessageBox, 'prompt').mockResolvedValue({ value: '行为面' } as never)
+    await wrapper.find('.cat-add').trigger('click')
+    await vi.waitFor(() => expect(store.customCategories).toContain('行为面'))
+    await flushPromises()
+    expect(wrapper.findAll('.chip').map((c) => c.text())).toContain('行为面')
+    prompt.mockRestore()
+  })
+
+  it('新增分类：重名时提示已存在', async () => {
+    const store = useLibraryStore()
+    const wrapper = mount(LibraryView)
+    await flushPromises()
+    const prompt = vi.spyOn(ElMessageBox, 'prompt').mockResolvedValue({ value: '八股' } as never)
+    const message = vi.spyOn(vi.mocked(await import('element-plus')).ElMessage, 'warning').mockImplementation(() => ({}) as never)
+    await wrapper.find('.cat-add').trigger('click')
+    await vi.waitFor(() => expect(message).toHaveBeenCalled())
+    expect(store.customCategories).not.toContain('八股')
+    prompt.mockRestore()
+    message.mockRestore()
+  })
+
+  it('删除分类：有文档时拒绝，清空后成功', async () => {
+    const store = useLibraryStore()
+    const wrapper = mount(LibraryView)
+    await flushPromises()
+    await store.addCategory('行为面')
+    await store.upsertDoc({ category: '行为面', title: '宝洁八大问', body: 'x', tags: [] })
+    await flushPromises()
+    const confirm = vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
+    const row = wrapper.findAll('.cat-row').find((r) => r.text().includes('行为面'))!
+    await row.find('button[aria-label="删除分类 行为面"]').trigger('click')
+    await vi.waitFor(() => expect(store.customCategories).toContain('行为面')) // 仍存在：非空被拒
+    await store.removeDoc(store.docs.find((d) => d.title === '宝洁八大问')!.id)
+    await row.find('button[aria-label="删除分类 行为面"]').trigger('click')
+    await vi.waitFor(() => expect(store.customCategories).not.toContain('行为面'))
+    confirm.mockRestore()
+  })
+
+  it('重命名分类：文档随迁移', async () => {
+    const store = useLibraryStore()
+    const wrapper = mount(LibraryView)
+    await flushPromises()
+    await store.addCategory('行为面')
+    await store.upsertDoc({ category: '行为面', title: '宝洁八大问', body: 'x', tags: [] })
+    await flushPromises()
+    const prompt = vi.spyOn(ElMessageBox, 'prompt').mockResolvedValue({ value: '行为面试' } as never)
+    const row = wrapper.findAll('.cat-row').find((r) => r.text().includes('行为面'))!
+    await row.find('button[aria-label="重命名分类 行为面"]').trigger('click')
+    await vi.waitFor(() => expect(store.customCategories).toEqual(['行为面试']))
+    expect(store.docs.find((d) => d.title === '宝洁八大问')!.category).toBe('行为面试')
+    prompt.mockRestore()
+  })
+})

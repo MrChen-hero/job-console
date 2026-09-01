@@ -37,7 +37,7 @@
 - Dexie 访问只发生在各模块 store；组件不直接 import `db`。
 - 写库前必须用 `plain()`（JSON 克隆）去除 Pinia 响应式 Proxy（结构化克隆不兼容）。
 - `Application.status` 不变量：恒等于 `stageHistory` 末项 stage；唯一写路径 `trackerStore.changeStage`，其他 action（advance/markDropped/reopen）都经它。
-- 备份 `BACKUP_SCHEMA_VERSION = 2`，数据含七表（含 runtimeDemos）；改 schema 必须同步 backup 校验与版本号。
+- 备份 `BACKUP_SCHEMA_VERSION = 3`，数据含九表（含 runtimeDemos / libraryCategories / runtimeProjects）；改 schema 必须同步 backup 校验与版本号。
 - 测试中操作 Dexie 单例的用例，`beforeEach` 用 `db.delete()` + `db.open()` 重建；组件测试若有「发后即忘」写入，`afterEach` 等待落定（约 25ms），否则 unhandled rejection 会让 test:run 退出码非 0。
 
 ### 模块边界
@@ -47,6 +47,8 @@
 ### 内容双通道（材料库/演示）
 - 编译时：`src/content/library/*.md`（frontmatter: title/category/tags）、`src/content/demos/<projectId>--<name>.html`（前缀决定归属项目）；由 `import.meta.glob(..., { query: '?raw', eager: true })` 收集。
 - 运行时：上传/编辑入 IndexedDB（libraryDocs 带 `source: 'runtime'`、runtimeDemos 表）；同 id runtime 覆盖内置展示并可重置。
+- 材料库分类：内置 4 类（LIBRARY_CATEGORIES）固定不可删改，自定义分类存 libraryCategories 表（name 即主键），改名会迁移文档的 category。
+- 演示站项目：runtimeProjects 表，同 id 行覆盖内置项目（hidden:true 为删除墓碑），自建项目直接删行；合并视图在 showcase 模块 projectStore。
 - 交互 demo 用 Blob URL + `<iframe sandbox="allow-scripts">` 渲染，禁止外链依赖。
 
 ### UI

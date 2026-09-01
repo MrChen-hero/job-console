@@ -2,7 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
 import type { LibraryCategory } from '../../../storage/types'
-import { useLibraryStore, CATEGORY_TABS, filterByCategory, type MergedDoc } from '../store'
+import { LIBRARY_CATEGORIES } from '../../../storage/types'
+import { useLibraryStore, filterByCategory, type MergedDoc } from '../store'
 import { renderMarkdown } from '../../../shared/markdown/render'
 import AppIcon from '../../../shared/ui/AppIcon.vue'
 import DocEditor from '../components/DocEditor.vue'
@@ -19,6 +20,7 @@ onMounted(async () => {
   if (store.docs.length > 0) activeId.value = store.docs[0]!.id
 })
 
+const tabs = computed<Array<LibraryCategory | '全部'>>(() => ['全部', ...store.categories])
 const visibleDocs = computed(() => filterByCategory(store.docs, activeTab.value))
 const activeDoc = computed(() => store.docs.find((d) => d.id === activeId.value))
 const activeHtml = computed(() => (activeDoc.value ? renderMarkdown(activeDoc.value.body) : ''))
@@ -33,7 +35,71 @@ const CATEGORY_ICONS: Record<string, string> = {
 }
 
 function catCount(tab: string): number {
-  return tab === '全部' ? store.docs.length : filterByCategory(store.docs, tab as LibraryCategory).length
+  return tab === '全部' ? store.docs.length : filterByCategory(store.docs, tab).length
+}
+
+/** 内置分类固定不可删改（内置 md 的归属依赖它们）；自定义分类支持重命名/删除 */
+function isCustomCategory(name: string): boolean {
+  return !(LIBRARY_CATEGORIES as readonly string[]).includes(name)
+}
+
+async function addCategory() {
+  let name: string
+  try {
+    ;({ value: name } = await ElMessageBox.prompt('分类名称将用于文档归属，保存后可在文档编辑中选用。', '新增分类', {
+      confirmButtonText: '保存',
+      cancelButtonText: '取消',
+      inputPlaceholder: '如：行为面 / 复盘',
+      inputPattern: /\S+/,
+      inputErrorMessage: '分类名称不能为空',
+    }))
+  } catch {
+    return
+  }
+  if (await store.addCategory(name)) {
+    ElMessage.success(`已新增分类「${name.trim()}」`)
+  } else {
+    ElMessage.warning('该分类已存在')
+  }
+}
+
+async function renameCategory(name: string) {
+  let target: string
+  try {
+    ;({ value: target } = await ElMessageBox.prompt(`将「${name}」重命名为：`, '重命名分类', {
+      confirmButtonText: '保存',
+      cancelButtonText: '取消',
+      inputValue: name,
+      inputPattern: /\S+/,
+      inputErrorMessage: '分类名称不能为空',
+    }))
+  } catch {
+    return
+  }
+  if (await store.renameCategory(name, target)) {
+    if (activeTab.value === name) activeTab.value = target.trim()
+    ElMessage.success('已重命名，该分类下的文档已同步迁移')
+  } else {
+    ElMessage.warning('目标分类名已存在')
+  }
+}
+
+async function removeCategory(name: string) {
+  try {
+    await ElMessageBox.confirm(`删除分类「${name}」？`, '删除确认', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+  if (await store.removeCategory(name)) {
+    if (activeTab.value === name) activeTab.value = '全部'
+    ElMessage.success(`已删除分类「${name}」`)
+  } else {
+    ElMessage.warning('该分类下还有文档，请先移动或删除它们')
+  }
 }
 
 function sourceLabel(doc: MergedDoc): string {
@@ -114,7 +180,7 @@ async function onFileChange(event: Event) {
           CATEGORY
         </div>
         <div
-          v-for="tab in CATEGORY_TABS"
+          v-for="tab in tabs"
           :key="tab"
           class="cat-row"
         >
@@ -130,7 +196,34 @@ async function onFileChange(event: Event) {
             <span>{{ tab }}</span>
           </button>
           <span class="cat-n mono">{{ catCount(tab) }}</span>
+          <span
+            v-if="isCustomCategory(tab)"
+            class="cat-acts"
+          >
+            <button
+              class="cat-act"
+              :aria-label="`重命名分类 ${tab}`"
+              @click.stop="renameCategory(tab)"
+            >
+              ✎
+            </button>
+            <button
+              class="cat-act"
+              :aria-label="`删除分类 ${tab}`"
+              @click.stop="removeCategory(tab)"
+            >
+              ✕
+            </button>
+          </span>
         </div>
+        <ElButton
+          size="small"
+          text
+          class="cat-add"
+          @click="addCategory"
+        >
+          ＋ 新增分类
+        </ElButton>
         <div class="lib-cats-foot">
           <ElButton
             size="small"
@@ -318,6 +411,39 @@ async function onFileChange(event: Event) {
   font-size: 11px;
 }
 .cat-row:has(.cat.on) .cat-n {
+  color: var(--primary-text);
+}
+/* 自定义分类行内管理按钮：hover 才浮现，避免常驻噪音 */
+.cat-acts {
+  display: none;
+  gap: 2px;
+}
+.cat-row:hover .cat-acts,
+.cat-row:focus-within .cat-acts {
+  display: inline-flex;
+}
+.cat-act {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+.cat-act:hover {
+  color: var(--text);
+  background: var(--surface-muted);
+}
+.cat-add {
+  justify-content: flex-start;
+  margin-top: 4px;
+  padding: 0 10px;
+  color: var(--muted);
+}
+.cat-add:hover {
   color: var(--primary-text);
 }
 .lib-cats-foot {
@@ -555,6 +681,14 @@ async function onFileChange(event: Event) {
   }
   .cat-n {
     display: none;
+  }
+  /* 窄屏分类横滚：管理按钮常驻可点（无 hover），新增分类收窄为图标按钮 */
+  .cat-acts {
+    display: inline-flex;
+  }
+  .cat-add {
+    flex-shrink: 0;
+    padding: 0 6px;
   }
   .lib-cats-foot {
     flex-direction: row;

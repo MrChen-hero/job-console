@@ -2,11 +2,13 @@ import Dexie, { type Table } from 'dexie'
 import type {
   Application,
   CompanyPoolEntry,
+  LibraryCategoryRow,
   LibraryDoc,
   Milestone,
   Profile,
   ResumeVersion,
   RuntimeDemo,
+  RuntimeProject,
 } from './types'
 
 export interface SnapshotRow {
@@ -23,8 +25,10 @@ export class JobConsoleDb extends Dexie {
   applications!: Table<Application, string>
   companyPool!: Table<CompanyPoolEntry, string>
   libraryDocs!: Table<LibraryDoc, string>
+  libraryCategories!: Table<LibraryCategoryRow, string>
   milestones!: Table<Milestone, string>
   runtimeDemos!: Table<RuntimeDemo, string>
+  runtimeProjects!: Table<RuntimeProject, string>
   snapshots!: Table<SnapshotRow, number>
 
   constructor(name: string) {
@@ -44,6 +48,14 @@ export class JobConsoleDb extends Dexie {
       })
       .upgrade(() => {
         /* v2 仅新增表，无数据迁移 */
+      })
+    this.version(3)
+      .stores({
+        libraryCategories: 'name',
+        runtimeProjects: 'id, updatedAt',
+      })
+      .upgrade(() => {
+        /* v3 仅新增表，无数据迁移 */
       })
   }
 }

@@ -137,8 +137,16 @@ export interface CompanyPoolEntry {
   jdBrief?: string
   createdAt: string
 }
+/**
+ * 材料库分类：内置默认集（LIBRARY_CATEGORIES，编译时固定）∪ 运行时自定义（libraryCategories 表）。
+ * category 在文档上存字符串；内置分类不可删改，自定义分类支持增删改。
+ */
 export const LIBRARY_CATEGORIES = ['自我介绍', '高频问题', '项目深挖', '八股'] as const
-export type LibraryCategory = (typeof LIBRARY_CATEGORIES)[number]
+export type LibraryCategory = string
+/** 自定义分类行（name 即主键；重命名 = 换主键并迁移文档的 category 字段） */
+export interface LibraryCategoryRow {
+  name: string
+}
 export interface LibraryDoc {
   id: string
   category: LibraryCategory
@@ -167,6 +175,27 @@ export interface LocalDemo {
   title: string
   html: string
 }
+
+/**
+ * 运行时项目（演示站）：
+ * - 用户新建项目：普通行，删除即删行；
+ * - 与内置项目同 id 的行是「覆盖」——不带 hidden 表示编辑过的内置项目，带 hidden:true 表示已删除（墓碑），
+ *   删行即恢复内置原样（showcase 模块 projectStore 负责 merged/visible 合并视图）。
+ */
+export interface RuntimeProject {
+  id: string
+  title: string
+  eyebrow: string
+  accent: 'violet' | 'teal' | 'amber' | 'rose'
+  summary: string
+  stack: string[]
+  demo: { title: string; points: string[] }
+  /** 仅对内置 id 有意义：true = 隐藏（删除）该内置项目 */
+  hidden?: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 /** done 用 0|1 而非 boolean：Dexie 不索引布尔值 */
 export interface Milestone {
   id: string

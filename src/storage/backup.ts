@@ -4,14 +4,16 @@ import { createSnapshot } from './snapshots'
 import type {
   Application,
   CompanyPoolEntry,
+  LibraryCategoryRow,
   LibraryDoc,
   Milestone,
   Profile,
   ResumeVersion,
   RuntimeDemo,
+  RuntimeProject,
 } from './types'
 
-export const BACKUP_SCHEMA_VERSION = 2
+export const BACKUP_SCHEMA_VERSION = 3
 
 export interface BackupData {
   profile: Profile[]
@@ -22,6 +24,10 @@ export interface BackupData {
   milestones: Milestone[]
   /** v2：运行时上传的交互式 HTML 演示页 */
   runtimeDemos: RuntimeDemo[]
+  /** v3：材料库自定义分类 */
+  libraryCategories: LibraryCategoryRow[]
+  /** v3：演示站运行时项目（含内置项目的覆盖行与隐藏墓碑） */
+  runtimeProjects: RuntimeProject[]
 }
 
 export interface BackupFile {
@@ -31,7 +37,7 @@ export interface BackupFile {
 }
 
 export async function exportBackup(db: JobConsoleDb): Promise<BackupFile> {
-  const [profile, resumeVersions, applications, companyPool, libraryDocs, milestones, runtimeDemos] =
+  const [profile, resumeVersions, applications, companyPool, libraryDocs, milestones, runtimeDemos, libraryCategories, runtimeProjects] =
     await Promise.all([
       db.profile.toArray(),
       db.resumeVersions.toArray(),
@@ -40,11 +46,13 @@ export async function exportBackup(db: JobConsoleDb): Promise<BackupFile> {
       db.libraryDocs.toArray(),
       db.milestones.toArray(),
       db.runtimeDemos.toArray(),
+      db.libraryCategories.toArray(),
+      db.runtimeProjects.toArray(),
     ])
   return {
     schemaVersion: BACKUP_SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
-    data: { profile, resumeVersions, applications, companyPool, libraryDocs, milestones, runtimeDemos },
+    data: { profile, resumeVersions, applications, companyPool, libraryDocs, milestones, runtimeDemos, libraryCategories, runtimeProjects },
   }
 }
 
@@ -88,7 +96,7 @@ export function validateBackup(
     return { ok: false, issues }
   }
   const data = raw.data as Record<string, unknown>
-  const tableKeys = ['profile', 'resumeVersions', 'applications', 'companyPool', 'libraryDocs', 'milestones', 'runtimeDemos'] as const
+  const tableKeys = ['profile', 'resumeVersions', 'applications', 'companyPool', 'libraryDocs', 'milestones', 'runtimeDemos', 'libraryCategories', 'runtimeProjects'] as const
   for (const key of tableKeys) {
     if (!Array.isArray(data[key])) issues.push({ path: `$.data.${key}`, message: '必须是数组' })
   }
@@ -138,6 +146,18 @@ export function validateBackup(
       requireStringArray(rec, 'tags', path, issues)
     })
   }
+  if (Array.isArray(rows.runtimeProjects)) {
+    rows.runtimeProjects.forEach((proj, i) => {
+      const path = `$.data.runtimeProjects[${i}]`
+      if (!isRecord(proj as unknown)) {
+        issues.push({ path, message: '必须是对象' })
+        return
+      }
+      const rec = proj as unknown as Record<string, unknown>
+      requireString(rec, 'id', path, issues)
+      requireString(rec, 'title', path, issues)
+    })
+  }
   if (issues.length) return { ok: false, issues }
   return { ok: true, file: raw as unknown as BackupFile }
 }
@@ -147,8 +167,8 @@ export function validateBackup(
 export type ImportMode = 'merge' | 'overwrite'
 
 /**
- * merge：按 id 逐表 put（id 冲突时整条以导入方为准，不合并字段；已有但未出现在导入中的记录保留）。
- * overwrite：清空六张数据表后整体灌入；snapshots 表不被清空，仅追加一条导入前自动快照。
+ * merge：按主键逐表 put（id/name 冲突时整条以导入方为准，不合并字段；已有但未出现在导入中的记录保留）。
+ * overwrite：清空数据表后整体灌入；snapshots 表不被清空，仅追加一条导入前自动快照。
  */
 export async function importBackup(db: JobConsoleDb, file: BackupFile, mode: ImportMode): Promise<void> {
   const { data } = file
@@ -160,6 +180,8 @@ export async function importBackup(db: JobConsoleDb, file: BackupFile, mode: Imp
     db.libraryDocs,
     db.milestones,
     db.runtimeDemos,
+    db.libraryCategories,
+    db.runtimeProjects,
   ] as const
   const rows = [
     data.profile,
@@ -169,6 +191,8 @@ export async function importBackup(db: JobConsoleDb, file: BackupFile, mode: Imp
     data.libraryDocs,
     data.milestones,
     data.runtimeDemos,
+    data.libraryCategories,
+    data.runtimeProjects,
   ] as const
 
   if (mode === 'overwrite') {

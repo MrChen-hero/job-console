@@ -1,5 +1,5 @@
 import type { LocalDemo, RuntimeDemo } from '../../storage/types'
-import { SHOWCASE_PROJECTS, type ShowcaseProject } from '../../config/showcase.config'
+import type { ShowcaseProject } from '../../config/showcase.config'
 
 /** Deck 纵向页：项目主面之后依次是配置要点页与交互式 demo 页 */
 export type DeckPage =
@@ -26,8 +26,4 @@ export function swipeIntent(dx: number, dy: number, threshold = 56): -1 | 0 | 1 
   if (Math.abs(dx) < threshold) return 0
   if (Math.abs(dx) <= Math.abs(dy) * 1.25) return 0
   return dx < 0 ? 1 : -1
-}
-
-export function projectAt(index: number): ShowcaseProject {
-  return SHOWCASE_PROJECTS[clampIndex(index, SHOWCASE_PROJECTS.length)]!
 }

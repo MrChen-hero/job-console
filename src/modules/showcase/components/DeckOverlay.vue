@@ -1,19 +1,24 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElButton } from 'element-plus'
-import { SHOWCASE_PROJECTS } from '../../../config/showcase.config'
 import { demoUrl, useDemoStore } from '../demoStore'
-import { attachDemoPages, clampIndex, projectAt, swipeIntent, type DeckPage } from '../deck'
+import { useProjectStore, type MergedProject } from '../projectStore'
+import { attachDemoPages, clampIndex, swipeIntent, type DeckPage } from '../deck'
 
 const emit = defineEmits<{ close: [] }>()
 
 const demoStore = useDemoStore()
+const projectStore = useProjectStore()
 const hIdx = ref(0)
 const vIdx = ref(0)
 
-const project = computed(() => projectAt(hIdx.value))
+/** 项目清单来自 projectStore（内置 ∪ 自建，已滤隐藏） */
+const projects = computed<MergedProject[]>(() => projectStore.visible)
+const pageCount = computed(() => projects.value.length)
+/** 渲染用的收敛索引：打开 Deck 期间项目被删导致 hIdx 越界时不至于渲染空白 */
+const safeIdx = computed(() => clampIndex(hIdx.value, pageCount.value))
+const project = computed<MergedProject>(() => projects.value[safeIdx.value]!)
 const pages = computed<DeckPage[]>(() => attachDemoPages(project.value, demoStore.merged))
-const pageCount = computed(() => SHOWCASE_PROJECTS.length)
 
 function goHorizontal(index: number) {
   hIdx.value = clampIndex(index, pageCount.value)
@@ -62,8 +67,8 @@ function onPointerUp(event: PointerEvent) {
   else if (intent === -1) prev()
 }
 
-onMounted(() => {
-  void demoStore.load()
+onMounted(async () => {
+  await Promise.all([demoStore.load(), projectStore.load()])
   document.addEventListener('keydown', onKeydown)
   document.body.style.overflow = 'hidden'
 })
@@ -114,10 +119,10 @@ const accentSoft: Record<string, string> = {
     >
       <div
         class="deck-track"
-        :style="{ transform: `translateX(-${hIdx * 100}%)` }"
+        :style="{ transform: `translateX(-${safeIdx * 100}%)` }"
       >
         <section
-          v-for="p in SHOWCASE_PROJECTS"
+          v-for="p in projects"
           :key="p.id"
           class="deck-slide"
           :class="{ vertical: vIdx > 0 && p.id === project.id }"
@@ -197,24 +202,24 @@ const accentSoft: Record<string, string> = {
     <div class="deck-foot">
       <ElButton
         size="small"
-        :disabled="hIdx === 0"
+        :disabled="safeIdx === 0"
         @click="prev"
       >
         ← 上一项目
       </ElButton>
       <div class="deck-dots">
         <button
-          v-for="(p, i) in SHOWCASE_PROJECTS"
+          v-for="(p, i) in projects"
           :key="p.id"
           class="deck-dot"
-          :class="{ on: i === hIdx }"
+          :class="{ on: i === safeIdx }"
           :aria-label="`第 ${i + 1} 个项目：${p.title}`"
           @click="goHorizontal(i)"
         />
       </div>
       <ElButton
         size="small"
-        :disabled="hIdx === pageCount - 1"
+        :disabled="safeIdx === pageCount - 1"
         @click="next"
       >
         下一项目 →

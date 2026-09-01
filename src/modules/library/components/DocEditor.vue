@@ -2,8 +2,8 @@
 import { computed, reactive, ref } from 'vue'
 import { ElButton, ElInput, ElOption, ElSelect } from 'element-plus'
 import type { LibraryCategory } from '../../../storage/types'
-import { LIBRARY_CATEGORIES } from '../../../storage/types'
 import { renderMarkdown } from '../../../shared/markdown/render'
+import { useLibraryStore } from '../store'
 
 /** 编辑目标字段宽松化：可承接合并文档（local/runtime）或新建空表单 */
 export interface DocEditorInitial {
@@ -25,6 +25,7 @@ const emit = defineEmits<{
 }>()
 
 const showPreview = ref(false)
+const store = useLibraryStore()
 const form = reactive({
   title: props.initial?.title ?? '',
   category: (props.initial?.category ?? '高频问题') as LibraryCategory,
@@ -76,7 +77,7 @@ function save() {
           data-field="category"
         >
           <ElOption
-            v-for="c in LIBRARY_CATEGORIES"
+            v-for="c in store.categories"
             :key="c"
             :label="c"
             :value="c"

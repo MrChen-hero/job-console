@@ -75,3 +75,72 @@ describe('library store（双通道合并）', () => {
     expect(store.docs.some((d) => d.title === '临时文档')).toBe(false)
   })
 })
+
+describe('library 自定义分类', () => {
+  beforeEach(async () => {
+    localStorage.clear()
+    await db.delete()
+    await db.open()
+    setActivePinia(createPinia())
+  })
+
+  it('分类清单：内置 ∪ 自定义（zh 排序）', async () => {
+    const store = useLibraryStore()
+    await store.load()
+    expect(store.categories).toEqual(['自我介绍', '高频问题', '项目深挖', '八股'])
+    await store.addCategory('行为面')
+    await store.addCategory('复盘')
+    expect(store.categories).toEqual(['自我介绍', '高频问题', '项目深挖', '八股', '复盘', '行为面'])
+    expect(store.customCategories).toEqual(['复盘', '行为面'])
+  })
+
+  it('新增：空名与重名被拒绝', async () => {
+    const store = useLibraryStore()
+    await store.load()
+    expect(await store.addCategory('  ')).toBe(false)
+    expect(await store.addCategory('八股')).toBe(false) // 撞内置名
+    await store.addCategory('行为面')
+    expect(await store.addCategory('行为面')).toBe(false) // 撞自定义名
+  })
+
+  it('重命名：迁移该分类下的文档', async () => {
+    const store = useLibraryStore()
+    await store.load()
+    await store.addCategory('行为面')
+    await store.upsertDoc({ category: '行为面', title: '宝洁八大问', body: 'x', tags: [] })
+    expect(await store.renameCategory('行为面', '行为面试')).toBe(true)
+    expect(store.customCategories).toEqual(['行为面试'])
+    const doc = store.docs.find((d) => d.title === '宝洁八大问')!
+    expect(doc.category).toBe('行为面试')
+    expect(await store.renameCategory('行为面试', '八股')).toBe(false) // 目标撞内置
+  })
+
+  it('重命名：内置分类与非自定义分类被拒绝', async () => {
+    const store = useLibraryStore()
+    await store.load()
+    expect(await store.renameCategory('八股', '基础知识')).toBe(false)
+    expect(await store.renameCategory('不存在的分类', '任意')).toBe(false)
+  })
+
+  it('删除：非空分类被拒绝，清空后可删', async () => {
+    const store = useLibraryStore()
+    await store.load()
+    await store.addCategory('行为面')
+    await store.upsertDoc({ category: '行为面', title: '宝洁八大问', body: 'x', tags: [] })
+    expect(await store.removeCategory('行为面')).toBe(false)
+    await store.removeDoc(store.docs.find((d) => d.title === '宝洁八大问')!.id)
+    expect(await store.removeCategory('行为面')).toBe(true)
+    expect(store.customCategories).toEqual([])
+    expect(await store.removeCategory('八股')).toBe(false) // 内置不可删
+  })
+
+  it('上传 md：自定义分类被识别，未知分类回落高频问题', async () => {
+    const store = useLibraryStore()
+    await store.load()
+    await store.addCategory('行为面')
+    const ok = store.parseUploaded('---\ntitle: t\ncategory: 行为面\n---\nb', 'f')
+    expect(ok.category).toBe('行为面')
+    const unknown = store.parseUploaded('---\ntitle: t\ncategory: 不存在\n---\nb', 'f')
+    expect(unknown.category).toBe('高频问题')
+  })
+})

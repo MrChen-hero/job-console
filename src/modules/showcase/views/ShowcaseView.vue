@@ -1,25 +1,90 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
-import { SHOWCASE_PROJECTS } from '../../../config/showcase.config'
 import { useDemoStore, type MergedDemo } from '../demoStore'
+import { useProjectStore, type MergedProject, type ProjectInput } from '../projectStore'
 import DeckOverlay from '../components/DeckOverlay.vue'
 import DemoUploadDialog from '../components/DemoUploadDialog.vue'
+import ProjectEditor from '../components/ProjectEditor.vue'
 
 const demoStore = useDemoStore()
+const projectStore = useProjectStore()
 const deckOpen = ref(false)
 const deckStart = ref(0)
 const uploadOpen = ref(false)
 const preparing = ref(true)
+const editorOpen = ref(false)
+const editorInitial = ref<MergedProject | null>(null)
 
 onMounted(async () => {
-  await demoStore.load()
+  await Promise.all([demoStore.load(), projectStore.load()])
   preparing.value = false
 })
+
+/** 演示页清单只列可见项目下的；隐藏项目的演示页保留在库中但不出列 */
+const visibleDemos = computed(() =>
+  demoStore.merged.filter((d) => projectStore.visible.some((p) => p.id === d.projectId)),
+)
+
+function projectNameOf(projectId: string): string {
+  return projectStore.merged.find((p) => p.id === projectId)?.title ?? projectId
+}
 
 function openDeck(index: number) {
   deckStart.value = index
   deckOpen.value = true
+}
+
+function openCreate() {
+  editorInitial.value = null
+  editorOpen.value = true
+}
+
+function openEdit(project: MergedProject) {
+  editorInitial.value = project
+  editorOpen.value = true
+}
+
+async function onSaveProject(input: ProjectInput) {
+  if (editorInitial.value) {
+    await projectStore.updateProject(editorInitial.value.id, input)
+    ElMessage.success('项目已更新')
+  } else {
+    await projectStore.addProject(input)
+    ElMessage.success('项目已创建')
+  }
+  editorOpen.value = false
+}
+
+async function onRemoveProject(project: MergedProject) {
+  const isBuiltin = project.source === 'local' || project.overridden
+  const tip = isBuiltin
+    ? `删除示例项目「${project.title}」？可随时点「恢复示例项目」找回。`
+    : `删除项目「${project.title}」？其上传的演示页会保留，但项目恢复前不可见。`
+  try {
+    await ElMessageBox.confirm(tip, '删除确认', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+  await projectStore.removeProject(project.id)
+  ElMessage.success('已删除')
+}
+
+async function onResetBuiltins() {
+  try {
+    await ElMessageBox.confirm('恢复全部内置示例项目？你对示例项目的编辑与删除会被撤销。', '恢复确认', {
+      confirmButtonText: '恢复',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+  await projectStore.resetBuiltins()
+  ElMessage.success('已恢复全部示例项目')
 }
 
 async function removeDemo(demo: MergedDemo) {
@@ -55,6 +120,7 @@ async function removeDemo(demo: MergedDemo) {
           type="primary"
           size="large"
           class="deck-open"
+          :disabled="projectStore.visible.length === 0"
           @click="openDeck(0)"
         >
           ▶ 进入项目演示
@@ -66,14 +132,37 @@ async function removeDemo(demo: MergedDemo) {
         >
           ⬆ 上传交互演示
         </ElButton>
+        <ElButton
+          size="large"
+          class="proj-add"
+          @click="openCreate"
+        >
+          ＋ 新增项目
+        </ElButton>
+        <ElButton
+          v-if="projectStore.hasBuiltinChanges"
+          size="large"
+          text
+          class="proj-reset"
+          @click="onResetBuiltins"
+        >
+          ↺ 恢复示例项目
+        </ElButton>
       </div>
     </div>
 
+    <ProjectEditor
+      v-if="editorOpen"
+      :initial="editorInitial"
+      @save="onSaveProject"
+      @cancel="editorOpen = false"
+    />
+
     <DemoUploadDialog v-model="uploadOpen" />
 
-    <!-- 交互演示清单（含删除） -->
+    <!-- 交互演示清单（含删除）；隐藏项目的演示页不在此列 -->
     <div
-      v-if="demoStore.merged.length > 0"
+      v-if="visibleDemos.length > 0"
       class="demo-list"
       data-testid="demo-list"
     >
@@ -82,12 +171,12 @@ async function removeDemo(demo: MergedDemo) {
         <span class="demo-list-sub">在 Deck 纵向页中查看；沙箱 iframe 渲染</span>
       </div>
       <div
-        v-for="demo in demoStore.merged"
+        v-for="demo in visibleDemos"
         :key="demo.id"
         class="demo-row"
       >
         <span class="demo-title">{{ demo.title }}</span>
-        <span class="demo-proj">{{ SHOWCASE_PROJECTS.find((p) => p.id === demo.projectId)?.title ?? demo.projectId }}</span>
+        <span class="demo-proj">{{ projectNameOf(demo.projectId) }}</span>
         <span
           class="src-tag"
           :class="demo.source"
@@ -96,7 +185,7 @@ async function removeDemo(demo: MergedDemo) {
           <ElButton
             size="small"
             text
-            @click="openDeck(SHOWCASE_PROJECTS.findIndex((p) => p.id === demo.projectId))"
+            @click="openDeck(projectStore.visible.findIndex((p) => p.id === demo.projectId))"
           >查看</ElButton>
           <ElButton
             v-if="demo.source === 'runtime'"
@@ -110,9 +199,16 @@ async function removeDemo(demo: MergedDemo) {
       </div>
     </div>
 
+    <div
+      v-if="projectStore.visible.length === 0"
+      class="proj-empty"
+    >
+      还没有可展示的项目。点「＋ 新增项目」创建一个，或「↺ 恢复示例项目」找回内置示例。
+    </div>
+
     <div class="proj-grid">
       <div
-        v-for="(p, i) in SHOWCASE_PROJECTS"
+        v-for="(p, i) in projectStore.visible"
         :key="p.id"
         class="card proj"
         role="button"
@@ -122,10 +218,33 @@ async function removeDemo(demo: MergedDemo) {
       >
         <div class="proj-top">
           <b class="proj-name">{{ p.title }}</b>
-          <span
-            class="src-tag"
-            :class="p.stack.length ? 'badge-style' : ''"
-          >{{ p.eyebrow }}</span>
+          <span class="proj-top-right">
+            <span
+              class="src-tag"
+              :class="p.source"
+            >{{ p.source === 'local' ? '示例' : '我的' }}</span>
+            <span class="proj-acts">
+              <ElButton
+                size="small"
+                text
+                class="proj-edit"
+                :aria-label="`编辑项目 ${p.title}`"
+                @click.stop="openEdit(p)"
+              >
+                编辑
+              </ElButton>
+              <ElButton
+                size="small"
+                text
+                type="danger"
+                class="proj-remove"
+                :aria-label="`删除项目 ${p.title}`"
+                @click.stop="onRemoveProject(p)"
+              >
+                删除
+              </ElButton>
+            </span>
+          </span>
         </div>
         <p class="proj-desc">
           {{ p.summary }}
@@ -175,6 +294,7 @@ async function removeDemo(demo: MergedDemo) {
 }
 .hero-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   margin-top: 18px;
 }
@@ -233,6 +353,33 @@ async function removeDemo(demo: MergedDemo) {
 .src-tag.runtime {
   color: var(--primary-text);
   background: var(--primary-soft);
+}
+.proj-empty {
+  background: var(--card);
+  border: 1px dashed var(--border2);
+  border-radius: var(--r-lg);
+  padding: 28px 24px;
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+/* 卡片右上：来源标签 + 编辑/删除（常驻可点，触屏无 hover 也可达） */
+.proj-top-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.proj-acts {
+  display: inline-flex;
+}
+.proj-acts :deep(.el-button) {
+  margin: 0;
+  padding: 4px 6px;
+}
+.proj-acts :deep(.el-button + .el-button) {
+  margin-left: 2px;
 }
 .demo-actions {
   margin-left: auto;

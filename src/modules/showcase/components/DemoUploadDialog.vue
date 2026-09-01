@@ -1,17 +1,28 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import { ElButton, ElInput, ElOption, ElSelect } from 'element-plus'
-import { SHOWCASE_PROJECTS } from '../../../config/showcase.config'
 import { useDemoStore } from '../demoStore'
+import { useProjectStore } from '../projectStore'
 
 const emit = defineEmits<{ close: [] }>()
 
 const store = useDemoStore()
+const projectStore = useProjectStore()
 const open = defineModel<boolean>({ default: false })
 
 const form = reactive({
-  projectId: SHOWCASE_PROJECTS[0]!.id,
+  projectId: '',
   title: '',
+})
+
+/** 打开面板时校准默认项目：首个可见项目；清单变化（如删除）后落到有效值 */
+watch(open, (v) => {
+  if (v) form.projectId = projectStore.visible[0]?.id ?? ''
+})
+watch(() => projectStore.visible.map((p) => p.id).join('|'), (ids) => {
+  if (form.projectId && !ids.split('|').includes(form.projectId)) {
+    form.projectId = projectStore.visible[0]?.id ?? ''
+  }
 })
 const error = ref('')
 const fileName = ref('')
@@ -35,6 +46,10 @@ function onFileChange(event: Event) {
 async function save() {
   if (!pendingHtml) {
     error.value = '请先选择 .html 文件'
+    return
+  }
+  if (!form.projectId) {
+    error.value = '没有可选的项目，请先创建项目'
     return
   }
   if (form.title.trim() === '') {
@@ -95,7 +110,7 @@ function reset() {
         data-field="du-project"
       >
         <ElOption
-          v-for="p in SHOWCASE_PROJECTS"
+          v-for="p in projectStore.visible"
           :key="p.id"
           :label="p.title"
           :value="p.id"
