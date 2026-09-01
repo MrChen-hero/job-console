@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { NAV_ITEMS } from '../../app/nav'
 import { db } from '../../storage/db'
 import { exportBackup, importBackup, validateBackup, type ImportMode } from '../../storage/backup'
+import { backupFileName, downloadJson } from '../downloadJson'
 import AppIcon from '../ui/AppIcon.vue'
+import SnapshotDialog from '../SnapshotDialog.vue'
 
 defineProps<{ open?: boolean; hidden?: boolean }>()
 
@@ -20,26 +22,31 @@ const NAV_ICONS: Record<string, string> = {
   showcase: 'play',
 }
 
-/** 导出全库为 JSON 备份（与工作台磁贴同一 exportBackup，全量七表） */
+/** 导出全库为 JSON 备份（与工作台磁贴同一 exportBackup，全量十表） */
 async function onExport() {
-  let url = ''
   try {
-    const backup = await exportBackup(db)
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
-    url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `jobconsole-backup-${new Date().toISOString().slice(0, 10)}.json`
-    a.click()
+    downloadJson(backupFileName(), await exportBackup(db))
     ElMessage.success('备份已导出')
   } catch {
     ElMessage.error('导出失败，请重试')
-  } finally {
-    if (url) URL.revokeObjectURL(url)
   }
 }
 
 const fileInput = ref<HTMLInputElement | null>(null)
+const snapshotOpen = ref(false)
+const snapshotCount = ref(0)
+
+async function refreshSnapshotCount() {
+  try {
+    snapshotCount.value = await db.snapshots.count()
+  } catch {
+    snapshotCount.value = 0
+  }
+}
+
+onMounted(() => {
+  void refreshSnapshotCount()
+})
 
 function onImportClick() {
   fileInput.value?.click()
@@ -92,6 +99,11 @@ async function onImportFile(event: Event) {
   }
   ElMessage.success('导入完成，正在刷新…')
   setTimeout(() => window.location.reload(), 900)
+}
+
+async function openSnapshots() {
+  await refreshSnapshotCount()
+  snapshotOpen.value = true
 }
 </script>
 
@@ -157,6 +169,18 @@ async function onImportFile(event: Event) {
         />
         导入数据
       </button>
+      <button
+        v-if="snapshotCount > 0"
+        type="button"
+        class="data-btn snap-btn"
+        @click="openSnapshots"
+      >
+        <AppIcon
+          name="history"
+          :size="15"
+        />
+        数据快照（{{ snapshotCount }}）
+      </button>
       <input
         ref="fileInput"
         type="file"
@@ -166,6 +190,7 @@ async function onImportFile(event: Event) {
         @change="onImportFile"
       >
     </div>
+    <SnapshotDialog v-model="snapshotOpen" />
     <div class="sidebar-foot">
       <span class="sync-dot" />
       <span class="foot-note">数据仅存本机浏览器</span>

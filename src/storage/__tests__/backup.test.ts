@@ -73,6 +73,64 @@ describe('exportBackup', () => {
     }
   })
 
+  it('profile 行缺条目数组时被拒绝（否则简历页渲染期崩）', () => {
+    const result = validateBackup({
+      schemaVersion: BACKUP_SCHEMA_VERSION,
+      exportedAt: '2026-09-02T00:00:00.000Z',
+      data: {
+        profile: [{ id: 'v1', basic: { name: '王小明' } }],
+        resumeVersions: [], applications: [],
+        companyPool: [], libraryDocs: [], milestones: [], runtimeDemos: [],
+        libraryCategories: [], runtimeProjects: [], deletedDocs: [],
+      },
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      const paths = result.issues.map((i) => i.path)
+      expect(paths).toContain('$.data.profile[0].education')
+      expect(paths).toContain('$.data.profile[0].selfEvaluation')
+    }
+  })
+
+  it('resumeVersions 行缺 sections/name 时被拒绝', () => {
+    const result = validateBackup({
+      schemaVersion: BACKUP_SCHEMA_VERSION,
+      exportedAt: '2026-09-02T00:00:00.000Z',
+      data: {
+        profile: [],
+        resumeVersions: [{ id: 'v1' }],
+        applications: [], companyPool: [], libraryDocs: [], milestones: [], runtimeDemos: [],
+        libraryCategories: [], runtimeProjects: [], deletedDocs: [],
+      },
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      const paths = result.issues.map((i) => i.path)
+      expect(paths).toContain('$.data.resumeVersions[0].name')
+      expect(paths).toContain('$.data.resumeVersions[0].sections')
+    }
+  })
+
+  it('导出产物自身恒能通过校验（含资料池与版本）', async () => {
+    const db = createDb(`test-${newId()}`)
+    try {
+      await db.resumeVersions.put({
+        id: 'v1', name: 'AI 岗版', targetRole: '', sections: [],
+        createdAt: '2026-09-02', updatedAt: '2026-09-02',
+      })
+      await db.profile.put({
+        id: 'v1', basic: { name: '王小明' }, education: [], skills: [], experiences: [],
+        projects: [], awards: [], selfEvaluation: [], updatedAt: '2026-09-02',
+      })
+      await db.applications.add(makeApp())
+      const file = await exportBackup(db)
+      const result = validateBackup(file)
+      expect(result.ok).toBe(true)
+    } finally {
+      await db.delete()
+    }
+  })
+
   it('runtimeProjects 缺 id/title 时被校验拒绝', () => {
     const result = validateBackup({
       schemaVersion: BACKUP_SCHEMA_VERSION,

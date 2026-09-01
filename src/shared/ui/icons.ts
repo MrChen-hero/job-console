@@ -46,6 +46,7 @@ export const ICONS: Record<string, IconPart[]> = {
   mail: [{tag:'rect',attrs:{x:'3',y:'5',width:'18',height:'14',rx:'2'}},{tag:'path',attrs:{d:'m3.5 6.5 8.5 6 8.5-6'}}],
   pin: [{tag:'path',attrs:{d:'M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11z'}},{tag:'circle',attrs:{cx:'12',cy:'10',r:'2.6'}}],
   link: [{tag:'path',attrs:{d:'M10 13a4 4 0 0 0 5.7 0l2.6-2.6a4 4 0 0 0-5.7-5.7L11.5 6'}},{tag:'path',attrs:{d:'M14 11a4 4 0 0 0-5.7 0l-2.6 2.6a4 4 0 0 0 5.7 5.7L12.5 18'}}],
+  history: [{tag:'path',attrs:{d:'M4 12a8 8 0 1 0 3-6.2M4 4v4h4'}},{tag:'path',attrs:{d:'M12 8v4.5l3 2'}}],
 }
 
 export const ICON_NAMES = Object.keys(ICONS)

@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElButton, ElDatePicker, ElInput, ElMessage, ElMessageBox } from 'element-plus'
 import { db } from '../../../storage/db'
 import { exportBackup } from '../../../storage/backup'
+import { backupFileName, downloadJson } from '../../../shared/downloadJson'
 import { useDashboardStore } from '../store'
 import { useTrackerStore } from '../../tracker/store'
 import AppIcon from '../../../shared/ui/AppIcon.vue'
@@ -170,22 +171,13 @@ async function addMilestone() {
   newMilestoneLabel.value = ''
 }
 
-/** 导出全库为 JSON 备份文件；复用既有 exportBackup，不新增序列化逻辑 */
+/** 导出全库为 JSON 备份文件；复用既有 exportBackup 与共享下载工具，不新增序列化逻辑 */
 async function exportData() {
-  let url = ''
   try {
-    const backup = await exportBackup(db)
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
-    url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `jobconsole-backup-${new Date().toISOString().slice(0, 10)}.json`
-    a.click()
+    downloadJson(backupFileName(), await exportBackup(db))
     ElMessage.success('备份已导出')
   } catch {
     ElMessage.error('导出失败，请重试')
-  } finally {
-    if (url) URL.revokeObjectURL(url)
   }
 }
 

@@ -150,6 +150,35 @@ export function validateBackup(
       requireStringArray(rec, 'tags', path, issues)
     })
   }
+  if (Array.isArray(rows.profile)) {
+    rows.profile.forEach((profile, i) => {
+      const path = `$.data.profile[${i}]`
+      if (!isRecord(profile as unknown)) {
+        issues.push({ path, message: '必须是对象' })
+        return
+      }
+      const rec = profile as unknown as Record<string, unknown>
+      requireString(rec, 'id', path, issues)
+      if (!isRecord(rec.basic)) issues.push({ path: `${path}.basic`, message: '必须是对象' })
+      // 五类条目与自评必须是数组：简历渲染直接遍历它们，缺字段会让简历页崩在渲染期
+      for (const key of ['education', 'skills', 'experiences', 'projects', 'awards', 'selfEvaluation']) {
+        if (!Array.isArray(rec[key])) issues.push({ path: `${path}.${key}`, message: '必须是数组' })
+      }
+    })
+  }
+  if (Array.isArray(rows.resumeVersions)) {
+    rows.resumeVersions.forEach((version, i) => {
+      const path = `$.data.resumeVersions[${i}]`
+      if (!isRecord(version as unknown)) {
+        issues.push({ path, message: '必须是对象' })
+        return
+      }
+      const rec = version as unknown as Record<string, unknown>
+      requireString(rec, 'id', path, issues)
+      requireString(rec, 'name', path, issues)
+      if (!Array.isArray(rec.sections)) issues.push({ path: `${path}.sections`, message: '必须是数组' })
+    })
+  }
   if (Array.isArray(rows.runtimeProjects)) {
     rows.runtimeProjects.forEach((proj, i) => {
       const path = `$.data.runtimeProjects[${i}]`
@@ -214,7 +243,7 @@ export async function importBackup(db: JobConsoleDb, file: BackupFile, mode: Imp
   })
 }
 
-/** 六张表与各自行数组的运行期配对；运行时表-数据总是同序，此处仅做类型层面的放宽。 */
+/** 各表与其行数组的运行期配对；运行时表-数据总是同序，此处仅做类型层面的放宽。 */
 function pairTables(
   tables: readonly Table<unknown, string>[],
   rows: readonly (readonly unknown[])[],

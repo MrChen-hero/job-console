@@ -215,6 +215,57 @@ test.describe('求职工作台主流程', () => {
     await expect(page.locator('.ms', { hasText: '软考·软件设计师' })).toBeVisible()
   })
 
+  test('备份：导出 → 删除 → 导入还原（含快照入口出现）', async ({ page }) => {
+    // 造一条可识别的数据
+    await page.goto('/#/tracker')
+    await page.getByRole('button', { name: '＋ 新增投递' }).click()
+    await page.locator('input[data-field="company"]').fill('备份验证公司')
+    await page.locator('input[data-field="position"]').fill('后端开发')
+    await page.getByRole('button', { name: '保存' }).click()
+    await expect(page.locator('.app-table')).toContainText('备份验证公司')
+
+    // 窄视口侧栏收为抽屉：用前展开、用后收起（展开态的 scrim 会拦住主内容点击）
+    const openNav = async () => {
+      const menu = page.getByRole('button', { name: '打开导航' })
+      if (await menu.isVisible()) await menu.click()
+    }
+    const closeNav = async () => {
+      const scrim = page.locator('.scrim')
+      // scrim 铺满视口但中心点落在抽屉自身上，真实点击打不中；派发事件绕过命中测试
+      if (await scrim.isVisible()) await scrim.dispatchEvent('click')
+    }
+
+    // 导出：拿到真实下载文件（校验 blob URL 未被提前回收）
+    await openNav()
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: '导出数据' }).click(),
+    ])
+    const backupPath = await download.path()
+    expect(download.suggestedFilename()).toMatch(/^jobconsole-backup-\d{4}-\d{2}-\d{2}\.json$/)
+    await closeNav()
+
+    // 删掉这条投递
+    await page.locator('.app-table .app-row', { hasText: '备份验证公司' }).click()
+    const drawer = page.locator('.app-drawer')
+    await drawer.getByRole('button', { name: '删除' }).dispatchEvent('click')
+    await page.locator('.el-message-box').getByRole('button', { name: '删除' }).click()
+    await expect(page.locator('.app-table')).not.toContainText('备份验证公司')
+
+    // 覆盖导入备份：数据回来，且「数据快照」入口出现（导入前自动快照）
+    await openNav()
+    await page.locator('input[type="file"][accept*="json"]').setInputFiles(backupPath!)
+    await page.locator('.el-message-box').getByRole('button', { name: '覆盖导入' }).click()
+    await page.waitForURL(/#\/tracker/)
+    await expect(page.locator('.app-table')).toContainText('备份验证公司')
+
+    await openNav()
+    const snapBtn = page.getByRole('button', { name: /数据快照/ })
+    await expect(snapBtn).toBeVisible()
+    await snapBtn.click()
+    await expect(page.getByTestId('snapshot-list')).toContainText('导入前自动快照')
+  })
+
   test('移动端 390 无横向溢出', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/')
