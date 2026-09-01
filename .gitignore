@@ -1,0 +1,20 @@
+node_modules
+dist
+playwright-report
+test-results
+.vite
+*.local
+
+.zcode
+.codex/
+.ui-shots/
+.workbuddy/
+
+# 上一代作品集项目遗留，已取消追踪
+scripts/check-theme-css.mjs
+scripts/generate-project-assets.mjs
+public/media/
+design-demo/index.html
+docs/superpowers/plans/2026-07-*.md
+docs/superpowers/specs/2026-07-*.md
+.browser-use-check.py

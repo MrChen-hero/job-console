@@ -1,0 +1,101 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+html,
+body,
+#app {
+  height: 100%;
+}
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * 表单控件重置（对齐 demo）。原生 button 的 UA 默认底色是 ButtonFace 灰，
+ * 未显式声明 background 的按钮（材料库 .cat / .lib-item、资料池 .tab-btn 等）
+ * 会透出这层灰。按钮底色一律由各组件自行声明。
+ * 选择器权重为 0,0,1，不会盖掉 Element Plus 的 .el-button 类规则。
+ */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+button {
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+/* 等宽数字：台账日期、批次号、计数、KPI 数值统一使用，消除数字宽度跳动 */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 全局焦点可见：键盘导航必须看得见落点 */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ElDialog 垂直水平居中；小窗口内容超高时由内容区滚动，而非把顶部顶出视口。
+   覆盖 element 默认的 margin:15vh auto（居上）。 */
+.el-overlay-dialog {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.el-overlay-dialog .el-dialog {
+  margin: 0;
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+}
+.el-overlay-dialog .el-dialog__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+/* 移动端弹窗宽度自适应：width prop 是 inline style，需 !important 覆盖，避免超出屏幕 */
+@media (max-width: 560px) {
+  .el-overlay-dialog .el-dialog {
+    width: calc(100% - 32px) !important;
+  }
+  /* 投递抽屉占满屏宽：.app-drawer 根元素不带组件 data-v（scoped 选择器打不到），
+     必须全局；size="520px" 是 inline style，用 !important 覆盖 */
+  .el-drawer.app-drawer {
+    width: 100% !important;
+  }
+}
+
+/* 打印：EP 消息条与弹层遮罩不进纸面 */
+@media print {
+  .el-message,
+  .el-overlay,
+  .el-message-box__wrapper {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

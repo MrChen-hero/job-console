@@ -1,0 +1,170 @@
+/* ============================================================
+   设计令牌 Design Tokens —— 「Cool Slate」
+   冷灰中性色 + 单一蓝色强调 + 语义状态色；亮色为默认主题。
+   视觉基准：design-demo/cool-slate-light-demo.html
+   设计文档：docs/superpowers/specs/2026-09-01-cool-slate-ui-refactor-design.md
+
+   命名约定：
+   - 语义色 --x 用于文字（均 ≥4.5:1）；--x-soft 底色；--x-border 边框；
+     --x-vivid 仅用于非文字元素（色条、圆点、方块标记）。
+   - --primary 用于色条/激活边框/圆点；--primary-strong 用于填充按钮底色
+     （白字 ≥4.5:1）；--primary-text 用于小字与链接。
+   - --control 是表单控件边框，满足 WCAG 1.4.11 的 3:1；装饰性分隔线用 --border。
+   ============================================================ */
+:root {
+  --bg: #f2f5f9;
+  --card: #ffffff;
+  --card2: #f7f9fc;
+  --surface-muted: #edf2f8;
+  --text: #172033;
+  --text2: #4c5a6e;
+  --muted: #64748b;
+  --border: #dbe3ec;
+  --border2: #c3cfdd;
+  --control: #828fa0;
+  --primary: #2f6bff;
+  --primary-strong: #2559dc;
+  --primary-text: #1d4ed8;
+  --primary-hover: #1d4ed8;
+  --primary-fg: #ffffff;
+  --primary-soft: #eaf2ff;
+  --primary-border: #c7dbff;
+  --info: #1d4ed8;
+  --info-soft: #eaf2ff;
+  --info-border: #c7dbff;
+  --info-vivid: #2f6bff;
+  --success: #12795f;
+  --success-soft: #e4f5ef;
+  --success-border: #b3e0d1;
+  --success-vivid: #10a37f;
+  --warn: #96650f;
+  --warn-soft: #fdf2e0;
+  --warn-border: #f0d7a8;
+  --warn-vivid: #e0a10a;
+  --danger: #b73d4a;
+  --danger-soft: #fdedef;
+  --danger-border: #f3ccd1;
+  --danger-vivid: #e05260;
+  --violet: #5b46c0;
+  --violet-soft: #eeebfd;
+  --violet-border: #d4ccf9;
+  --violet-vivid: #7c5cf0;
+  --teal: #0f766e;
+  --teal-soft: #e6f4f2;
+  --amber: #96650f;
+  --amber-soft: #fdf2e0;
+  --rose: #b73d4a;
+  --rose-soft: #fdedef;
+  --shadow-sm: 0 1px 2px rgba(23, 32, 51, 0.05);
+  --shadow-md: 0 1px 2px rgba(23, 32, 51, 0.05), 0 4px 14px rgba(23, 32, 51, 0.08);
+  --shadow-lg: 0 18px 48px rgba(23, 32, 51, 0.16);
+  --r-sm: 6px;
+  --r-md: 8px;
+  /* demo 里这一档就叫 --r；保留别名，8 处既有 var(--r) 调用才不会退化成直角 */
+  --r: var(--r-md);
+  --r-lg: 10px;
+  --sidebar-w: 250px;
+  --topbar-h: 86px;
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --font: 'Inter', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-display: 'Noto Serif SC', 'Songti SC', 'SimSun', Georgia, serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans Mono', monospace;
+  --ease: cubic-bezier(0.32, 0.72, 0.24, 1);
+}
+
+[data-theme='dark'] {
+  --bg: #090c11;
+  --card: #11161e;
+  --card2: #141a23;
+  --surface-muted: #1b222d;
+  --text: #e8edf4;
+  --text2: #a6b3c4;
+  --muted: #8493a6;
+  --border: #222a36;
+  --border2: #303a49;
+  --control: #5a6779;
+  --primary: #4d84ff;
+  /* 暗色填充按钮沿用亮色的深蓝：白字 5.93:1。设计图的 #3b74f5 只有 4.20:1，
+     低于本项目承诺的正文 4.5:1 下限，此处以可读性优先 */
+  --primary-strong: #2559dc;
+  --primary-text: #8cb0ff;
+  --primary-hover: #6b9bff;
+  --primary-fg: #ffffff;
+  --primary-soft: rgba(77, 132, 255, 0.15);
+  --primary-border: rgba(77, 132, 255, 0.36);
+  --info: #60a5fa;
+  --info-soft: rgba(96, 165, 250, 0.13);
+  --info-border: rgba(96, 165, 250, 0.32);
+  --info-vivid: #4d84ff;
+  --success: #34d399;
+  --success-soft: rgba(52, 211, 153, 0.13);
+  --success-border: rgba(52, 211, 153, 0.32);
+  --success-vivid: #34d399;
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.13);
+  --warn-border: rgba(251, 191, 36, 0.32);
+  --warn-vivid: #fbbf24;
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.13);
+  --danger-border: rgba(248, 113, 113, 0.32);
+  --danger-vivid: #f87171;
+  --violet: #a78bfa;
+  --violet-soft: rgba(167, 139, 250, 0.13);
+  --violet-border: rgba(167, 139, 250, 0.32);
+  --violet-vivid: #a78bfa;
+  --teal: #2dd4bf;
+  --teal-soft: rgba(45, 212, 191, 0.13);
+  --amber: #fbbf24;
+  --amber-soft: rgba(251, 191, 36, 0.13);
+  --rose: #fb7185;
+  --rose-soft: rgba(251, 113, 133, 0.13);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.45), 0 6px 18px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 20px 52px rgba(0, 0, 0, 0.6);
+}
+
+/* Element Plus 桥接：令牌 → EP 变量
+   必须位于 element-plus/theme-chalk/dark/css-vars.css 之后引入（见 src/main.ts）：
+   :root 与 .dark 特异度相同，靠源码顺序决胜；顺序反了暗色 EP 组件会失控。
+   桥接值全部引用我们的令牌，因此暗色随 [data-theme='dark'] 自动跟随，不写两套。 */
+:root {
+  --el-color-primary: var(--primary-strong);
+  --el-color-success: var(--success);
+  --el-color-warning: var(--warn);
+  --el-color-danger: var(--danger);
+  --el-color-info: var(--info);
+  --el-color-primary-light-3: var(--primary);
+  --el-color-primary-light-5: var(--primary-border);
+  --el-color-primary-light-7: var(--primary-border);
+  --el-color-primary-light-8: var(--primary-soft);
+  --el-color-primary-light-9: var(--primary-soft);
+  --el-border-radius-base: var(--r-md);
+  --el-border-radius-small: var(--r-sm);
+  --el-border-radius-round: 999px;
+  --el-border-color: var(--control);
+  --el-border-color-light: var(--border);
+  --el-border-color-lighter: var(--border);
+  --el-border-color-darker: var(--border2);
+  --el-fill-color: var(--surface-muted);
+  --el-fill-color-light: var(--card2);
+  --el-fill-color-lighter: var(--card2);
+  --el-fill-color-blank: var(--card);
+  --el-bg-color: var(--card);
+  --el-bg-color-page: var(--bg);
+  --el-bg-color-overlay: var(--card);
+  --el-mask-color: rgba(23, 32, 51, 0.3);
+  --el-text-color-primary: var(--text);
+  --el-text-color-regular: var(--text2);
+  --el-text-color-secondary: var(--muted);
+  --el-text-color-placeholder: var(--muted);
+  --el-text-color-disabled: var(--muted);
+  --el-disabled-bg-color: var(--surface-muted);
+  --el-disabled-text-color: var(--muted);
+  --el-disabled-border-color: var(--border);
+  --el-box-shadow-light: var(--shadow-sm);
+  --el-box-shadow-lighter: var(--shadow-sm);
+  --el-font-family: var(--font);
+}

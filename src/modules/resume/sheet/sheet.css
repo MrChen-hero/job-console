@@ -1,0 +1,135 @@
+/* A4 简历纸面（Editorial 排版）——从 design-demo/index.html 的 .sheet 区移植。
+   非 scoped：打印场景需要全局可达。 */
+.sheet {
+  width: 210mm;
+  min-height: 297mm;
+  background: #fff;
+  color: #1c1917;
+  border-radius: 4px;
+  box-shadow: var(--shadow-lg);
+  padding: 18mm 17mm;
+  font-family: var(--font);
+  font-size: 12.2px;
+  line-height: 1.62;
+}
+.sheet .r-name {
+  font-family: var(--font-display);
+  font-size: 27px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+.sheet .r-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-bottom: 2.5px solid #1c1917;
+  padding-bottom: 10px;
+}
+.sheet .r-meta {
+  font-size: 12px;
+  color: #57534e;
+  margin-top: 3px;
+}
+.sheet .r-contact {
+  font-size: 11px;
+  color: #57534e;
+  text-align: right;
+  line-height: 1.7;
+}
+.sheet .r-target {
+  font-size: 11px;
+  color: #78716c;
+  margin-top: 8px;
+}
+.sheet .r-section {
+  margin-top: 15px;
+}
+.sheet .r-sec-title {
+  font-family: var(--font-display);
+  font-size: 14.5px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 8px;
+}
+.sheet .r-sec-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #d6d3d1;
+}
+.sheet .r-sec-title em {
+  font-style: normal;
+  font-size: 10px;
+  color: #78716c;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+.sheet .r-item {
+  margin-bottom: 9px;
+}
+.sheet .r-item-hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+.sheet .r-item-hd b {
+  font-size: 13px;
+}
+.sheet .r-role {
+  font-weight: 600;
+  color: #4f46e5;
+  font-size: 12px;
+}
+.sheet .r-time {
+  font-size: 11px;
+  color: #78716c;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+.sheet .r-stack {
+  font-size: 10.8px;
+  color: #0d9488;
+  margin: 1px 0 3px;
+}
+.sheet .r-item ul {
+  margin-left: 16px;
+}
+.sheet .r-item li {
+  margin-bottom: 2.5px;
+}
+.sheet .r-skills {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 3px 10px;
+  font-size: 11.8px;
+}
+.sheet .r-skills b {
+  color: #1c1917;
+}
+.sheet .r-edu {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+.sheet .r-edu b {
+  font-size: 13px;
+}
+.sheet .r-courses {
+  font-size: 11px;
+  color: #57534e;
+}
+.sheet .r-list {
+  margin-left: 16px;
+}
+.sheet .r-list li {
+  margin-bottom: 2.5px;
+}
+.sheet .r-empty {
+  color: #a8a29e;
+  font-size: 11px;
+}

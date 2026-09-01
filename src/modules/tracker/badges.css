@@ -1,0 +1,24 @@
+/* 状态徽章（表格/看板/抽屉共用；配合 badges.css 引入方使用） */
+.stage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2.5px 9px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.stage-badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.badge-blue { color: var(--info); background: var(--info-soft); border-color: var(--info-border); }
+.badge-violet { color: var(--violet); background: var(--violet-soft); border-color: var(--violet-border); }
+.badge-amber { color: var(--warn); background: var(--warn-soft); border-color: var(--warn-border); }
+.badge-green { color: var(--success); background: var(--success-soft); border-color: var(--success-border); }
+.badge-red { color: var(--danger); background: var(--danger-soft); border-color: var(--danger-border); }
+.badge-gray { color: var(--text2); background: var(--card2); border-color: var(--border); }

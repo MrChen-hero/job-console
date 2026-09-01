@@ -1,0 +1,1085 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>求职工作台 · Cool Slate</title>
+<style>
+/* ============================================================
+   Cool Slate —— 亮色为默认主题，暗色为设计图原始配色
+   页面结构与组件按 design-demo/design-cool-slate/*.png 复刻
+   ============================================================ */
+:root {
+  --bg: #f2f5f9;
+  --sidebar: #f8fafc;
+  --surface: #ffffff;
+  --surface-soft: #f7f9fc;
+  --surface-muted: #edf2f8;
+  --text: #172033;
+  --text-2: #4c5a6e;
+  --text-3: #64748b;
+  --border: #dbe3ec;
+  --border-strong: #c3cfdd;
+  --control: #828fa0;
+  --primary: #2f6bff;
+  --primary-strong: #2559dc;
+  --primary-text: #1d4ed8;
+  --primary-soft: #eaf2ff;
+  --primary-border: #c7dbff;
+  --green: #12795f;
+  --green-soft: #e4f5ef;
+  --green-border: #b3e0d1;
+  --amber: #96650f;
+  --amber-soft: #fdf2e0;
+  --amber-border: #f0d7a8;
+  --red: #b73d4a;
+  --red-soft: #fdedef;
+  --red-border: #f3ccd1;
+  --purple: #5b46c0;
+  --purple-soft: #eeebfd;
+  --purple-border: #d4ccf9;
+  /* 语义色别名：-text 供文字使用（已过 AA），-vivid 供色条 / 圆点等非文字元素使用 */
+  --blue-text: var(--primary-text);
+  --blue-soft: var(--primary-soft);
+  --blue-border: var(--primary-border);
+  --blue-vivid: #2f6bff;
+  --green-text: var(--green);
+  --green-vivid: #10a37f;
+  --amber-text: var(--amber);
+  --amber-vivid: #e0a10a;
+  --red-text: var(--red);
+  --red-vivid: #e05260;
+  --purple-text: var(--purple);
+  --purple-vivid: #7c5cf0;
+  --shadow-xs: 0 1px 2px rgba(23, 32, 51, .05);
+  --shadow-sm: 0 4px 14px rgba(23, 32, 51, .08);
+  --shadow-lg: 0 18px 48px rgba(23, 32, 51, .16);
+  --r-sm: 6px;
+  --r: 8px;
+  --r-lg: 10px;
+  --sidebar-w: 250px;
+  --topbar-h: 86px;
+  --font: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Noto Sans Mono", monospace;
+}
+[data-theme='dark'] {
+  --bg: #090c11;
+  --sidebar: #0c1016;
+  --surface: #11161e;
+  --surface-soft: #141a23;
+  --surface-muted: #1b222d;
+  --text: #e8edf4;
+  --text-2: #a6b3c4;
+  --text-3: #8493a6;
+  --border: #222a36;
+  --border-strong: #303a49;
+  --control: #4a5566;
+  --primary: #4d84ff;
+  --primary-strong: #3b74f5;
+  --primary-text: #8cb0ff;
+  --primary-soft: rgba(77, 132, 255, .15);
+  --primary-border: rgba(77, 132, 255, .36);
+  --green: #34d399;
+  --green-soft: rgba(52, 211, 153, .13);
+  --green-border: rgba(52, 211, 153, .32);
+  --amber: #fbbf24;
+  --amber-soft: rgba(251, 191, 36, .13);
+  --amber-border: rgba(251, 191, 36, .32);
+  --red: #f87171;
+  --red-soft: rgba(248, 113, 113, .13);
+  --red-border: rgba(248, 113, 113, .32);
+  --purple: #a78bfa;
+  --purple-soft: rgba(167, 139, 250, .13);
+  --purple-border: rgba(167, 139, 250, .32);
+  --blue-vivid: #4d84ff;
+  --green-vivid: #34d399;
+  --amber-vivid: #fbbf24;
+  --red-vivid: #f87171;
+  --purple-vivid: #a78bfa;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, .45);
+  --shadow-sm: 0 6px 18px rgba(0, 0, 0, .45);
+  --shadow-lg: 0 20px 52px rgba(0, 0, 0, .6);
+}
+
+* { box-sizing: border-box; }
+html { min-width: 320px; background: var(--bg); -webkit-text-size-adjust: 100%; }
+body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font: 14px/1.55 var(--font); -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4, p { margin: 0; font-size: inherit; font-weight: inherit; }
+ul, ol { margin: 0; padding: 0; list-style: none; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { border: 0; background: none; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+[hidden] { display: none !important; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.ic { display: inline-grid; place-items: center; flex: 0 0 auto; width: 18px; height: 18px; }
+.ic svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.ic.solid svg { fill: currentColor; stroke: none; }
+/* 侧栏 */
+.sidebar { position: fixed; inset: 0 auto 0 0; z-index: 40; display: flex; flex-direction: column; width: var(--sidebar-w); padding: 20px 16px 16px; background: var(--sidebar); border-right: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 11px; padding: 0 4px 18px; }
+.brand-mark { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 9px; background: var(--primary); color: #fff; font-size: 17px; font-weight: 700; }
+.brand-name { font-size: 15px; font-weight: 700; }
+.brand-sub { margin-top: 2px; color: var(--text-3); font-size: 11.5px; }
+.hr { height: 1px; background: var(--border); }
+.nav { display: grid; gap: 6px; padding: 18px 0 0; }
+.nav-item { position: relative; display: flex; align-items: center; gap: 11px; width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); color: var(--text-2); font-size: 13.5px; text-align: left; transition: color .16s, background .16s, border-color .16s; }
+.nav-item:hover { color: var(--text); border-color: var(--border-strong); }
+.nav-item.on { color: var(--primary-text); background: var(--primary-soft); border-color: var(--primary-border); font-weight: 600; }
+.nav-item.on::before { content: ""; position: absolute; left: -1px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--primary); }
+.grow { flex: 1; }
+.sync { display: flex; align-items: flex-start; gap: 9px; padding: 14px 5px 2px; color: var(--text-3); font-size: 11.5px; line-height: 1.6; }
+.sync-dot { flex: 0 0 auto; width: 7px; height: 7px; margin-top: 5px; border-radius: 50%; background: var(--green-vivid); box-shadow: 0 0 0 3px var(--green-soft); }
+.sync-sub { margin-top: 2px; font-family: var(--mono); font-size: 10.5px; }
+
+/* 主区与顶栏 */
+.main { min-height: 100vh; margin-left: var(--sidebar-w); }
+.topbar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: var(--topbar-h); padding: 0 28px; background: var(--bg); }
+.topbar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.page-title { font-size: 21px; font-weight: 700; letter-spacing: -.01em; }
+.page-sub { margin-top: 5px; color: var(--text-3); font-size: 12.5px; }
+.icon-btn.menu-btn { display: none; }
+.content { padding: 4px 28px 44px; }
+.page { display: none; }
+.page.on { display: block; }
+
+/* 通用组件 */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-xs); }
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 17px 19px 0; }
+.card-title { font-size: 14.5px; font-weight: 700; }
+.card-sub { margin-top: 5px; color: var(--text-3); font-size: 12px; }
+.badge { display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border: 1px solid; border-radius: var(--r-sm); font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.b-blue { color: var(--primary-text); background: var(--primary-soft); border-color: var(--primary-border); }
+.b-green { color: var(--green); background: var(--green-soft); border-color: var(--green-border); }
+.b-amber { color: var(--amber); background: var(--amber-soft); border-color: var(--amber-border); }
+.b-red { color: var(--red); background: var(--red-soft); border-color: var(--red-border); }
+.b-purple { color: var(--purple); background: var(--purple-soft); border-color: var(--purple-border); }
+.b-gray { color: var(--text-2); background: var(--surface-muted); border-color: var(--border); }
+.tag { display: inline-flex; align-items: center; height: 22px; padding: 0 7px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface-soft); color: var(--text-2); font-size: 11px; }
+.pill { display: inline-flex; align-items: center; height: 28px; padding: 0 9px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface-soft); color: var(--text-2); font-family: var(--mono); font-size: 12px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 0 13px; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); color: var(--text); font-size: 13px; font-weight: 600; white-space: nowrap; transition: color .16s, background .16s, border-color .16s; }
+.btn:hover { border-color: var(--border-strong); background: var(--surface-soft); }
+.btn-primary { border-color: var(--primary-strong); background: var(--primary-strong); color: #fff; }
+.btn-primary:hover { border-color: var(--primary-text); background: var(--primary-text); }
+.btn .ic { width: 15px; height: 15px; }
+.icon-btn { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); color: var(--text-2); transition: color .16s, border-color .16s; }
+.icon-btn:hover { color: var(--text); border-color: var(--border-strong); }
+.ic-btn { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--text-3); transition: color .16s, background .16s, border-color .16s; }
+.ic-btn:hover { color: var(--primary-text); background: var(--primary-soft); border-color: var(--primary-border); }
+.ic-btn .ic { width: 15px; height: 15px; }
+.ic-btn.starred { color: var(--amber); background: var(--amber-soft); border-color: var(--amber-border); }
+.ic-btn.starred .ic svg { fill: currentColor; }
+.field { position: relative; display: flex; align-items: center; min-width: 0; }
+.field .ic { position: absolute; left: 11px; width: 16px; height: 16px; color: var(--text-3); pointer-events: none; }
+.input, .select { width: 100%; min-height: 38px; padding: 0 12px; border: 1px solid var(--control); border-radius: var(--r); background: var(--surface); color: var(--text); font-size: 13px; }
+.field .input { padding-left: 34px; }
+.input::placeholder { color: var(--text-3); }
+.input:focus, .select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.select { cursor: pointer; }
+.seg { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface-muted); }
+.seg-btn { min-height: 32px; padding: 0 15px; border-radius: var(--r-sm); color: var(--text-3); font-size: 13px; font-weight: 600; }
+.seg-btn:hover { color: var(--text); }
+.seg-btn.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow-xs); }
+
+/* 工作台 */
+.kpi-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
+.kpi { padding: 17px 18px 14px; }
+.kpi-label { color: var(--text-2); font-size: 12.5px; }
+.kpi-value { margin-top: 9px; font-size: 34px; font-weight: 700; line-height: 1.05; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.kpi-delta { display: flex; align-items: center; gap: 6px; margin-top: 9px; font-family: var(--mono); font-size: 12px; }
+.kpi-delta.up { color: var(--green); }
+.kpi-delta.down { color: var(--red); }
+.spark { display: block; width: 100%; height: 40px; margin-top: 12px; }
+.spark .area { fill: var(--primary-soft); stroke: none; }
+.spark .line { fill: none; stroke: var(--primary); stroke-width: 1.6; }
+.row-a { display: grid; grid-template-columns: minmax(0, 1.34fr) minmax(300px, 1fr); gap: 14px; margin-bottom: 14px; }
+.row-b { display: grid; grid-template-columns: minmax(0, .62fr) minmax(0, 1fr); gap: 14px; }
+.funnel { padding: 12px 19px 18px; }
+.f-row, .f-axis { display: grid; grid-template-columns: 74px minmax(0, 1fr) 42px 54px; gap: 14px; align-items: center; }
+.f-row { height: 40px; }
+.f-name { color: var(--text-2); font-size: 12.5px; }
+.f-plot { position: relative; height: 22px; border-right: 1px solid var(--border); background-image: linear-gradient(to right, var(--border) 1px, transparent 1px); background-size: 25% 100%; }
+.f-bar { height: 100%; min-width: 3px; border-radius: 2px; }
+.f-num { font-size: 13px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.f-pct { color: var(--text-3); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+.f-ticks { display: flex; justify-content: space-between; margin-top: 4px; color: var(--text-3); font-family: var(--mono); font-size: 11px; }
+.todo-list { display: grid; gap: 9px; padding: 15px 19px 18px; }
+.todo { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.todo-text { font-size: 13px; }
+.ms-list { display: grid; padding: 15px 19px 19px; }
+.ms { position: relative; display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 12px; align-items: center; padding: 7px 0; }
+.ms::before { content: ""; position: absolute; left: 5px; top: 0; bottom: 0; width: 1px; background: var(--border); }
+.ms:first-child::before { top: 50%; }
+.ms:last-child::before { bottom: 50%; }
+.ms-dot { position: relative; z-index: 1; width: 11px; height: 11px; border: 1.5px solid var(--border-strong); border-radius: 2px; background: var(--surface); }
+.ms.done .ms-dot { border-color: var(--green-vivid); background: var(--green-vivid); }
+.ms-text { font-size: 13px; }
+.ms.done .ms-text { color: var(--text-3); }
+.act-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 15px 19px 19px; }
+.act { display: grid; justify-items: center; gap: 11px; padding: 21px 10px; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); color: var(--text-2); transition: color .16s, background .16s, border-color .16s; }
+.act:hover { color: var(--primary-text); background: var(--primary-soft); border-color: var(--primary-border); }
+.act .ic { width: 26px; height: 26px; }
+.act span { font-size: 12.5px; font-weight: 600; }
+
+/* 投递管理 */
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 13px 14px; margin-bottom: 14px; }
+.toolbar .field { flex: 1 1 250px; max-width: 330px; }
+.toolbar .select { width: auto; min-width: 132px; }
+.toolbar-end { display: flex; gap: 9px; margin-left: auto; }
+.table-wrap { overflow-x: auto; border-radius: var(--r-lg) var(--r-lg) 0 0; }
+.dtable { width: 100%; min-width: 1060px; border-collapse: collapse; }
+.dtable th { height: 46px; padding: 0 16px; background: var(--surface-soft); border-bottom: 1px solid var(--border); color: var(--text-3); font-size: 12px; font-weight: 600; text-align: left; white-space: nowrap; }
+.dtable th.sortable { cursor: pointer; user-select: none; }
+.dtable th.sortable:hover { color: var(--text); }
+.sort { display: inline-grid; width: 9px; height: 12px; margin-left: 6px; vertical-align: -2px; opacity: .5; }
+.sort svg { width: 100%; height: 100%; fill: currentColor; stroke: none; }
+th.asc .sort, th.desc .sort { opacity: 1; color: var(--primary-text); }
+th.asc .sort .dn, th.desc .sort .up { opacity: .2; }
+.dtable td { height: 56px; padding: 0 16px; border-bottom: 1px solid var(--border); color: var(--text-2); font-size: 13px; }
+.dtable tbody tr:last-child td { border-bottom: 0; }
+.dtable tbody tr:hover td { background: var(--surface-soft); }
+.dtable tbody tr.on td { background: var(--primary-soft); }
+.dtable tbody tr.on td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
+.t-company { color: var(--text); font-weight: 600; white-space: nowrap; }
+.t-date { font-family: var(--mono); font-size: 12.5px; white-space: nowrap; }
+.t-next { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t-ops { display: flex; gap: 7px; }
+.table-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 18px; border-top: 1px solid var(--border); color: var(--text-3); font-family: var(--mono); font-size: 12px; }
+.pager { display: flex; align-items: center; gap: 6px; }
+.pg { display: grid; place-items: center; min-width: 32px; height: 32px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--text-2); font-family: var(--mono); font-size: 12px; }
+.pg:hover:not(:disabled) { color: var(--text); border-color: var(--border-strong); }
+.pg:disabled { opacity: .4; cursor: not-allowed; }
+.pg.on { background: var(--primary-strong); border-color: var(--primary-strong); color: #fff; }
+.pg .ic { width: 14px; height: 14px; }
+.kanban { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(254px, 1fr); gap: 12px; padding-bottom: 8px; overflow-x: auto; }
+.kcol { display: flex; flex-direction: column; min-height: 520px; border: 1px solid var(--border); border-top: 3px solid var(--kc); border-radius: var(--r); background: var(--surface-soft); }
+.kcol-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 12px 11px; }
+.kcol-name { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
+.kcount { display: grid; place-items: center; min-width: 24px; height: 22px; padding: 0 6px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--text-3); font-family: var(--mono); font-size: 11px; }
+.kstack { display: grid; gap: 9px; padding: 0 12px 12px; }
+.kcard { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); box-shadow: var(--shadow-xs); text-align: left; transition: border-color .16s, box-shadow .16s, background .16s; }
+.kcard:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+.kcard.on { border-color: var(--primary); background: var(--primary-soft); }
+.kc-company { color: var(--text); font-size: 13px; font-weight: 700; }
+.kc-role { margin-top: 4px; color: var(--text-2); font-size: 12px; }
+.kc-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.kcard .tag { color: var(--kc-text); background: var(--kc-soft); border-color: var(--kc-border); }
+.kc-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 11px; color: var(--text-3); font-family: var(--mono); font-size: 11px; }
+.kdot { width: 8px; height: 8px; border-radius: 50%; background: var(--kc); }
+.kadd { width: calc(100% - 24px); min-height: 38px; margin: 0 12px 12px; border: 1px dashed var(--border-strong); border-radius: var(--r); color: var(--text-3); font-size: 12.5px; }
+.kadd:hover { color: var(--primary-text); border-color: var(--primary); background: var(--primary-soft); }
+.kempty { padding: 20px 4px; color: var(--text-3); font-size: 12px; text-align: center; }
+
+/* 简历管理 */
+.resume { display: grid; grid-template-columns: minmax(300px, 372px) minmax(0, 1fr); gap: 14px; align-items: start; }
+.resume-left { display: grid; gap: 14px; }
+.ver-chips { display: flex; flex-wrap: wrap; gap: 9px; padding: 15px 19px 0; }
+.ver { min-height: 36px; padding: 0 15px; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); color: var(--text-2); font-family: var(--mono); font-size: 13px; font-weight: 600; }
+.ver:hover { color: var(--text); border-color: var(--border-strong); }
+.ver.on { color: var(--primary-text); background: var(--primary-soft); border-color: var(--primary); }
+.ver-new { border-style: dashed; color: var(--text-3); font-family: var(--font); }
+.ver-meta { padding: 13px 19px 17px; color: var(--text-3); font-family: var(--mono); font-size: 11.5px; }
+.pool { padding: 5px 0 8px; }
+.pool-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 46px; padding: 0 19px; color: var(--text); font-size: 13px; font-weight: 600; text-align: left; }
+.pool-row:hover { background: var(--surface-soft); }
+.pool-row .chev { width: 15px; height: 15px; color: var(--text-3); transition: transform .18s; }
+.pool-row[aria-expanded='true'] .chev { transform: rotate(90deg); }
+.pool-n { margin-left: auto; padding: 2px 7px; border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text-3); font-family: var(--mono); font-size: 11px; font-weight: 400; }
+.pool-body { display: grid; gap: 8px; padding: 3px 14px 12px; }
+.pool-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 10px 11px; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface-soft); }
+.pool-item .grip { width: 13px; height: 15px; color: var(--text-3); cursor: grab; }
+.pool-title { font-size: 12.5px; font-weight: 600; }
+.pool-sub { margin-top: 3px; color: var(--text-3); font-size: 11.5px; }
+.pool-add { width: calc(100% - 28px); min-height: 36px; margin: 0 14px 12px; border: 1px dashed var(--border-strong); border-radius: var(--r); color: var(--text-3); font-size: 12.5px; }
+.pool-add:hover { color: var(--primary-text); border-color: var(--primary); background: var(--primary-soft); }
+.paper-bar { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 14px; }
+.paper-stage { padding: 24px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface-muted); overflow: auto; }
+/* A4 纸面：固定浅色以保证打印保真 */
+.paper { width: min(100%, 762px); margin: 0 auto; padding: 52px 56px; background: #fff; border: 1px solid #d6dde6; box-shadow: 0 10px 30px rgba(23, 32, 51, .1); color: #1c2531; }
+.p-name { font-size: 26px; font-weight: 700; letter-spacing: .3em; text-indent: .3em; text-align: center; }
+.p-role { margin-top: 9px; color: #3d4a5c; font-size: 13px; text-align: center; }
+.p-contact { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; margin-top: 13px; padding-bottom: 15px; border-bottom: 1.5px solid #26374f; color: #5a6879; font-size: 11px; }
+.p-contact span { display: inline-flex; align-items: center; gap: 5px; }
+.p-contact .ic { width: 12px; height: 12px; }
+.p-sec { margin-top: 19px; }
+.p-sec-title { padding-bottom: 5px; border-bottom: 1px solid #dbe1e9; font-size: 13px; font-weight: 700; }
+.p-entry { margin-top: 11px; }
+.p-entry:first-of-type { margin-top: 9px; }
+.p-entry-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+.p-entry-title { font-size: 12px; font-weight: 700; }
+.p-entry-date { color: #6b7889; font-family: var(--mono); font-size: 10.5px; white-space: nowrap; }
+.p-entry-sub { margin-top: 3px; color: #4d5c70; font-size: 11px; }
+.p-points { margin-top: 5px; padding-left: 17px; color: #3f4c5e; font-size: 11px; line-height: 1.78; list-style: disc; }
+.p-text { margin-top: 9px; color: #3f4c5e; font-size: 11px; line-height: 1.85; }
+.p-kv { display: grid; grid-template-columns: 60px minmax(0, 1fr); gap: 10px; margin-top: 7px; color: #3f4c5e; font-size: 11px; }
+.p-kv b { color: #1c2531; }
+
+/* 材料库 */
+.lib { display: grid; grid-template-columns: 208px 358px minmax(0, 1fr); min-height: 680px; overflow: hidden; }
+.lib-cats { padding: 16px 12px; border-right: 1px solid var(--border); }
+.lib-label { padding: 0 8px 11px; color: var(--text-3); font-size: 11px; font-weight: 700; letter-spacing: .12em; }
+.cat { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 0 10px; border: 1px solid transparent; border-radius: var(--r); color: var(--text-2); font-size: 13px; text-align: left; }
+.cat:hover { color: var(--text); background: var(--surface-soft); }
+.cat.on { color: var(--primary-text); background: var(--primary-soft); border-color: var(--primary-border); font-weight: 600; }
+.cat-n { margin-left: auto; color: var(--text-3); font-family: var(--mono); font-size: 11px; }
+.cat.on .cat-n { color: var(--primary-text); }
+.lib-docs { display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--border); }
+.docs-search { padding: 14px 14px 10px; }
+.doc-list { flex: 1; max-height: 626px; padding: 0 8px 10px; overflow-y: auto; }
+.doc { position: relative; display: block; width: 100%; padding: 13px 12px; border: 1px solid transparent; border-radius: var(--r); text-align: left; }
+.doc:hover { background: var(--surface-soft); }
+.doc.on { background: var(--primary-soft); border-color: var(--primary-border); }
+.doc.on::before { content: ""; position: absolute; left: -1px; top: 11px; bottom: 11px; width: 3px; border-radius: 0 3px 3px 0; background: var(--primary); }
+.doc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.doc-title { color: var(--text); font-size: 13px; font-weight: 600; line-height: 1.45; }
+.doc-flag { flex: 0 0 auto; padding: 2px 7px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface-soft); color: var(--text-3); font-family: var(--mono); font-size: 10.5px; }
+.doc-ex { display: -webkit-box; margin-top: 6px; overflow: hidden; color: var(--text-3); font-size: 12px; line-height: 1.6; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.doc-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.doc-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.doc-date { color: var(--text-3); font-family: var(--mono); font-size: 11px; white-space: nowrap; }
+.reader { display: flex; flex-direction: column; min-width: 0; }
+.reader-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.reader-title { font-size: 14.5px; font-weight: 700; }
+.reader-acts { display: flex; gap: 8px; }
+.reader-body { max-width: 780px; padding: 24px 26px 44px; color: var(--text-2); font-size: 13.5px; line-height: 1.9; }
+.reader-body h3 { margin: 22px 0 8px; color: var(--text); font-size: 17px; font-weight: 700; }
+.reader-body h3:first-child { margin-top: 0; }
+.reader-body p { margin: 9px 0; }
+.reader-body ul { display: grid; gap: 7px; margin: 11px 0; }
+.reader-body li { position: relative; padding-left: 17px; }
+.reader-body li::before { content: ""; position: absolute; left: 0; top: 10px; width: 6px; height: 6px; background: var(--primary); }
+.quote { margin: 15px 0; padding: 12px 16px; border-left: 3px solid var(--primary); background: var(--primary-soft); }
+.code { position: relative; margin: 16px 0; padding: 17px 18px; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface-soft); color: var(--text); font-family: var(--mono); font-size: 12.5px; line-height: 1.75; }
+.code .lang { position: absolute; top: 11px; right: 15px; color: var(--primary-text); font-size: 11px; }
+.code .k { color: var(--purple); }
+.code .s { color: var(--green); }
+.code .n { color: var(--amber); }
+
+/* 项目演示 */
+.proj-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.proj { padding: 18px; }
+.proj-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.proj-name { font-size: 15px; font-weight: 700; }
+.proj-desc { min-height: 66px; margin-top: 10px; color: var(--text-2); font-size: 12.5px; line-height: 1.7; }
+.proj-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 13px; }
+.proj-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 15px; padding-top: 13px; border-top: 1px solid var(--border); color: var(--text-3); font-family: var(--mono); font-size: 11px; }
+.scrim { position: fixed; inset: 0; z-index: 35; background: rgba(23, 32, 51, .3); }
+
+@media (max-width: 1360px) {
+  .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .row-a, .row-b { grid-template-columns: minmax(0, 1fr); }
+  .resume { grid-template-columns: minmax(0, 1fr); }
+  .proj-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lib { grid-template-columns: 190px 300px minmax(0, 1fr); }
+}
+@media (max-width: 1024px) {
+  .sidebar { transform: translateX(-100%); transition: transform .2s ease; box-shadow: var(--shadow-lg); }
+  .sidebar.open { transform: none; }
+  .main { margin-left: 0; }
+  .icon-btn.menu-btn { display: grid; }
+  .lib { display: block; min-height: 0; }
+  .lib-cats, .lib-docs { border-right: 0; border-bottom: 1px solid var(--border); }
+  .lib-cats { display: flex; align-items: center; gap: 8px; overflow-x: auto; padding: 12px; }
+  .lib-label { display: none; }
+  .cat { width: auto; min-width: max-content; }
+  .doc-list { display: flex; max-height: none; overflow-x: auto; }
+  .doc { min-width: 260px; }
+}
+@media (max-width: 720px) {
+  :root { --topbar-h: 70px; }
+  .topbar, .content { padding-left: 16px; padding-right: 16px; }
+  .kpi-row { grid-template-columns: minmax(0, 1fr); }
+  .act-grid, .proj-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .toolbar .field { max-width: none; }
+  .toolbar-end { margin-left: 0; }
+  .paper { padding: 32px 24px; }
+  .paper-stage { padding: 14px; }
+}
+@media print {
+  body * { visibility: hidden; }
+  .paper, .paper * { visibility: visible; }
+  .paper { position: absolute; inset: 0; width: 210mm; padding: 18mm; border: 0; box-shadow: none; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+</style>
+</head>
+<body>
+<aside class="sidebar" id="sidebar" aria-label="主导航">
+  <div class="brand">
+    <div class="brand-mark" aria-hidden="true">职</div>
+    <div>
+      <div class="brand-name">求职工作台</div>
+      <div class="brand-sub">求职管理系统</div>
+    </div>
+  </div>
+  <div class="hr"></div>
+  <nav class="nav" id="nav">
+    <button class="nav-item on" data-page="dashboard"><i class="ic" data-i="grid"></i><span>工作台</span></button>
+    <button class="nav-item" data-page="tracker"><i class="ic" data-i="case"></i><span>投递管理</span></button>
+    <button class="nav-item" data-page="resume"><i class="ic" data-i="file"></i><span>简历管理</span></button>
+    <button class="nav-item" data-page="library"><i class="ic" data-i="layers"></i><span>材料库</span></button>
+    <button class="nav-item" data-page="showcase"><i class="ic" data-i="play"></i><span>项目演示</span></button>
+  </nav>
+  <div class="grow"></div>
+  <div class="hr"></div>
+  <div class="sync">
+    <span class="sync-dot"></span>
+    <div>
+      <div>数据已同步 · 30 秒前</div>
+      <div class="sync-sub">最后更新 2026-09-01 10:45</div>
+    </div>
+  </div>
+</aside>
+<div class="scrim" id="scrim" hidden></div>
+
+<main class="main">
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="icon-btn menu-btn" id="menuBtn" aria-label="打开导航"><i class="ic" data-i="menu"></i></button>
+      <div>
+        <h1 class="page-title" id="pageTitle">工作台</h1>
+        <p class="page-sub" id="pageSub">求职进度总览</p>
+      </div>
+    </div>
+    <button class="icon-btn" id="themeBtn" aria-label="切换深色模式"><i class="ic" data-i="sun"></i></button>
+  </header>
+
+  <div class="content">
+    <section class="page on" id="page-dashboard">
+      <div class="kpi-row" id="kpiRow"></div>
+      <div class="row-a">
+        <article class="card">
+          <div class="card-head">
+            <div><h2 class="card-title">投递漏斗</h2><p class="card-sub">各阶段转化情况</p></div>
+          </div>
+          <div class="funnel" id="funnel"></div>
+        </article>
+        <article class="card">
+          <div class="card-head"><h2 class="card-title">本周待办</h2></div>
+          <div class="todo-list">
+            <div class="todo"><span class="pill">09-02</span><span class="todo-text">准备云舟科技二面案例</span><span class="badge b-blue">面试准备</span></div>
+            <div class="todo"><span class="pill">09-03</span><span class="todo-text">完善项目经历量化描述</span><span class="badge b-green">简历优化</span></div>
+            <div class="todo"><span class="pill">09-04</span><span class="todo-text">跟进矩阵智能投递进度</span><span class="badge b-amber">跟进中</span></div>
+            <div class="todo"><span class="pill">09-05</span><span class="todo-text">准备北辰云技术面</span><span class="badge b-blue">面试准备</span></div>
+            <div class="todo"><span class="pill">09-06</span><span class="todo-text">复盘本周面试表现</span><span class="badge b-purple">复盘</span></div>
+          </div>
+        </article>
+      </div>
+      <div class="row-b">
+        <article class="card">
+          <div class="card-head"><h2 class="card-title">求职里程碑</h2></div>
+          <ol class="ms-list">
+            <li class="ms done"><span class="ms-dot"></span><span class="pill">08-12</span><span class="ms-text">建立目标公司池</span></li>
+            <li class="ms done"><span class="ms-dot"></span><span class="pill">08-25</span><span class="ms-text">核心简历定稿</span></li>
+            <li class="ms"><span class="ms-dot"></span><span class="pill">09-01</span><span class="ms-text">进入集中面试期</span></li>
+            <li class="ms"><span class="ms-dot"></span><span class="pill">09-20</span><span class="ms-text">完成 Offer 评估</span></li>
+            <li class="ms"><span class="ms-dot"></span><span class="pill">09-30</span><span class="ms-text">确定最终入职公司</span></li>
+          </ol>
+        </article>
+        <article class="card">
+          <div class="card-head"><h2 class="card-title">快捷操作</h2></div>
+          <div class="act-grid" id="actGrid"></div>
+        </article>
+      </div>
+    </section>
+    <section class="page" id="page-tracker">
+      <div class="card toolbar">
+        <div class="seg" role="tablist" aria-label="投递视图">
+          <button class="seg-btn on" data-view="table" role="tab">台账</button>
+          <button class="seg-btn" data-view="board" role="tab">看板</button>
+        </div>
+        <label class="field">
+          <i class="ic" data-i="search"></i>
+          <input class="input" id="q" type="search" placeholder="搜索公司 / 职位 / 备注" aria-label="搜索投递">
+        </label>
+        <select class="select" id="fStatus" aria-label="筛选状态"><option value="">全部状态</option></select>
+        <select class="select" id="fChannel" aria-label="筛选渠道"><option value="">所有渠道</option></select>
+        <div class="toolbar-end">
+          <button class="btn btn-primary"><i class="ic" data-i="plus"></i><span>新建投递</span></button>
+          <button class="btn"><i class="ic" data-i="export"></i><span>导出</span></button>
+        </div>
+      </div>
+      <div class="card" id="tableView">
+        <div class="table-wrap">
+          <table class="dtable">
+            <thead>
+              <tr id="thead"></tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="table-foot">
+          <span id="tableCount"></span>
+          <div class="pager" id="pager"></div>
+        </div>
+      </div>
+      <div id="boardView" hidden><div class="kanban" id="kanban"></div></div>
+    </section>
+
+    <section class="page" id="page-resume">
+      <div class="resume">
+        <div class="resume-left">
+          <article class="card">
+            <div class="card-head"><h2 class="card-title">简历版本</h2></div>
+            <div class="ver-chips" id="verChips"></div>
+            <div class="ver-meta" id="verMeta"></div>
+          </article>
+          <article class="card">
+            <div class="card-head"><h2 class="card-title">资料池</h2></div>
+            <div class="pool" id="pool"></div>
+          </article>
+        </div>
+        <div>
+          <div class="paper-bar">
+            <button class="btn btn-primary" id="printBtn"><i class="ic" data-i="download"></i><span>导出 PDF</span></button>
+            <button class="btn" id="printBtn2"><i class="ic" data-i="printer"></i><span>打印</span></button>
+            <button class="btn"><i class="ic" data-i="share"></i><span>分享</span></button>
+          </div>
+          <div class="paper-stage">
+            <article class="paper" id="paper"></article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-library">
+      <div class="card lib">
+        <aside class="lib-cats">
+          <div class="lib-label">CATEGORY</div>
+          <div id="catList"></div>
+        </aside>
+        <aside class="lib-docs">
+          <div class="docs-search">
+            <label class="field">
+              <i class="ic" data-i="search"></i>
+              <input class="input" id="docQ" type="search" placeholder="搜索材料…" aria-label="搜索材料">
+            </label>
+          </div>
+          <div class="doc-list" id="docList"></div>
+        </aside>
+        <section class="reader">
+          <div class="reader-head">
+            <h2 class="reader-title" id="readerTitle"></h2>
+            <div class="reader-acts">
+              <button class="ic-btn" id="starDoc" aria-label="收藏材料"><i class="ic" data-i="star"></i></button>
+              <button class="ic-btn" id="shareDoc" aria-label="分享材料"><i class="ic" data-i="share"></i></button>
+              <button class="ic-btn" id="copyDoc" aria-label="复制全文"><i class="ic" data-i="copy"></i></button>
+            </div>
+          </div>
+          <div class="reader-body" id="readerBody"></div>
+        </section>
+      </div>
+    </section>
+    <section class="page" id="page-showcase">
+      <div class="proj-grid">
+        <article class="card proj">
+          <div class="proj-top"><h2 class="proj-name">求职工作台</h2><span class="badge b-blue">主项目</span></div>
+          <p class="proj-desc">围绕求职流程构建投递、简历、材料与项目演示的一体化个人信息工作台，数据本地优先存储。</p>
+          <div class="proj-tags"><span class="tag">产品设计</span><span class="tag">Vue 3</span><span class="tag">Local-first</span></div>
+          <div class="proj-foot"><span>更新于 2026-08</span><span>18 页演示</span></div>
+        </article>
+        <article class="card proj">
+          <div class="proj-top"><h2 class="proj-name">经营分析驾驶舱</h2><span class="badge b-green">已完成</span></div>
+          <p class="proj-desc">重新梳理指标口径与分析路径，帮助区域负责人从结果回溯到具体业务动作。</p>
+          <div class="proj-tags"><span class="tag">数据产品</span><span class="tag">指标体系</span><span class="tag">BI</span></div>
+          <div class="proj-foot"><span>更新于 2026-07</span><span>12 页演示</span></div>
+        </article>
+        <article class="card proj">
+          <div class="proj-top"><h2 class="proj-name">流程配置中心</h2><span class="badge b-purple">案例</span></div>
+          <p class="proj-desc">针对复杂审批配置设计分层编辑器，使非技术人员也能安全完成流程搭建。</p>
+          <div class="proj-tags"><span class="tag">B 端产品</span><span class="tag">信息架构</span><span class="tag">可用性测试</span></div>
+          <div class="proj-foot"><span>更新于 2026-06</span><span>9 页演示</span></div>
+        </article>
+        <article class="card proj">
+          <div class="proj-top"><h2 class="proj-name">AI 材料整理助手</h2><span class="badge b-amber">实验</span></div>
+          <p class="proj-desc">验证从零散面试笔记到结构化知识库的自动整理流程，并保留人工校验环节。</p>
+          <div class="proj-tags"><span class="tag">AI Workflow</span><span class="tag">知识管理</span><span class="tag">原型验证</span></div>
+          <div class="proj-foot"><span>更新于 2026-08</span><span>7 页演示</span></div>
+        </article>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ---------- 图标 ---------- */
+const ICONS = {
+  grid: '<rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/>',
+  case: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 12h18"/>',
+  file: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+  layers: '<path d="m12 3 8 4.5-8 4.5-8-4.5z"/><path d="m4 12 8 4.5 8-4.5M4 16.5 12 21l8-4.5"/>',
+  play: '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="m10 8.5 5 2.5-5 2.5zM8 21h8"/>',
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  sun: '<circle cx="12" cy="12" r="4.2"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/>',
+  moon: '<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4.2-4.2"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  export: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8M8 12h8"/>',
+  edit: '<path d="M4 20h4l10-10-4-4L4 16z"/><path d="m14.5 5.5 4 4"/>',
+  star: '<path d="m12 4 2.5 5.2 5.5.8-4 3.9 1 5.6-5-2.8-5 2.8 1-5.6-4-3.9 5.5-.8z"/>',
+  trash: '<path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
+  grip: '<circle cx="9" cy="6" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="18" r="1.3"/>',
+  chev: '<path d="m9 5 7 7-7 7"/>',
+  left: '<path d="m14 6-6 6 6 6"/>',
+  right: '<path d="m10 6 6 6-6 6"/>',
+  first: '<path d="m16 6-6 6 6 6M7 5v14"/>',
+  last: '<path d="m8 6 6 6-6 6M17 5v14"/>',
+  download: '<path d="M12 4v10m0 0 4-4m-4 4-4-4M4 19h16"/>',
+  printer: '<path d="M7 9V4h10v5M7 18H5v-6h14v6h-2M8 14h8v6H8z"/>',
+  share: '<path d="M12 15V4m0 0-4 4m4-4 4 4M5 14v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
+  help: '<circle cx="12" cy="12" r="8.5"/><path d="M9.7 9.5a2.4 2.4 0 1 1 3.5 2.2c-.8.5-1.2 1-1.2 1.8M12 17h.01"/>',
+  target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><path d="M12 12h.01"/>',
+  book: '<path d="M6 4h13v16H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M9 4v16"/>',
+  mark: '<path d="M7 4h10v17l-5-4-5 4z"/>',
+  phone: '<path d="M6 4h4l1.5 4-2 1.5a10 10 0 0 0 5 5L16 12.5 20 14v4a2 2 0 0 1-2 2A15 15 0 0 1 4 6a2 2 0 0 1 2-2z"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6 8.5-6"/>',
+  pin: '<path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/>',
+  link: '<path d="M10 13a4 4 0 0 0 5.7 0l2.6-2.6a4 4 0 0 0-5.7-5.7L11.5 6"/><path d="M14 11a4 4 0 0 0-5.7 0l-2.6 2.6a4 4 0 0 0 5.7 5.7L12.5 18"/>'
+};
+const svg = n => `<svg viewBox="0 0 24 24">${ICONS[n] || ''}</svg>`;
+const hydrate = (root = document) => $$('[data-i]', root).forEach(el => { el.innerHTML = svg(el.dataset.i); delete el.dataset.i; });
+/* ---------- 数据 ---------- */
+/* 公司, 职位, 批次, 渠道, 投递日期, 状态, 已推进阶段, 标签, 下一步, 已接受 */
+const RAW = [
+  ['云舟科技', '高级产品经理', '0520', '内推', '2026-05-20', '面试中', 3, '产品', '准备跨部门推动案例'],
+  ['矩阵智能', '数据产品经理', '0518', '招聘平台', '2026-05-18', '简历筛选', 1, '数据', '等待简历筛选结果'],
+  ['北辰云', '平台产品经理', '0515', '官网', '2026-05-15', '笔试', 2, '产品', '完成在线笔试'],
+  ['知微数据', '商业分析产品', '0512', '猎头', '2026-05-12', 'Offer', 4, '数据', '等待 Offer 书面明细'],
+  ['光盒网络', '用户产品经理', '0510', '内推', '2026-05-10', '面试中', 3, '产品', '准备增长方案作业'],
+  ['麦穗科技', '策略产品经理', '0508', '招聘平台', '2026-05-08', '已投递', 0, '产品', '等待初筛反馈'],
+  ['叠浪软件', '产品经理', '0505', '官网', '2026-05-05', '已拒绝', 2, '产品', '流程已结束'],
+  ['原点实验室', 'AI 产品经理', '0503', '内推', '2026-05-03', '简历筛选', 1, '产品', '等待简历筛选结果'],
+  ['深蓝出行', '数据产品经理', '0430', '招聘平台', '2026-04-30', '笔试', 2, '数据', '完成数据分析笔试'],
+  ['山海零售', '平台产品经理', '0428', '官网', '2026-04-28', '已投递', 0, '产品', '等待初筛反馈'],
+  ['观澜智能', 'AI 产品经理', '0425', '内推', '2026-04-25', '简历筛选', 1, '产品', '补充模型评估材料'],
+  ['禾木云服', '企业产品经理', '0422', '招聘平台', '2026-04-22', '已拒绝', 1, '产品', '岗位已关闭'],
+  ['一苇科技', '策略运营', '0420', '官网', '2026-04-20', '已投递', 0, '运营', '等待初筛反馈'],
+  ['星图商业', '商业化产品经理', '0418', '猎头', '2026-04-18', 'Offer', 5, '产品', '已确认入职时间', true],
+  ['长风科技', '产品经理', '0415', '官网', '2026-04-15', '已投递', 0, '产品', '等待初筛反馈'],
+  ['白鹭云图', '数据分析师', '0412', '招聘平台', '2026-04-12', '简历筛选', 1, '数据', '等待简历筛选结果'],
+  ['沐言科技', '用户研究员', '0410', '内推', '2026-04-10', '已拒绝', 3, '运营', '终面未通过'],
+  ['拾光网络', '增长产品经理', '0408', '官网', '2026-04-08', '笔试', 2, '产品', '完成增长案例笔试'],
+  ['半亩数据', '数据产品经理', '0405', '猎头', '2026-04-05', 'Offer', 4, '数据', '对比薪酬与发展空间'],
+  ['木荷智造', '工业产品经理', '0402', '招聘平台', '2026-04-02', '已投递', 0, '产品', '等待初筛反馈'],
+  ['潮汐科技', '策略产品经理', '0330', '官网', '2026-03-30', '已拒绝', 1, '产品', '简历未通过'],
+  ['云栖医疗', '医疗产品经理', '0328', '内推', '2026-03-28', '简历筛选', 1, '产品', '等待简历筛选结果'],
+  ['九章教育', '教育产品经理', '0325', '招聘平台', '2026-03-25', '已投递', 0, '产品', '等待初筛反馈'],
+  ['砺石科技', '产品运营', '0322', '官网', '2026-03-22', '已拒绝', 2, '运营', '笔试未通过']
+];
+const APPS = RAW.map((r, i) => ({
+  id: i + 1, company: r[0], role: r[1], batch: r[2], channel: r[3], date: r[4],
+  status: r[5], reached: r[6], tag: r[7], next: r[8], accepted: !!r[9], star: i === 3 || i === 13
+}));
+const STAGES = ['已投递', '简历筛选', '笔试', '面试中', 'Offer', '已拒绝'];
+const STAGE_STYLE = {
+  '已投递': ['blue', 'b-blue'], '简历筛选': ['green', 'b-green'], '笔试': ['amber', 'b-amber'],
+  '面试中': ['purple', 'b-purple'], 'Offer': ['green', 'b-green'], '已拒绝': ['red', 'b-red']
+};
+const CHANNELS = ['官网', '内推', '招聘平台', '猎头'];
+const count = fn => APPS.filter(fn).length;
+
+/* ---------- 页面切换与主题 ---------- */
+const PAGES = {
+  dashboard: ['工作台', '求职进度总览'],
+  tracker: ['投递管理', '台账 · 看板'],
+  resume: ['简历管理', '资料池 · 多版本 · A4 打印'],
+  library: ['材料库', '自我介绍 · 高频问题 · 深挖答案'],
+  showcase: ['项目演示', '项目作品与演示材料']
+};
+function showPage(page) {
+  if (!PAGES[page]) return;
+  $$('.page').forEach(el => el.classList.toggle('on', el.id === `page-${page}`));
+  $$('.nav-item').forEach(el => el.classList.toggle('on', el.dataset.page === page));
+  $('#pageTitle').textContent = PAGES[page][0];
+  $('#pageSub').textContent = PAGES[page][1];
+  document.title = `${PAGES[page][0]} · 求职工作台`;
+  closeNav();
+  window.scrollTo({ top: 0 });
+}
+const closeNav = () => { $('#sidebar').classList.remove('open'); $('#scrim').hidden = true; };
+$('#nav').addEventListener('click', e => {
+  const btn = e.target.closest('[data-page]');
+  if (btn) showPage(btn.dataset.page);
+});
+$('#menuBtn').addEventListener('click', () => { $('#sidebar').classList.add('open'); $('#scrim').hidden = false; });
+$('#scrim').addEventListener('click', closeNav);
+$('#themeBtn').addEventListener('click', () => {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  document.documentElement.dataset.theme = dark ? 'light' : 'dark';
+  $('#themeBtn').innerHTML = `<i class="ic">${svg(dark ? 'sun' : 'moon')}</i>`;
+  $('#themeBtn').setAttribute('aria-label', dark ? '切换深色模式' : '切换浅色模式');
+});
+/* ---------- 工作台 ---------- */
+function spark(vals) {
+  const w = 100, h = 32, max = Math.max(...vals), min = Math.min(...vals), span = max - min || 1;
+  const d = vals.map((v, i) => `${i ? 'L' : 'M'}${(i * w / (vals.length - 1)).toFixed(1)} ${(h - 2 - (v - min) / span * (h - 4)).toFixed(1)}`).join(' ');
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path class="area" d="${d} L${w} ${h} L0 ${h}Z"/><path class="line" d="${d}" vector-effect="non-scaling-stroke"/></svg>`;
+}
+const KPIS = [
+  ['总投递数', APPS.length, '+6 (33.3%)', 'up', [6, 8, 7, 10, 9, 12, 11, 14, 13, 17, 16, 20, 22, 24]],
+  ['面试数', count(a => a.reached >= 3), '+2 (50.0%)', 'up', [0, 1, 1, 2, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6]],
+  ['录用数', count(a => a.reached >= 4), '+1 (50.0%)', 'up', [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3]],
+  ['拒绝 / 撤回', count(a => a.status === '已拒绝'), '-1 (-16.7%)', 'down', [0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 5, 5]]
+];
+$('#kpiRow').innerHTML = KPIS.map(([label, value, delta, dir, series]) => `<article class="card kpi">
+  <div class="kpi-label">${label}</div>
+  <div class="kpi-value">${value}</div>
+  <div class="kpi-delta ${dir}">${dir === 'up' ? '▲' : '▼'} ${delta}</div>
+  ${spark(series)}
+</article>`).join('');
+
+const FUNNEL = [
+  ['投递', APPS.length], ['简历筛选', count(a => a.reached >= 1)], ['笔试', count(a => a.reached >= 2)],
+  ['面试中', count(a => a.reached >= 3)], ['Offer', count(a => a.reached >= 4)], ['已接受', count(a => a.accepted)]
+];
+const SHADES = ['#2f6bff', '#4f80ff', '#6c95ff', '#8aabff', '#a8c0ff', '#c5d6ff'];
+$('#funnel').innerHTML = FUNNEL.map(([name, n], i) => {
+  const pct = n / APPS.length * 100;
+  return `<div class="f-row">
+    <span class="f-name">${name}</span>
+    <div class="f-plot"><div class="f-bar" style="width:${pct.toFixed(1)}%;background:${SHADES[i]}"></div></div>
+    <strong class="f-num">${n}</strong><span class="f-pct">${pct.toFixed(1)}%</span>
+  </div>`;
+}).join('') + `<div class="f-axis"><span></span><div class="f-ticks"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div><span></span><span></span></div>`;
+
+const ACTIONS = [
+  ['plus', '新增投递', 'tracker', 'table'], ['grid', '打开看板', 'tracker', 'board'], ['book', '新建材料', 'library', ''],
+  ['file', '简历版本', 'resume', ''], ['play', '项目演示', 'showcase', ''], ['download', '导出数据', '', '']
+];
+$('#actGrid').innerHTML = ACTIONS.map(([icon, label, page, view]) =>
+  `<button class="act" data-page="${page}" data-view="${view}"><i class="ic">${svg(icon)}</i><span>${label}</span></button>`).join('');
+$('#actGrid').addEventListener('click', e => {
+  const btn = e.target.closest('.act');
+  if (!btn || !btn.dataset.page) return;
+  showPage(btn.dataset.page);
+  if (btn.dataset.view) setView(btn.dataset.view);
+});
+
+/* ---------- 投递管理 ---------- */
+const state = { view: 'table', q: '', status: '', channel: '', sort: 'date', dir: -1, page: 1, sel: null };
+const PER = 12;
+const COLS = [
+  ['company', '公司'], ['role', '职位'], ['batch', '批次'], ['channel', '渠道'],
+  ['date', '投递日期'], ['status', '状态'], ['next', '下一步'], ['', '操作']
+];
+const sortIcon = '<span class="sort"><svg viewBox="0 0 10 14"><path class="up" d="M5 1.5 8.2 5.6H1.8z"/><path class="dn" d="M5 12.5 1.8 8.4h6.4z"/></svg></span>';
+$('#thead').innerHTML = COLS.map(([key, label]) =>
+  key ? `<th class="sortable" data-key="${key}">${label}${sortIcon}</th>` : `<th>${label}</th>`).join('');
+$('#fStatus').innerHTML = '<option value="">全部状态</option>' + STAGES.map(s => `<option>${s}</option>`).join('');
+$('#fChannel').innerHTML = '<option value="">所有渠道</option>' + CHANNELS.map(s => `<option>${s}</option>`).join('');
+function filtered() {
+  const q = state.q.trim().toLowerCase();
+  const rows = APPS.filter(a =>
+    (!q || `${a.company} ${a.role} ${a.next}`.toLowerCase().includes(q)) &&
+    (!state.status || a.status === state.status) &&
+    (!state.channel || a.channel === state.channel));
+  const k = state.sort;
+  return rows.sort((a, b) => {
+    const x = k === 'status' ? STAGES.indexOf(a[k]) : a[k], y = k === 'status' ? STAGES.indexOf(b[k]) : b[k];
+    return (x > y ? 1 : x < y ? -1 : 0) * state.dir;
+  });
+}
+function renderTable() {
+  const rows = filtered();
+  const pages = Math.max(1, Math.ceil(rows.length / PER));
+  state.page = Math.min(state.page, pages);
+  const slice = rows.slice((state.page - 1) * PER, state.page * PER);
+  $('#tbody').innerHTML = slice.length ? slice.map(a => `<tr data-id="${a.id}" class="${state.sel === a.id ? 'on' : ''}">
+    <td class="t-company">${esc(a.company)}</td>
+    <td>${esc(a.role)}</td>
+    <td><span class="badge b-blue mono">批次 ${a.batch}</span></td>
+    <td>${a.channel}</td>
+    <td class="t-date">${a.date}</td>
+    <td><span class="badge ${STAGE_STYLE[a.status][1]}">${a.status}</span></td>
+    <td class="t-next" title="${esc(a.next)}">${esc(a.next)}…</td>
+    <td><div class="t-ops">
+      <button class="ic-btn" data-act="edit" aria-label="编辑投递">${`<i class="ic">${svg('edit')}</i>`}</button>
+      <button class="ic-btn ${a.star ? 'starred' : ''}" data-act="star" aria-label="收藏投递" aria-pressed="${a.star}">${`<i class="ic">${svg('star')}</i>`}</button>
+    </div></td>
+  </tr>`).join('') : `<tr><td colspan="8" style="height:180px;text-align:center;color:var(--text-3)">没有符合当前条件的投递</td></tr>`;
+  $('#tableCount').textContent = `${rows.length} / ${APPS.length}`;
+  $$('#thead th').forEach(th => {
+    th.classList.remove('asc', 'desc');
+    if (th.dataset.key === state.sort) th.classList.add(state.dir === 1 ? 'asc' : 'desc');
+  });
+  const btn = (icon, page, disabled) => `<button class="pg" data-page-to="${page}" ${disabled ? 'disabled' : ''} aria-label="第 ${page} 页"><i class="ic">${svg(icon)}</i></button>`;
+  $('#pager').innerHTML = btn('first', 1, state.page === 1) + btn('left', state.page - 1, state.page === 1) +
+    Array.from({ length: pages }, (_, i) => `<button class="pg ${state.page === i + 1 ? 'on' : ''}" data-page-to="${i + 1}">${i + 1}</button>`).join('') +
+    btn('right', state.page + 1, state.page === pages) + btn('last', pages, state.page === pages);
+}
+function renderBoard() {
+  const rows = filtered();
+  $('#kanban').innerHTML = STAGES.map(stage => {
+    const items = rows.filter(a => a.status === stage);
+    const c = STAGE_STYLE[stage][0];
+    const vars = `--kc:var(--${c}-vivid);--kc-text:var(--${c}-text);--kc-soft:var(--${c}-soft);--kc-border:var(--${c}-border)`;
+    return `<section class="kcol" style="${vars}">
+      <div class="kcol-head"><div class="kcol-name">${stage}</div><span class="kcount">${String(items.length).padStart(2, '0')}</span></div>
+      <div class="kstack">${items.map(a => `<button class="kcard ${state.sel === a.id ? 'on' : ''}" data-id="${a.id}">
+        <div class="kc-company">${esc(a.company)}</div>
+        <div class="kc-role">${esc(a.role)}</div>
+        <div class="kc-tags"><span class="tag">${a.channel}</span><span class="tag">${a.tag}</span></div>
+        <div class="kc-foot"><span>${a.date}</span><span class="kdot"></span></div>
+      </button>`).join('') || '<div class="kempty">暂无记录</div>'}</div>
+      <button class="kadd">＋ 添加卡片</button>
+    </section>`;
+  }).join('');
+}
+function renderTracker() { renderTable(); renderBoard(); }
+function setView(view) {
+  state.view = view;
+  $('#tableView').hidden = view !== 'table';
+  $('#boardView').hidden = view !== 'board';
+  $$('[data-view]', $('#page-tracker')).forEach(b => b.classList.toggle('on', b.dataset.view === view));
+}
+$$('.seg-btn').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
+$('#q').addEventListener('input', e => { state.q = e.target.value; state.page = 1; renderTracker(); });
+$('#fStatus').addEventListener('change', e => { state.status = e.target.value; state.page = 1; renderTracker(); });
+$('#fChannel').addEventListener('change', e => { state.channel = e.target.value; state.page = 1; renderTracker(); });
+$('#thead').addEventListener('click', e => {
+  const th = e.target.closest('.sortable');
+  if (!th) return;
+  if (state.sort === th.dataset.key) state.dir *= -1; else { state.sort = th.dataset.key; state.dir = 1; }
+  renderTable();
+});
+$('#pager').addEventListener('click', e => {
+  const btn = e.target.closest('[data-page-to]');
+  if (!btn || btn.disabled) return;
+  state.page = Number(btn.dataset.pageTo);
+  renderTable();
+});
+$('#tbody').addEventListener('click', e => {
+  const row = e.target.closest('[data-id]');
+  if (!row) return;
+  const app = APPS.find(a => a.id === Number(row.dataset.id));
+  const act = e.target.closest('[data-act]');
+  if (act && act.dataset.act === 'star') app.star = !app.star;
+  else state.sel = state.sel === app.id ? null : app.id;
+  renderTracker();
+});
+$('#kanban').addEventListener('click', e => {
+  const card = e.target.closest('[data-id]');
+  if (!card) return;
+  state.sel = state.sel === Number(card.dataset.id) ? null : Number(card.dataset.id);
+  renderTracker();
+});
+/* ---------- 简历管理 ---------- */
+const RESUME = {
+  'v3.0': {
+    label: '产品经理 · 主版本', updated: '2026-09-01 14:32:18', name: '陈知行', role: '产品经理 / 数据产品',
+    edu: [['华东理工大学 · 信息管理与信息系统', '2019.09 — 2023.06', '本科 · 管理学院', ['主修课程：信息系统分析与设计、数据库、统计学、运筹学']]],
+    work: [
+      ['远岚科技 · 产品经理', '2023.07 — 至今', '企业协同产品线', ['负责企业协同平台的需求规划与版本迭代，覆盖 12 个业务部门', '重构审批配置流程，使平均配置时长下降 42%', '建立核心指标看板，将周报整理时间从 4 小时缩短至 30 分钟']],
+      ['岚图网络 · 产品助理', '2022.07 — 2023.06', '中后台产品组', ['承接需求调研与竞品分析，输出 20 余份可执行需求文档', '跟进 3 个模块的验收测试与上线复盘']]
+    ],
+    proj: [
+      ['求职工作台 · 个人信息管理系统', '2026.03 — 2026.08', '独立产品设计 / 前端实现', ['独立完成从需求分析、信息架构到交互原型的产品设计', '构建投递、简历、材料与项目演示的模块闭环', '通过本地优先存储方案保证隐私与离线可用性']]
+    ],
+    skills: [['产品能力', '需求分析、用户研究、产品规划、原型设计、数据分析'], ['工具技术', 'Figma、Axure、SQL、Vue、Git、AI 辅助工作流']],
+    summary: '3 年 B 端产品实践，关注复杂业务的信息架构与数据决策。擅长从用户研究、需求拆解到跨团队交付的完整闭环，能够用可量化指标验证产品价值。'
+  },
+  'v2.1': {
+    label: '数据产品经理', updated: '2026-08-29 21:07:44', name: '陈知行', role: '数据产品经理',
+    edu: [['华东理工大学 · 信息管理与信息系统', '2019.09 — 2023.06', '本科 · 管理学院', ['主修课程：数据库、统计学、数据分析方法']]],
+    work: [['远岚科技 · 数据产品经理', '2023.07 — 至今', '数据平台方向', ['搭建覆盖获客、活跃与留存的核心指标体系', '推动 6 个业务系统完成数据口径治理', '设计经营分析驾驶舱，使异常定位时间缩短 65%']]],
+    proj: [['经营分析驾驶舱', '2025.09 — 2026.03', '数据产品负责人', ['从 40 余个分散报表中抽象三级指标体系', '按管理者决策路径设计概览、诊断与明细层', '上线后周度分析会议时长下降 35%']]],
+    skills: [['产品能力', '指标体系、数据分析、业务建模、需求分析、数据可视化'], ['工具技术', 'SQL、Tableau、Power BI、Figma、Python 基础']],
+    summary: '具备产品设计与数据分析复合背景，能够从业务目标出发建立指标体系、分析路径和数据产品方案，重视口径一致性与决策闭环。'
+  },
+  'v1.4': {
+    label: '策略运营', updated: '2026-08-23 18:52:10', name: '陈知行', role: '策略运营 / 产品运营',
+    edu: [['华东理工大学 · 信息管理与信息系统', '2019.09 — 2023.06', '本科 · 管理学院', ['主修课程：市场研究、统计学、运营管理']]],
+    work: [['远岚科技 · 产品运营', '2023.07 — 至今', '企业客户增长组', ['负责企业客户激活与留存策略，建立用户分层运营机制', '设计新客引导实验，使关键功能首周使用率提升 18%', '沉淀标准化运营工具包，供 4 个区域团队复用']]],
+    proj: [['客户激活策略优化', '2025.05 — 2025.12', '策略设计与执行', ['结合行为数据与访谈识别激活断点', '设计分群触达与任务引导方案', '通过三轮 A/B 测试将 14 日激活率提升 12.6%']]],
+    skills: [['产品能力', '用户分层、策略设计、活动运营、数据分析、A/B 测试'], ['工具技术', 'SQL、Excel、Tableau、Figma、问卷与访谈']],
+    summary: '围绕用户增长与业务效率开展策略设计，擅长从数据中发现问题、设计实验并推动执行，能够把运营策略沉淀为稳定的工具与流程。'
+  }
+};
+let ver = 'v3.0';
+const entry = ([title, date, sub, points]) => `<div class="p-entry">
+  <div class="p-entry-head"><div class="p-entry-title">${title}</div><div class="p-entry-date">${date}</div></div>
+  <div class="p-entry-sub">${sub}</div>
+  ${points && points.length ? `<ul class="p-points">${points.map(p => `<li>${p}</li>`).join('')}</ul>` : ''}
+</div>`;
+function renderPaper() {
+  const r = RESUME[ver];
+  $('#paper').innerHTML = `<h2 class="p-name">${r.name}</h2>
+  <div class="p-role">${r.role}</div>
+  <div class="p-contact">
+    <span><i class="ic">${svg('phone')}</i>138 0000 0000</span>
+    <span><i class="ic">${svg('mail')}</i>hello@example.com</span>
+    <span><i class="ic">${svg('pin')}</i>上海</span>
+    <span><i class="ic">${svg('link')}</i>chenzhixing.dev</span>
+  </div>
+  <section class="p-sec"><h3 class="p-sec-title">教育背景</h3>${r.edu.map(entry).join('')}</section>
+  <section class="p-sec"><h3 class="p-sec-title">工作经历</h3>${r.work.map(entry).join('')}</section>
+  <section class="p-sec"><h3 class="p-sec-title">项目经历</h3>${r.proj.map(entry).join('')}</section>
+  <section class="p-sec"><h3 class="p-sec-title">技能证书</h3>${r.skills.map(([k, v]) => `<div class="p-kv"><b>${k}</b><span>${v}</span></div>`).join('')}</section>
+  <section class="p-sec"><h3 class="p-sec-title">自我评价</h3><p class="p-text">${r.summary}</p></section>`;
+  $('#verMeta').textContent = `${r.label} · 最后更新 ${r.updated}`;
+}
+function renderVersions() {
+  $('#verChips').innerHTML = Object.keys(RESUME).map(k =>
+    `<button class="ver ${k === ver ? 'on' : ''}" data-ver="${k}">${k}</button>`).join('') +
+    '<button class="ver ver-new">＋ 新建</button>';
+}
+$('#verChips').addEventListener('click', e => {
+  const btn = e.target.closest('[data-ver]');
+  if (!btn) return;
+  ver = btn.dataset.ver;
+  renderVersions();
+  renderPaper();
+});
+$('#printBtn').addEventListener('click', () => window.print());
+$('#printBtn2').addEventListener('click', () => window.print());
+const POOL = [
+  ['基本信息', [['姓名与联系方式', '陈知行 · 138 0000 0000'], ['目标岗位', '产品经理 / 数据产品'], ['所在城市', '上海 · 可考虑杭州'], ['个人主页', 'chenzhixing.dev']]],
+  ['教育背景', [['华东理工大学', '信息管理与信息系统 · 本科']]],
+  ['工作经历', [['产品经理', '远岚科技 · 上海'], ['产品助理', '岚图网络 · 深圳'], ['数据分析实习', '明理数据 · 北京']]],
+  ['项目经历', [['求职工作台', '独立产品设计 / 前端实现'], ['经营分析驾驶舱', '数据产品负责人'], ['流程配置中心', 'B 端产品设计']]],
+  ['技能证书', [['产品能力', '需求分析、用户研究、原型设计'], ['工具技术', 'Figma、SQL、Vue、Git']]],
+  ['荣誉奖项', [['年度优秀产品奖', '远岚科技 · 2025'], ['校级一等奖学金', '华东理工大学 · 2021']]],
+  ['自我评价', [['通用版自我评价', '70 字 · 适用于多数岗位']]]
+];
+let poolOpen = '工作经历';
+function renderPool() {
+  $('#pool').innerHTML = POOL.map(([name, items]) => `<div>
+    <button class="pool-row" data-group="${name}" aria-expanded="${poolOpen === name}">
+      <i class="ic chev">${svg('chev')}</i><span>${name}</span><span class="pool-n">${String(items.length).padStart(2, '0')}</span>
+    </button>
+    ${poolOpen === name ? `<div class="pool-body">${items.map(([title, sub]) => `<div class="pool-item">
+      <i class="ic grip solid">${svg('grip')}</i>
+      <div><div class="pool-title">${title}</div><div class="pool-sub">${sub}</div></div>
+      <button class="ic-btn" aria-label="编辑条目"><i class="ic">${svg('edit')}</i></button>
+      <button class="ic-btn" aria-label="删除条目"><i class="ic">${svg('trash')}</i></button>
+    </div>`).join('')}</div>
+    <button class="pool-add">＋ 添加${name}</button>` : ''}
+  </div>`).join('');
+}
+$('#pool').addEventListener('click', e => {
+  const row = e.target.closest('[data-group]');
+  if (!row) return;
+  poolOpen = poolOpen === row.dataset.group ? '' : row.dataset.group;
+  renderPool();
+});
+
+/* ---------- 材料库 ---------- */
+const CATS = [['自我介绍', 'user'], ['项目深挖', 'target'], ['高频问题', 'help'], ['公司研究', 'book'], ['反问清单', 'mark']];
+const DOCS = [
+  ['自我介绍', '三分钟通用自我介绍', '2026-08-31', ['通用', '面试开场'], 1, '围绕经历主线、核心能力与岗位动机建立稳定开场。', '## 开场定位\n面试官您好，我是陈知行，过去三年主要从事 B 端产品设计与数据产品实践。\n\n## 经历主线\n我最近一段经历是在远岚科技负责企业协同平台，工作重点是把复杂业务流程转化为低门槛、可配置的产品能力。期间我推动审批配置流程重构，使平均配置时长下降 42%。\n\n> 表达重点：不要复述简历，而是给面试官一条理解你的主线。\n\n## 岗位连接\n我关注这个岗位，是因为它同时要求复杂业务理解、数据决策与跨团队推动，这与我的经历和下一阶段发展方向高度一致。'],
+  ['自我介绍', '数据产品岗位版本', '2026-08-29', ['数据产品'], 0, '突出指标体系、分析路径与数据治理经验。', '## 核心定位\n我是一名兼具产品设计与数据分析能力的产品经理。\n\n## 代表成果\n- 搭建覆盖获客、活跃与留存的指标体系\n- 推动 6 个系统完成口径治理\n- 使异常定位时间缩短 65%\n\n## 求职动机\n希望在更复杂的数据场景中，把分析能力转化为稳定的产品能力。'],
+  ['项目深挖', '求职工作台：为什么要做', '2026-08-30', ['主项目', '产品思考'], 1, '从碎片化求职信息、隐私与复盘成本切入项目背景。', '## 问题背景\n求职过程中的投递、简历、面试材料与项目作品通常分散在多个工具中，状态无法串联，复盘成本很高。\n\n## 核心判断\n这不是简单的信息记录问题，而是一个贯穿目标、行动、反馈与调整的个人决策流程。\n\n## 方案选择\n- 用五个模块覆盖主要信息对象\n- 用投递阶段串联日常行动\n- 采用本地优先存储保护个人隐私\n- 让项目内容可以直接进入面试演示'],
+  ['项目深挖', '指标口径与 SQL 表达', '2026-08-28', ['数据产品', 'SQL'], 0, '解释口径定义的追问逻辑，并给出可复述的表达方式。', '## 为什么会被追问口径\n指标名称相同但口径不同，是数据产品面试中最常见的追问点。回答时先说明业务定义，再给出计算方式。\n\n## 回答结构\n- 先说业务问题：谁在什么场景下使用这个指标\n- 再说口径定义：时间窗口、去重方式、排除规则\n- 最后给计算表达，并说明为什么这样取\n\n> 口径必须有负责人、计算逻辑和使用场景，否则指标一定会漂移。\n\n## 示例：7 日留存\n```sql\nSELECT\n  date_trunc(\'day\', first_seen) AS cohort_day,\n  count(DISTINCT user_id) FILTER (WHERE active_day = 7) * 1.0\n    / count(DISTINCT user_id) AS d7_retention\nFROM user_activity\nWHERE first_seen >= current_date - interval \'30 day\'\nGROUP BY 1\nORDER BY 1;\n```\n表达式只是结论，真正被评估的是口径选择的理由。'],
+  ['项目深挖', '流程配置中心：关键取舍', '2026-08-27', ['B端', '信息架构'], 1, '说明低门槛配置与复杂能力之间如何平衡。', '## 核心冲突\n业务希望配置自由，管理员又担心误操作与维护成本。\n\n## 设计取舍\n把编辑器拆为基础配置、条件规则与高级能力三层，默认只展示当前任务需要的信息。\n\n## 验证结果\n可用性测试中，首次配置成功率从 56% 提升到 88%。'],
+  ['高频问题', '为什么离开上一家公司', '2026-08-30', ['HR面'], 1, '客观说明发展诉求，避免否定原团队。', '## 回答结构\n先肯定收获，再说明变化，最后连接目标岗位。\n\n我在上一家公司完成了从需求执行到独立负责产品模块的成长，也积累了复杂 B 端场景经验。现在希望进入业务规模更大、数据决策更成熟的环境，继续加强产品策略与数据产品能力。'],
+  ['高频问题', '你最大的不足是什么', '2026-08-26', ['通用'], 1, '选择真实但可改善、不直接否定岗位胜任力的问题。', '## 选择原则\n真实、具体、可改进，不触及岗位最核心的胜任要求。\n\n## 当前答案\n过去我在方案早期有时会过度追求完整性。最近一年我通过先定义最小验证目标、设置决策截止时间来改善，现在能够更早拿出可讨论的版本。'],
+  ['高频问题', '一次失败的项目经历', '2026-08-20', ['复盘'], 0, '突出判断修正、责任承担与方法沉淀。', '## 情境\n早期版本过度依赖少数大客户需求，导致通用性不足。\n\n## 行动\n我重新组织用户访谈与数据分析，缩小首版范围，并建立需求证据分级。\n\n## 反思\n产品判断不能只看声音大小，需要同时验证覆盖面、频率与业务价值。'],
+  ['公司研究', '云舟科技面试档案', '2026-08-31', ['二面', '重点'], 0, '业务、岗位、面试官与待确认问题的集中记录。', '## 公司与业务\n面向中大型企业提供协同与知识管理产品，当前重点推进智能化升级。\n\n## 岗位判断\n岗位需要负责平台产品规划，重点关注跨部门业务抽象与数据指标。\n\n## 需要确认\n- 团队当前最重要的北极星指标\n- 产品与交付团队的职责边界\n- AI 能力的真实落地阶段'],
+  ['公司研究', '矩阵智能岗位分析', '2026-08-28', ['数据产品'], 0, '与个人能力的匹配点和潜在风险。', '## 匹配点\n指标体系、经营分析与 B 端协作经验高度匹配。\n\n## 风险点\n岗位描述范围较宽，需要确认是数据平台、分析产品还是业务支持角色。'],
+  ['反问清单', '业务负责人反问问题', '2026-08-24', ['二面'], 1, '用于判断业务优先级、成功标准与协作方式。', '## 业务目标\n这个岗位入职三个月后，最希望解决的一个问题是什么？\n\n## 成功标准\n团队如何判断一名产品经理在这个岗位上做得好？\n\n## 协作方式\n产品、研发、设计与业务团队在重要决策中如何分工？'],
+  ['反问清单', 'HR 终面反问问题', '2026-08-21', ['终面'], 1, '关注评价机制、发展路径与组织变化。', '## 发展与评价\n岗位的绩效评价周期和主要维度是什么？\n\n## 组织变化\n团队未来一年最可能发生的变化是什么？\n\n## 后续流程\n如果流程顺利，后续决策和入职时间大致如何安排？']
+].map((d, i) => ({ id: i + 1, cat: d[0], title: d[1], date: d[2], tags: d[3], builtin: !!d[4], excerpt: d[5], body: d[6], star: false }));
+const lib = { cat: '自我介绍', q: '', doc: 1 };
+const escCode = v => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function highlight(src) {
+  return escCode(src)
+    .replace(/'[^']*'/g, m => `<span class="s">${m}</span>`)
+    .replace(/\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|DISTINCT|FILTER|AS|AND|OR|INTERVAL)\b/g, '<span class="k">$1</span>')
+    .replace(/(?<![\w#])(\d+(?:\.\d+)?)\b/g, '<span class="n">$1</span>');
+}
+function renderMd(md) {
+  const lines = md.split('\n'), out = [];
+  let list = null, i = 0;
+  const flush = () => { if (list) { out.push(`<ul>${list.map(t => `<li>${esc(t)}</li>`).join('')}</ul>`); list = null; } };
+  while (i < lines.length) {
+    const line = lines[i];
+    if (line.startsWith('```')) {
+      flush();
+      const lang = line.slice(3).trim(), buf = [];
+      for (i++; i < lines.length && !lines[i].startsWith('```'); i++) buf.push(lines[i]);
+      out.push(`<pre class="code">${lang ? `<span class="lang">${lang}</span>` : ''}${highlight(buf.join('\n'))}</pre>`);
+    } else if (line.startsWith('## ')) { flush(); out.push(`<h3>${esc(line.slice(3))}</h3>`); }
+    else if (line.startsWith('> ')) { flush(); out.push(`<div class="quote">${esc(line.slice(2))}</div>`); }
+    else if (line.startsWith('- ')) { (list = list || []).push(line.slice(2)); }
+    else if (line.trim()) { flush(); out.push(`<p>${esc(line)}</p>`); }
+    else flush();
+    i++;
+  }
+  flush();
+  return out.join('');
+}
+function renderCats() {
+  $('#catList').innerHTML = CATS.map(([name, icon]) => `<button class="cat ${lib.cat === name ? 'on' : ''}" data-cat="${name}">
+    <i class="ic">${svg(icon)}</i><span>${name}</span><span class="cat-n">${DOCS.filter(d => d.cat === name).length}</span>
+  </button>`).join('');
+}
+const visibleDocs = () => DOCS.filter(d => d.cat === lib.cat &&
+  (!lib.q || `${d.title} ${d.excerpt} ${d.tags.join(' ')}`.toLowerCase().includes(lib.q.trim().toLowerCase())));
+function renderDocs() {
+  const docs = visibleDocs();
+  $('#docList').innerHTML = docs.length ? docs.map(d => `<button class="doc ${d.id === lib.doc ? 'on' : ''}" data-doc="${d.id}">
+    <div class="doc-top"><div class="doc-title">${esc(d.title)}</div><span class="doc-flag">${d.builtin ? 'built-in' : 'edited'}</span></div>
+    <div class="doc-ex">${esc(d.excerpt)}</div>
+    <div class="doc-foot"><div class="doc-tags">${d.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div><span class="doc-date">${d.date}</span></div>
+  </button>`).join('') : '<div class="kempty" style="padding:40px 0">没有匹配的材料</div>';
+}
+function renderReader() {
+  const doc = DOCS.find(d => d.id === lib.doc) || visibleDocs()[0];
+  if (!doc) { $('#readerTitle').textContent = ''; $('#readerBody').innerHTML = ''; return; }
+  lib.doc = doc.id;
+  $('#readerTitle').textContent = doc.title;
+  $('#readerBody').innerHTML = renderMd(doc.body);
+  $('#starDoc').classList.toggle('starred', doc.star);
+  $('#starDoc').setAttribute('aria-pressed', String(doc.star));
+}
+function renderLibrary() { renderCats(); renderDocs(); renderReader(); }
+$('#catList').addEventListener('click', e => {
+  const btn = e.target.closest('[data-cat]');
+  if (!btn) return;
+  lib.cat = btn.dataset.cat;
+  const first = DOCS.find(d => d.cat === lib.cat);
+  if (first) lib.doc = first.id;
+  renderLibrary();
+});
+$('#docList').addEventListener('click', e => {
+  const btn = e.target.closest('[data-doc]');
+  if (!btn) return;
+  lib.doc = Number(btn.dataset.doc);
+  renderDocs();
+  renderReader();
+});
+$('#docQ').addEventListener('input', e => { lib.q = e.target.value; renderDocs(); });
+$('#starDoc').addEventListener('click', () => {
+  const doc = DOCS.find(d => d.id === lib.doc);
+  doc.star = !doc.star;
+  renderReader();
+});
+async function copyText(text, btn) {
+  try { await navigator.clipboard.writeText(text); } catch { /* 演示环境忽略 */ }
+  const icon = btn.innerHTML;
+  btn.innerHTML = `<i class="ic">${svg('chev')}</i>`;
+  setTimeout(() => { btn.innerHTML = icon; }, 1200);
+}
+$('#copyDoc').addEventListener('click', e => copyText(DOCS.find(d => d.id === lib.doc).body, e.currentTarget));
+$('#shareDoc').addEventListener('click', e => {
+  const doc = DOCS.find(d => d.id === lib.doc);
+  copyText(`${doc.title}\n\n${doc.body}`, e.currentTarget);
+});
+
+/* ---------- 启动 ---------- */
+hydrate();
+renderTracker();
+setView('table');
+renderVersions();
+renderPaper();
+renderPool();
+renderLibrary();
+</script>
+</body>
+</html>
+

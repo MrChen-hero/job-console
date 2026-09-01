@@ -1,0 +1,320 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { NAV_ITEMS } from '../../app/nav'
+import { db } from '../../storage/db'
+import { exportBackup, importBackup, validateBackup, type ImportMode } from '../../storage/backup'
+import AppIcon from '../ui/AppIcon.vue'
+
+defineProps<{ open?: boolean; hidden?: boolean }>()
+
+const route = useRoute()
+
+/** 路由名 → 图标名 */
+const NAV_ICONS: Record<string, string> = {
+  dashboard: 'grid',
+  tracker: 'case',
+  resume: 'file',
+  library: 'layers',
+  showcase: 'play',
+}
+
+/** 导出全库为 JSON 备份（与工作台磁贴同一 exportBackup，全量七表） */
+async function onExport() {
+  let url = ''
+  try {
+    const backup = await exportBackup(db)
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
+    url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `jobconsole-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    ElMessage.success('备份已导出')
+  } catch {
+    ElMessage.error('导出失败，请重试')
+  } finally {
+    if (url) URL.revokeObjectURL(url)
+  }
+}
+
+const fileInput = ref<HTMLInputElement | null>(null)
+
+function onImportClick() {
+  fileInput.value?.click()
+}
+
+/** 选导入方式：覆盖（清库替换，导入前自动快照）或合并（按 id 合并）；×/Esc 取消 */
+async function pickMode(): Promise<ImportMode | null> {
+  try {
+    await ElMessageBox.confirm(
+      '「覆盖导入」清空本机现有数据并替换为备份内容（导入前自动存一份当前数据快照，可回退）；「合并导入」按 id 合并，未冲突的现有数据保留。',
+      '导入数据',
+      {
+        confirmButtonText: '覆盖导入',
+        cancelButtonText: '合并导入',
+        type: 'warning',
+        distinguishCancelAndClose: true,
+      },
+    )
+    return 'overwrite'
+  } catch (action) {
+    return action === 'cancel' ? 'merge' : null
+  }
+}
+
+async function onImportFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  let raw: unknown
+  try {
+    raw = JSON.parse(await file.text())
+  } catch {
+    ElMessage.error('文件不是有效的 JSON')
+    return
+  }
+  const result = validateBackup(raw)
+  if (!result.ok) {
+    const first = result.issues[0]
+    ElMessage.error(`备份文件校验失败${first ? `：${first.path} ${first.message}` : ''}`)
+    return
+  }
+  const mode = await pickMode()
+  if (!mode) return
+  try {
+    await importBackup(db, result.file, mode)
+  } catch {
+    ElMessage.error('导入失败，请重试')
+    return
+  }
+  ElMessage.success('导入完成，正在刷新…')
+  setTimeout(() => window.location.reload(), 900)
+}
+</script>
+
+<template>
+  <aside
+    class="sidebar"
+    :class="{ open }"
+    aria-label="主导航"
+    :aria-hidden="hidden ? 'true' : undefined"
+    :inert="hidden || undefined"
+  >
+    <div class="brand">
+      <div
+        class="brand-mark"
+        aria-hidden="true"
+      >
+        职
+      </div>
+      <div class="brand-text">
+        <div class="brand-name">
+          求职工作台
+        </div>
+        <div class="brand-sub">
+          Job Quest Console
+        </div>
+      </div>
+    </div>
+    <div class="hr" />
+    <nav class="nav">
+      <RouterLink
+        v-for="item in NAV_ITEMS"
+        :key="item.name"
+        :to="item.path"
+        class="nav-item"
+        :class="{ active: route.name === item.name }"
+      >
+        <AppIcon :name="NAV_ICONS[item.name] ?? 'grid'" />
+        <span>{{ item.title }}</span>
+      </RouterLink>
+    </nav>
+    <div class="spacer" />
+    <div class="hr" />
+    <div class="data-actions">
+      <button
+        type="button"
+        class="data-btn"
+        @click="onExport"
+      >
+        <AppIcon
+          name="download"
+          :size="15"
+        />
+        导出数据
+      </button>
+      <button
+        type="button"
+        class="data-btn"
+        @click="onImportClick"
+      >
+        <AppIcon
+          name="upload"
+          :size="15"
+        />
+        导入数据
+      </button>
+      <input
+        ref="fileInput"
+        type="file"
+        accept=".json,application/json"
+        class="file-input"
+        aria-label="选择备份文件"
+        @change="onImportFile"
+      >
+    </div>
+    <div class="sidebar-foot">
+      <span class="sync-dot" />
+      <span class="foot-note">数据仅存本机浏览器</span>
+    </div>
+  </aside>
+</template>
+
+<style scoped>
+.sidebar {
+  width: var(--sidebar-w);
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 16px 16px;
+  background: var(--card2);
+  border-right: 1px solid var(--border);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 0 4px 18px;
+}
+.brand-mark {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-lg);
+  background: var(--primary);
+  color: var(--primary-fg);
+  font-size: 17px;
+  font-weight: var(--fw-bold);
+}
+.brand-text {
+  min-width: 0;
+}
+.brand-name {
+  font-size: 15px;
+  font-weight: var(--fw-bold);
+}
+.brand-sub {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.hr {
+  height: 1px;
+  background: var(--border);
+}
+.nav {
+  display: grid;
+  gap: 6px;
+  padding: 18px 0 0;
+}
+.nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--card);
+  color: var(--text2);
+  font-size: 13.5px;
+  text-decoration: none;
+  transition: color 0.16s var(--ease), background 0.16s var(--ease), border-color 0.16s var(--ease);
+}
+.nav-item:hover {
+  color: var(--text);
+  border-color: var(--border2);
+}
+.nav-item.active {
+  color: var(--primary-text);
+  background: var(--primary-soft);
+  border-color: var(--primary-border);
+  font-weight: var(--fw-semibold);
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--primary);
+}
+.spacer {
+  flex: 1;
+}
+.data-actions {
+  display: grid;
+  gap: 6px;
+  padding: 12px 5px 0;
+}
+.data-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--card);
+  color: var(--text2);
+  font-size: 12.5px;
+  font-weight: var(--fw-semibold);
+  transition: color 0.16s, border-color 0.16s, background 0.16s;
+}
+.data-btn:hover {
+  color: var(--primary-text);
+  border-color: var(--primary-border);
+  background: var(--primary-soft);
+}
+.file-input {
+  display: none;
+}
+.sidebar-foot {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 14px 5px 2px;
+}
+.sync-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--success-vivid);
+  box-shadow: 0 0 0 3px var(--success-soft);
+}
+.foot-note {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+@media (max-width: 1024px) {
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.22s var(--ease);
+    box-shadow: var(--shadow-lg);
+  }
+  .sidebar.open {
+    transform: none;
+  }
+}
+</style>
