@@ -191,11 +191,14 @@ export interface LocalDemo {
  * - 与内置项目同 id 的行是「覆盖」——不带 hidden 表示编辑过的内置项目，带 hidden:true 表示已删除（墓碑），
  *   删行即恢复内置原样（showcase 模块 projectStore 负责 merged/visible 合并视图）。
  */
+/** 项目主题色（showcase 色板）：渲染走 --accent-<id> 令牌，暗色自动适配 */
+export type ProjectAccent = 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'violet' | 'black' | 'gray'
+
 export interface RuntimeProject {
   id: string
   title: string
   eyebrow: string
-  accent: 'violet' | 'teal' | 'amber' | 'rose'
+  accent: ProjectAccent
   summary: string
   stack: string[]
   demo: { title: string; points: string[] }

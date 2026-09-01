@@ -3,11 +3,13 @@ export interface ShowcaseDemoPage {
   points: string[]
 }
 
+import type { ProjectAccent } from '../storage/types'
+
 export interface ShowcaseProject {
   id: string
   title: string
   eyebrow: string
-  accent: 'violet' | 'teal' | 'amber' | 'rose'
+  accent: ProjectAccent
   summary: string
   stack: string[]
   /** 纵向第一页（要点式演示页）；上传的交互式 HTML demo 追加其后 */
@@ -55,7 +57,7 @@ export const SHOWCASE_PROJECTS: ShowcaseProject[] = [
     id: 'motor-platform',
     title: '设备监控数据平台',
     eyebrow: '示例科技公司 · 开发实习生（虚构示例）',
-    accent: 'rose',
+    accent: 'red',
     summary: '参与需求梳理与核心模块开发，对接运维、经营、信息化多业务方；ECharts 数据看板 + WebSocket 实时推送，组织联调测试与上线。',
     stack: ['Spring Boot', 'Vue', 'ECharts', 'WebSocket'],
     demo: {

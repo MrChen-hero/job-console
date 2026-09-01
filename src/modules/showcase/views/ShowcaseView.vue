@@ -30,6 +30,24 @@ function projectNameOf(projectId: string): string {
   return projectStore.merged.find((p) => p.id === projectId)?.title ?? projectId
 }
 
+/** 顶部色条颜色：走 accent 令牌（黑/灰中性色令牌同样存在）；旧数据值映射到黄/红 */
+function accentVar(accent: string): string {
+  const map: Record<string, string> = {
+    red: 'var(--accent-red)',
+    orange: 'var(--accent-orange)',
+    yellow: 'var(--accent-yellow)',
+    green: 'var(--accent-green)',
+    teal: 'var(--accent-teal)',
+    blue: 'var(--accent-blue)',
+    violet: 'var(--accent-violet)',
+    black: 'var(--accent-black)',
+    gray: 'var(--accent-gray)',
+    amber: 'var(--accent-yellow)',
+    rose: 'var(--accent-red)',
+  }
+  return map[accent] ?? 'var(--accent-violet)'
+}
+
 function openDeck(index: number) {
   deckStart.value = index
   deckOpen.value = true
@@ -211,6 +229,7 @@ async function removeDemo(demo: MergedDemo) {
         class="card proj"
         role="button"
         tabindex="0"
+        :style="{ '--proj-accent': accentVar(p.accent) }"
         @click="openDeck(i)"
         @keydown.enter.prevent="openDeck(i)"
       >
@@ -433,22 +452,13 @@ async function removeDemo(demo: MergedDemo) {
   overflow: hidden;
   transition: box-shadow 0.2s var(--ease), transform 0.2s var(--ease), border-color 0.2s;
 }
-/* 顶部 3px 色条按顺序轮转，给每个项目一个稳定的识别色 */
+/* 顶部 3px 色条：项目自身的主题色（accent 令牌经内联 --proj-accent 传入） */
 .proj::before {
   content: '';
   position: absolute;
   inset: 0 0 auto;
   height: 3px;
-  background: var(--info-vivid);
-}
-.proj:nth-child(4n + 2)::before {
-  background: var(--success-vivid);
-}
-.proj:nth-child(4n + 3)::before {
-  background: var(--violet-vivid);
-}
-.proj:nth-child(4n + 4)::before {
-  background: var(--warn-vivid);
+  background: var(--proj-accent, var(--accent-violet));
 }
 .proj:hover {
   box-shadow: var(--shadow-md);

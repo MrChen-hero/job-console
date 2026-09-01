@@ -80,17 +80,32 @@ onBeforeUnmount(() => {
 
 const demoUrlFor = demoUrl
 
+/* accent → 令牌映射（黑/灰等中性色同样有令牌）；amber/rose 是旧数据值，映射到黄/红 */
 const accentColor: Record<string, string> = {
-  violet: 'var(--violet)',
-  teal: 'var(--teal)',
-  amber: 'var(--amber)',
-  rose: 'var(--rose)',
+  red: 'var(--accent-red)',
+  orange: 'var(--accent-orange)',
+  yellow: 'var(--accent-yellow)',
+  green: 'var(--accent-green)',
+  teal: 'var(--accent-teal)',
+  blue: 'var(--accent-blue)',
+  violet: 'var(--accent-violet)',
+  black: 'var(--accent-black)',
+  gray: 'var(--accent-gray)',
+  amber: 'var(--accent-yellow)',
+  rose: 'var(--accent-red)',
 }
 const accentSoft: Record<string, string> = {
-  violet: 'var(--violet-soft)',
-  teal: 'var(--teal-soft)',
-  amber: 'var(--amber-soft)',
-  rose: 'var(--rose-soft)',
+  red: 'var(--accent-red-soft)',
+  orange: 'var(--accent-orange-soft)',
+  yellow: 'var(--accent-yellow-soft)',
+  green: 'var(--accent-green-soft)',
+  teal: 'var(--accent-teal-soft)',
+  blue: 'var(--accent-blue-soft)',
+  violet: 'var(--accent-violet-soft)',
+  black: 'var(--accent-black-soft)',
+  gray: 'var(--accent-gray-soft)',
+  amber: 'var(--accent-yellow-soft)',
+  rose: 'var(--accent-red-soft)',
 }
 </script>
 

@@ -23,6 +23,7 @@
 | 边框 | `--border: #dbe3ec` · `--border2: #c3cfdd` · `--control: #828fa0`（表单控件专用） |
 | 主色 | `--primary: #2f6bff`（非文字元素）· `--primary-strong: #2559dc`（填充按钮）· `--primary-text: #1d4ed8`（小字/链接）· `--primary-soft: #eaf2ff` · `--primary-border: #c7dbff` |
 | 语义 | info `#1d4ed8` / vivid `#2f6bff` · success `#12795f` / `#10a37f` · warn `#96650f` / `#e0a10a` · danger `#b73d4a` / `#e05260` · violet `#5b46c0` / `#7c5cf0`（各带 `-soft` / `-border`） |
+| 项目主题色 | `--accent-red/orange/yellow/green/teal/blue/violet/black/gray`（9 色板 + 各 `-soft`；showcase 卡片色条 / Deck eyebrow / 色板选择器专用，仅装饰不表语义） |
 | 阴影 | `--shadow-sm/md/lg`（rgba(23,32,51) 低透明度冷色阴影） |
 | 圆角 | `--r-sm: 6px` · `--r-md: 8px` · `--r-lg: 10px` |
 | 结构 | `--sidebar-w: 250px` · `--topbar-h: 86px` |
@@ -30,7 +31,7 @@
 
 ### 暗色（`[data-theme='dark']`）
 
-覆盖同名令牌：`--bg: #090c11` 深蓝黑、卡片 `#11161e/#141a23`、文字 `#e8edf4/#a6b3c4/#8493a6`、主色 `#4d84ff`（文字用 `--primary-text: #8cb0ff`）。语义色取明亮档（success `#34d399`、warn `#fbbf24`、danger `#f87171`、violet `#a78bfa`）；`-soft = rgba(同色,.13)`、`-border = rgba(同色,.32)`、`-vivid` 与基色同值。
+覆盖同名令牌：`--bg: #090c11` 深蓝黑、卡片 `#11161e/#141a23`、文字 `#e8edf4/#a6b3c4/#8493a6`、主色 `#4d84ff`（文字用 `--primary-text: #8cb0ff`）。语义色取明亮档（success `#34d399`、warn `#fbbf24`、danger `#f87171`、violet `#a78bfa`）；`-soft = rgba(同色,.13)`、`-border = rgba(同色,.32)`、`-vivid` 与基色同值。项目主题色板取明亮档（如 green `#34d399`、blue `#4d84ff`）；「黑」在暗色下映射为亮中性 `#cbd5e1`（纯黑在深底不可见）。
 
 ### Element Plus 桥接
 

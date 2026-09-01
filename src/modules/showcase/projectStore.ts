@@ -1,8 +1,21 @@
 import { defineStore } from 'pinia'
 import { db } from '../../storage/db'
-import type { RuntimeProject } from '../../storage/types'
+import type { ProjectAccent, RuntimeProject } from '../../storage/types'
 import { newId } from '../../storage/types'
 import { SHOWCASE_PROJECTS, type ShowcaseProject } from '../../config/showcase.config'
+
+/** 色板选项（顺序即选择器展示顺序）：红 橙 黄 绿 青 蓝 紫 黑 灰 */
+export const ACCENT_OPTIONS: Array<{ id: ProjectAccent; label: string }> = [
+  { id: 'red', label: '红' },
+  { id: 'orange', label: '橙' },
+  { id: 'yellow', label: '黄' },
+  { id: 'green', label: '绿' },
+  { id: 'teal', label: '青' },
+  { id: 'blue', label: '蓝' },
+  { id: 'violet', label: '紫' },
+  { id: 'black', label: '黑' },
+  { id: 'gray', label: '灰' },
+]
 
 export type MergedProject =
   | ({ source: 'local'; overridden: boolean; hidden?: false } & ShowcaseProject)
@@ -11,14 +24,14 @@ export type MergedProject =
 export interface ProjectInput {
   title: string
   eyebrow: string
-  accent: RuntimeProject['accent']
+  accent: ProjectAccent
   summary: string
   stack: string[]
   demoTitle: string
   demoPoints: string[]
 }
 
-const ACCENTS: RuntimeProject['accent'][] = ['violet', 'teal', 'amber', 'rose']
+const ACCENTS: ProjectAccent[] = ACCENT_OPTIONS.map((a) => a.id)
 
 function nowIso(): string {
   return new Date().toISOString()

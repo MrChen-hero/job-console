@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { reactive } from 'vue'
-import { ElButton, ElDialog, ElInput, ElOption, ElSelect } from 'element-plus'
+import { ElButton, ElDialog, ElInput } from 'element-plus'
 import type { MergedProject, ProjectInput } from '../projectStore'
-import { validateProjectInput } from '../projectStore'
+import { ACCENT_OPTIONS, validateProjectInput } from '../projectStore'
 
 const props = defineProps<{
   /** 编辑目标；为 null 时是新建 */
@@ -83,30 +83,32 @@ function save() {
             placeholder="如：三端全栈 · 独立开发"
           />
         </div>
-        <div class="pe-field">
-          <label for="pe-accent">主题色</label>
-          <ElSelect
-            id="pe-accent"
-            v-model="form.accent"
-            data-field="accent"
+      </div>
+      <div class="pe-field">
+        <label id="pe-accent-label">主题色</label>
+        <div
+          class="swatches"
+          role="group"
+          aria-labelledby="pe-accent-label"
+          data-field="accent"
+        >
+          <button
+            v-for="a in ACCENT_OPTIONS"
+            :key="a.id"
+            type="button"
+            class="swatch"
+            :class="{ on: form.accent === a.id }"
+            :aria-pressed="form.accent === a.id"
+            :aria-label="`主题色 ${a.label}`"
+            :title="a.label"
+            @click="form.accent = a.id"
           >
-            <ElOption
-              label="紫罗兰"
-              value="violet"
+            <span
+              class="swatch-dot"
+              :style="{ background: `var(--accent-${a.id})` }"
             />
-            <ElOption
-              label="青色"
-              value="teal"
-            />
-            <ElOption
-              label="琥珀"
-              value="amber"
-            />
-            <ElOption
-              label="玫瑰"
-              value="rose"
-            />
-          </ElSelect>
+            <span class="swatch-name">{{ a.label }}</span>
+          </button>
         </div>
       </div>
       <div class="pe-field">
@@ -175,8 +177,53 @@ function save() {
 <style scoped>
 .pe-row {
   display: grid;
-  grid-template-columns: 1.4fr 1.2fr 120px;
+  grid-template-columns: 1.4fr 1.2fr;
   gap: 14px;
+}
+/* 3×3 色板：色块即选项，选中态用主色描边 + 勾选标记 */
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  max-width: 240px;
+}
+.swatch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--card);
+  cursor: pointer;
+  transition: border-color 0.16s, background 0.16s;
+}
+.swatch:hover {
+  border-color: var(--border2);
+  background: var(--card2);
+}
+.swatch:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.swatch.on {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.swatch-dot {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(23, 32, 51, 0.08);
+}
+.swatch-name {
+  font-size: 12px;
+  color: var(--text2);
+}
+.swatch.on .swatch-name {
+  color: var(--primary-text);
+  font-weight: var(--fw-semibold);
 }
 .pe-field {
   margin-bottom: 14px;

@@ -91,9 +91,12 @@ describe('showcase projectStore', () => {
     expect(store.visible.some((p) => p.id === builtinId)).toBe(false)
   })
 
-  it('输入校验：标题必填、accent 合法', () => {
+  it('输入校验：标题必填、accent 合法（9 色板，旧值 amber/rose 已退役）', () => {
     expect(validateProjectInput(input({ title: '  ' }))).toBe('请填写项目名称')
     expect(validateProjectInput(input({ accent: 'pink' as ProjectInput['accent'] }))).toBe('主题色不合法')
-    expect(validateProjectInput(input())).toBe('')
+    expect(validateProjectInput(input({ accent: 'amber' as ProjectInput['accent'] }))).toBe('主题色不合法')
+    for (const a of ['red', 'orange', 'yellow', 'green', 'teal', 'blue', 'violet', 'black', 'gray'] as const) {
+      expect(validateProjectInput(input({ accent: a }))).toBe('')
+    }
   })
 })

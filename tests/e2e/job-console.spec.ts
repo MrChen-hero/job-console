@@ -92,9 +92,14 @@ test.describe('求职工作台主流程', () => {
     await page.locator('input[data-field="title"]').fill('我的毕设展示站')
     await page.locator('input[data-field="stack"]').fill('Vue, Vite')
     await page.locator('textarea[data-field="demoPoints"]').fill('要点一\n要点二')
+    await page.getByRole('button', { name: '主题色 绿' }).click()
     await page.getByRole('button', { name: '保存项目' }).click()
     await expect(cards).toHaveCount(4)
     await expect(page.locator('.proj', { hasText: '我的毕设展示站' })).toContainText('我的')
+    // 卡片色条取自项目主题色（自定义属性在计算值阶段解析为令牌实际色值）
+    const accent = await page.locator('.proj', { hasText: '我的毕设展示站' }).evaluate((el) =>
+      getComputedStyle(el).getPropertyValue('--proj-accent').trim())
+    expect(accent).toBe('#10a37f') // --accent-green（亮色主题）
 
     // 删除内置示例项目（确认框）。操作按钮悬停卡片才显示：先 hover 卡片再点
     const builtin = page.locator('.proj', { hasText: '企业人事管理系统' })
