@@ -91,10 +91,10 @@ test.describe('求职工作台主流程', () => {
     // 单行行高 55px；中文按字断行会把这条 42 字的名字折成 3–8 行、行高冲到 100px 以上
     const row = await page.locator('.app-row').boundingBox()
     expect(row!.height).toBeLessThan(60)
-    if (page.viewportSize()!.width <= 1024) {
-      // 窄视口列宽放不下，必须以「…」收尾（clientWidth < scrollWidth）而不是换行
-      expect(await cell.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true)
-    }
+    // 列宽钉在 168px：任何视口都以「…」收尾，也不许再被富余宽度摊宽（摊宽会让短职位名后面空一大块）
+    const box = await cell.boundingBox()
+    expect(box!.width).toBeLessThanOrEqual(180)
+    expect(await cell.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true)
     // 表格自己横向滚动，页面不许横向溢出
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
   })
