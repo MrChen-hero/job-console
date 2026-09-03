@@ -133,7 +133,13 @@ export function validateBackup(
       requireString(rec, 'id', path, issues)
       requireString(rec, 'projectId', path, issues)
       requireString(rec, 'title', path, issues)
-      requireString(rec, 'html', path, issues)
+      // 删除内置演示的墓碑行 html 恒为空串（见 RuntimeDemo.hidden），故只校验类型不校验非空；
+      // 不升 BACKUP_SCHEMA_VERSION：升了会让用户手里的旧 v4 备份反而导不进来。
+      if (rec.hidden === true) {
+        if (typeof rec.html !== 'string') issues.push({ path: `${path}.html`, message: '必须是字符串' })
+      } else {
+        requireString(rec, 'html', path, issues)
+      }
     })
   }
   if (Array.isArray(rows.libraryDocs)) {

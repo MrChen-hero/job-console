@@ -73,6 +73,42 @@ describe('exportBackup', () => {
     }
   })
 
+  it('删除内置演示的墓碑行（html 为空串）能通过校验并往返', async () => {
+    const db = createDb(`test-${newId()}`)
+    try {
+      await db.runtimeDemos.put({
+        id: 'campus-market--review-flow', projectId: 'campus-market', title: '审核状态机',
+        html: '', hidden: true, createdAt: '2026-09-03', updatedAt: '2026-09-03',
+      })
+      const file = await exportBackup(db)
+      // 导出产物必须能被自己的校验接受，否则「删过内置演示」的用户导不回自己的备份
+      expect(validateBackup(file).ok).toBe(true)
+      const restored = createDb(`restore-${newId()}`)
+      await importBackup(restored, file, 'overwrite')
+      expect((await restored.runtimeDemos.get('campus-market--review-flow'))?.hidden).toBe(true)
+      await restored.delete()
+    } finally {
+      await db.delete()
+    }
+  })
+
+  it('非墓碑的演示行仍要求 html 非空', () => {
+    const result = validateBackup({
+      schemaVersion: BACKUP_SCHEMA_VERSION,
+      exportedAt: '2026-09-03T00:00:00.000Z',
+      data: {
+        profile: [], resumeVersions: [], applications: [], companyPool: [], libraryDocs: [],
+        milestones: [],
+        runtimeDemos: [{ id: 'd1', projectId: 'p1', title: '空演示', html: '' }],
+        libraryCategories: [], runtimeProjects: [], deletedDocs: [],
+      },
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.issues.map((i) => i.path)).toContain('$.data.runtimeDemos[0].html')
+    }
+  })
+
   it('profile 行缺条目数组时被拒绝（否则简历页渲染期崩）', () => {
     const result = validateBackup({
       schemaVersion: BACKUP_SCHEMA_VERSION,
