@@ -104,6 +104,19 @@ src/content/demos/*.html
 
 做法：容器宽度用 `clamp()` / `minmax()`，固定 px 只用于小组件（图标、徽标、行高），不用于布局骨架；主区高度用 `min-height` 而非 `height`；390px 下侧栏折叠为顶部横向滚动的分页签。**不允许出现横向溢出**（e2e 会在 390px 断言主站 `scrollWidth <= clientWidth`；演示页内部的溢出靠自己目视三档）。
 
+**把复刻的应用外壳嵌进介绍页后必查窄屏**：外壳本来是全宽的，塞进带 padding 的介绍页容器再套设备框，可用宽度会少 60–120px，于是顶栏那一排（面包屑 + 用户名 + 头像）的 min-content 直接撑破 390px。实测一次溢出 124px，四处一起改才归零：
+
+```css
+.mini-grid { grid-template-columns: minmax(0, 1fr); }   /* 网格轨道允许收缩 */
+@media (max-width: 820px) {
+  .nav-right .who { display: none; }                    /* 顶栏用户名让位，留头像 */
+  .crumb { min-width: 0; overflow: hidden; }            /* 面包屑可截断 */
+  .navbar, .tags, .view, .screen { min-width: 0; }      /* flex/grid 子项解除 min-content 下限 */
+}
+```
+
+定位手段：在 390px 下遍历 `document.querySelectorAll('*')`，报出 `getBoundingClientRect().right > clientWidth` 且自身不是滚动容器的元素，一次就能看出是哪一排顶宽的——比逐个注释 CSS 快得多。
+
 配色自带一套固定值，与主站亮/暗主题无关——Deck 没给 iframe 任何主题通道（只传 `src`/`sandbox`/`title`）。想跟随主题需要给 Deck 加 postMessage，属另一次改动。
 
 **要写 e2e 点演示页内部时**：390px 下演示页被 Deck 裁剪，`locator.click()` 可能落在 iframe 可见区之外被静默吞掉（表现是断言「元素不存在」而点击本身不报错），改用 `dispatchEvent('click')` 绕过命中测试——与 `AGENTS.md` §5 记的 transform 轨道同类坑，桌面与平板不受影响。

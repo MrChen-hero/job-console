@@ -29,6 +29,32 @@ ZCode 官网（<https://zcode.z.ai/cn>）是这套形态的现成样板：首屏
 
 反例：把五块都写成等权重的滚动长文；Hero 用一张静态截图；功能分区堆到 8 块，每块都只有文字。
 
+### 复刻界面怎么嵌进介绍页
+
+别把复刻的应用直接铺满整页——那看着像「打开了一个后台」，而不是「一页作品介绍」。用**设备框**包起来，每个分区嵌一个：
+
+```html
+<section class="sec"><div class="wrap">
+  <div class="sec-head">
+    <span class="pill"><span class="dot"></span>Live Demo · 可交互</span>
+    <h2>组工智能助手 · <span class="gt">复刻版</span></h2>
+    <p class="sub">这一屏在演什么、怎么点</p>
+  </div>
+  <div class="hint-chips"><span>① …</span><span>② …</span><span>③ …</span></div>
+  <div class="device">
+    <div class="chrome">        <!-- 三点 + 地址栏 + 可选的侧栏三态开关 -->
+      <div class="cdots"><i></i><i></i><i></i></div>
+      <div class="addr">https://<中性域名>/#/index</div>
+    </div>
+    <div class="screen"><!-- 复刻的应用外壳 --></div>
+  </div>
+</div></section>
+```
+
+- **地址栏用中性域名**，不要写真实内网域名或带项目代号的域名（代号往往就在禁词表里）。
+- **侧栏三态**：展开（源项目宽度）/ 收起（源项目 `.hideSidebar` 的宽度，通常 54px）/ 隐藏。主设备给用户一个切换按钮，其余设备统一用收起态——既省纵向空间，又证明收起态也复刻了。
+- **一个系统多个操作台**就多放几个小设备（各自带真实路由地址与真实列名），比在一个设备里堆分页签更像「系统全貌」。小设备只保留一行筛选 + 工具条 + 表格即可。
+
 ## 保真度分级
 
 | 级别 | 含义 | 判定 |
