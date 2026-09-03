@@ -19,7 +19,12 @@ docs/superpowers/plans/2026-07-*.md
 docs/superpowers/specs/2026-07-*.md
 .browser-use-check.py
 
-# 演示页复刻技能与其产物：暂不随仓库发布（取消跟踪，文件保留在本机）
+# 演示页复刻技能与其产物：长期只留本机，不随仓库发布（见 docs/tech-debt.md D-1）
 .claude/
 demo-out/
 docs/superpowers/specs/2026-09-03-showcase-demo-page-skill-spec.md
+
+# 一次性工具与过程产物：保留在本机，不随仓库发布（见 docs/tech-debt.md D-2/D-3/D-4）
+scripts/ui-shots.mjs
+design-demo/design-cool-slate/
+docs/superpowers/logs/
