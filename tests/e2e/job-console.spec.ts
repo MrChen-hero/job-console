@@ -22,7 +22,18 @@ test.describe('求职工作台主流程', () => {
     await page.locator('input[data-field="company"]').fill('南方电网')
     await page.locator('input[data-field="position"]').fill('数字化研发工程师')
     await page.locator('input[data-field="nextStep"]').fill('等笔试通知')
+    // 投向选「主投」，供工具栏的投向筛选用
+    await page.locator('[data-field="track"]').click()
+    await page.locator('.el-select-dropdown:visible').getByRole('option', { name: '主投', exact: true }).click()
     await page.getByRole('button', { name: '保存' }).click()
+    await expect(page.locator('.app-table')).toContainText('南方电网')
+
+    // 投向筛选：选「保底」筛掉这条主投记录，选回「所有投向」恢复
+    await page.locator('[data-field="track-filter"]').click()
+    await page.locator('.el-select-dropdown:visible').getByRole('option', { name: '保底', exact: true }).click()
+    await expect(page.locator('.app-table')).not.toContainText('南方电网')
+    await page.locator('[data-field="track-filter"]').click()
+    await page.locator('.el-select-dropdown:visible').getByRole('option', { name: '所有投向', exact: true }).click()
     await expect(page.locator('.app-table')).toContainText('南方电网')
 
     await page.getByRole('tab', { name: '看板' }).click()
@@ -292,8 +303,12 @@ test.describe('求职工作台主流程', () => {
 
   test('移动端 390 无横向溢出', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
+    const overflow = () => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
     await page.goto('/')
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
-    expect(overflow).toBe(false)
+    expect(await overflow()).toBe(false)
+    // 投递工具栏有三个筛选下拉 + 搜索框，是窄屏最容易顶宽的一处（表格自身在卡片内横向滚动）
+    await page.goto('/#/tracker')
+    await expect(page.locator('.tracker-toolbar')).toBeVisible()
+    expect(await overflow()).toBe(false)
   })
 })

@@ -12,8 +12,10 @@ const props = withDefaults(defineProps<{
   stageFilter: Stage | '全部'
   query: string
   channelFilter?: string
+  /** 投向筛选；空串 = 所有投向（未填投向的记录只在这一档出现） */
+  trackFilter?: string
   starredOnly?: boolean
-}>(), { channelFilter: '', starredOnly: false })
+}>(), { channelFilter: '', trackFilter: '', starredOnly: false })
 
 const emit = defineEmits<{
   open: [id: string]
@@ -25,6 +27,7 @@ const filtered = computed(() => {
   return props.applications.filter((a) => {
     if (props.stageFilter !== '全部' && a.status !== props.stageFilter) return false
     if (props.channelFilter && a.channel !== props.channelFilter) return false
+    if (props.trackFilter && a.track !== props.trackFilter) return false
     if (props.starredOnly && !a.starred) return false
     if (q && !`${a.company} ${a.position} ${a.nextStep ?? ''} ${a.notes ?? ''}`.toLowerCase().includes(q)) return false
     return true
@@ -86,7 +89,7 @@ const PER = 12
 const page = ref(1)
 
 watch(
-  [() => props.stageFilter, () => props.query, () => props.channelFilter, () => props.starredOnly, sortKey, sortDir],
+  [() => props.stageFilter, () => props.query, () => props.channelFilter, () => props.trackFilter, () => props.starredOnly, sortKey, sortDir],
   () => {
     page.value = 1
   },

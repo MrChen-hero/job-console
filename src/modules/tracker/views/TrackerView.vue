@@ -2,7 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElButton, ElMessage, ElOption, ElSelect } from 'element-plus'
-import type { Application, CompanyPoolEntry, Stage } from '../../../storage/types'
+import type { Application, CompanyPoolEntry, Stage, Track } from '../../../storage/types'
+import { TRACKS } from '../../../storage/types'
 import { useTrackerStore } from '../store'
 import type { ApplicationFormInput } from '../applicationForm'
 import ApplicationDialog from '../components/ApplicationDialog.vue'
@@ -17,6 +18,8 @@ const route = useRoute()
 const mode = ref<'table' | 'board' | 'pool'>('table')
 const stageFilter = ref<Stage | '全部'>('全部')
 const channelFilter = ref('')
+/** 投向筛选（主投 / 保底 / 机会型）；空串 = 所有投向，含未填投向的记录 */
+const trackFilter = ref<Track | ''>('')
 const starredOnly = ref(false)
 const query = ref('')
 const dialogVisible = ref(false)
@@ -136,6 +139,24 @@ const STAGES_FOR_FILTER = ['已投递', '笔试', '一面', '二面', 'HR面', '
             :label="c"
           />
         </ElSelect>
+        <ElSelect
+          v-model="trackFilter"
+          class="filter-select"
+          data-field="track-filter"
+          aria-label="筛选投向"
+          placeholder="所有投向"
+        >
+          <ElOption
+            value=""
+            label="所有投向"
+          />
+          <ElOption
+            v-for="t in TRACKS"
+            :key="t"
+            :value="t"
+            :label="t"
+          />
+        </ElSelect>
         <button
           type="button"
           class="star-toggle"
@@ -175,6 +196,7 @@ const STAGES_FOR_FILTER = ['已投递', '笔试', '一面', '二面', 'HR面', '
       :stage-filter="stageFilter"
       :query="query"
       :channel-filter="channelFilter"
+      :track-filter="trackFilter"
       :starred-only="starredOnly"
       @open="openDrawer"
       @toggle-star="store.toggleStar"
