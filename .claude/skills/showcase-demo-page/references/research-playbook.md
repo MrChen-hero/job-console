@@ -24,6 +24,7 @@
 | 4 | 能力清单与权限点 | `@RestController` + `@RequestMapping` 的方法名；权限注解 | 功能分区、权限拒绝的反例路径 |
 | 5 | 字段、枚举、状态流转 | 实体类 / `sql/*.ddl` / 常量类 / `status` 字段 | 表格列、状态标签文案、状态机 |
 | 6 | 真实界面文案 | 前端 `views/**`、组件里的表格列与表单 | 列名、筛选项、按钮措辞、空态文案 |
+| 6.5 | **视觉取真**（最容易漏） | 主题变量文件（`variables.scss` / `element-variables.scss` / `tailwind.config.*` / `theme.*` / 全局 CSS 变量）+ 布局外壳组件（Sidebar / Navbar / TagsView / Layout）里的尺寸 | `:root` 色号、侧栏宽度与背景、导航与页签高度、组件库与版本 |
 | 7 | 差异化能力 | 项目独有的模块（AI、评测、报表、实时推送） | 最值得单独做一块交互的分区 |
 
 好用的检索式（按需替换）：
@@ -35,6 +36,8 @@
 菜单与路由     insert into sys_menu|sys_role_menu|router/index|createRouter
 表格列与表单   el-table-column|a-table-column|el-form-item|label=
 词典与常量     sys_dict_data|DictConstants|Constants\.java
+主题与皮肤     \$--color-primary|\$menuBg|--el-color|theme|colors:\s*\{
+外壳尺寸       sideBarWidth|sidebar-container|navbar|tags-view|height:\s*\d+px
 ```
 
 国内常见的开源后台脚手架二次开发项目，`sys_menu` / `sys_role` / `sys_user` / `sys_dict_data` 这几张表基本能一次性交代模块清单、权限模型与所有下拉选项——优先看它们，比逐个读 Controller 快得多。
@@ -63,6 +66,8 @@
 ```text
 系统定位    <一句话：给谁解决什么问题>
 角色        <角色 A / 角色 B>，差异：<看到的数据范围或功能差异>
+外壳        侧栏 <宽度/背景色/菜单树> · 顶栏 <高度/背景色> · 页签条 <高度> · 组件库 <名称+版本>
+主题色号    主色 <#> · 成功 <#> · 警告 <#> · 危险 <#> · 边框 <#> · 表格线 <#>
 Hero 屏     <模块名>
   列        <列 1 / 列 2 / …>（取真实列名）
   筛选      <筛选项>
