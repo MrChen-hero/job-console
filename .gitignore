@@ -19,8 +19,7 @@ docs/superpowers/plans/2026-07-*.md
 docs/superpowers/specs/2026-07-*.md
 .browser-use-check.py
 
-# 隐私禁词表：本机可读，永不入库（技能自检脚本用 --words 读取）
-.claude/privacy-words.local
-
-# 演示页产出目录：技能生成后由用户在页面上手动上传，不随仓库发布
+# 演示页复刻技能与其产物：暂不随仓库发布（取消跟踪，文件保留在本机）
+.claude/
 demo-out/
+docs/superpowers/specs/2026-09-03-showcase-demo-page-skill-spec.md
