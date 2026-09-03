@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie'
+import { LEGACY_TRACKS } from './types'
 import type {
   Application,
   CompanyPoolEntry,
@@ -110,6 +111,17 @@ export class JobConsoleDb extends Dexie {
         await tx.table('libraryCategories').delete(FROM)
         await tx.table('libraryCategories').put({ ...legacy, name: TO })
       }
+    })
+    this.version(6).upgrade(async (tx) => {
+      /* v6：投向由「主投/保底/机会型」改为四档（见 LEGACY_TRACKS）。同 v5 的道理，
+         库里遗留的旧投向名会指向不存在的投向，故把投递与候选池两表一并改写。
+         applications.track 未建索引，用 toCollection().modify 全表过一遍。 */
+      const remap = (row: { track?: string }) => {
+        const next = row.track ? LEGACY_TRACKS[row.track] : undefined
+        if (next) row.track = next
+      }
+      await tx.table('applications').toCollection().modify(remap)
+      await tx.table('companyPool').toCollection().modify(remap)
     })
   }
 }

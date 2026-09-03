@@ -225,6 +225,35 @@ describe('importBackup', () => {
     }
   })
 
+  it('旧备份里的旧投向名在导入时归一为新四档', async () => {
+    const db = createDb(`test-${newId()}`)
+    try {
+      const seed = createDb(`seed-${newId()}`)
+      const file = await exportBackup(seed)
+      await seed.delete()
+      // 旧备份的形态：投向存的是已从 TRACKS 删掉的旧名，类型上不再存在
+      file.data.applications = [
+        { ...makeApp({ id: 'a1' }), track: '保底' },
+        { ...makeApp({ id: 'a2' }), track: '机会型' },
+        { ...makeApp({ id: 'a3' }), track: '主投' },
+        makeApp({ id: 'a4' }),
+      ] as unknown as typeof file.data.applications
+      file.data.companyPool = [
+        { id: 'p1', company: '甲公司', track: '保底', createdAt: '2026-09-01' },
+      ] as unknown as typeof file.data.companyPool
+      // 投向不参与校验，旧名不该让旧备份导不进来
+      expect(validateBackup(file).ok).toBe(true)
+      await importBackup(db, file, 'overwrite')
+      expect((await db.applications.get('a1'))?.track).toBe('次投')
+      expect((await db.applications.get('a2'))?.track).toBe('尝试')
+      expect((await db.applications.get('a3'))?.track).toBe('主投')
+      expect((await db.applications.get('a4'))?.track).toBeUndefined()
+      expect((await db.companyPool.get('p1'))?.track).toBe('次投')
+    } finally {
+      await db.delete()
+    }
+  })
+
   it('非法备份被拒绝并给出字段路径', () => {
     const result = validateBackup({
       schemaVersion: 99,

@@ -1,6 +1,7 @@
 import type { Table } from 'dexie'
 import type { JobConsoleDb } from './db'
 import { createSnapshot } from './snapshots'
+import { LEGACY_TRACKS } from './types'
 import type {
   Application,
   CompanyPoolEntry,
@@ -206,11 +207,30 @@ export function validateBackup(
 export type ImportMode = 'merge' | 'overwrite'
 
 /**
+ * 旧投向名归一（保底 → 次投、机会型 → 尝试）。Dexie v6 只升级本机库，
+ * 导入的旧备份与旧快照仍带旧名，落库后会指向不存在的投向（筛选选不到），故在导入这一层改写。
+ * 不改 BACKUP_SCHEMA_VERSION：投向不参与 validateBackup，旧备份仍应导得进来。
+ */
+function withMigratedTracks(data: BackupData): BackupData {
+  return {
+    ...data,
+    applications: data.applications.map((app) => {
+      const next = app.track ? LEGACY_TRACKS[app.track] : undefined
+      return next ? { ...app, track: next } : app
+    }),
+    companyPool: data.companyPool.map((entry) => {
+      const next = LEGACY_TRACKS[entry.track]
+      return next ? { ...entry, track: next } : entry
+    }),
+  }
+}
+
+/**
  * merge：按主键逐表 put（id/name 冲突时整条以导入方为准，不合并字段；已有但未出现在导入中的记录保留）。
  * overwrite：清空数据表后整体灌入；snapshots 表不被清空，仅追加一条导入前自动快照。
  */
 export async function importBackup(db: JobConsoleDb, file: BackupFile, mode: ImportMode): Promise<void> {
-  const { data } = file
+  const data = withMigratedTracks(file.data)
   const tables = [
     db.profile,
     db.resumeVersions,

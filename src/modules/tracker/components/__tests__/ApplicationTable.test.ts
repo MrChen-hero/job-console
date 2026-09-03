@@ -140,7 +140,7 @@ describe('ApplicationTable', () => {
   it('投向筛选：未填投向的记录只出现在「所有投向」，可与渠道叠加', () => {
     const apps = [
       makeApp({ company: 'A', track: '主投', channel: '内推' }),
-      makeApp({ company: 'B', track: '保底', channel: '内推' }),
+      makeApp({ company: 'B', track: '次投', channel: '内推' }),
       makeApp({ company: 'C', channel: '官网' }),
     ]
     const all = mount(ApplicationTable, { props: { applications: apps, stageFilter: '全部', query: '', trackFilter: '' } })
@@ -148,9 +148,9 @@ describe('ApplicationTable', () => {
     const main = mount(ApplicationTable, { props: { applications: apps, stageFilter: '全部', query: '', trackFilter: '主投' } })
     expect(main.findAll('.app-row')).toHaveLength(1)
     expect(main.text()).toContain('A')
-    // 与渠道叠加：保底 + 官网 无交集
+    // 与渠道叠加：次投 + 官网 无交集
     const both = mount(ApplicationTable, {
-      props: { applications: apps, stageFilter: '全部', query: '', trackFilter: '保底', channelFilter: '官网' },
+      props: { applications: apps, stageFilter: '全部', query: '', trackFilter: '次投', channelFilter: '官网' },
     })
     expect(both.text()).toContain('没有符合条件的投递记录')
   })
@@ -158,13 +158,13 @@ describe('ApplicationTable', () => {
   it('投向筛选变化时回到第 1 页', async () => {
     const apps = [
       ...Array.from({ length: 14 }, (_, i) => makeApp({ company: `甲${String(i).padStart(2, '0')}`, track: '主投' })),
-      ...Array.from({ length: 4 }, (_, i) => makeApp({ company: `乙${String(i).padStart(2, '0')}`, track: '保底' })),
+      ...Array.from({ length: 4 }, (_, i) => makeApp({ company: `乙${String(i).padStart(2, '0')}`, track: '次投' })),
     ]
     const wrapper = mount(ApplicationTable, { props: { applications: apps, stageFilter: '全部', query: '' } })
     await wrapper.find('.pager').findAll('button').find((b) => b.text() === '2')!.trigger('click')
     expect(wrapper.find('.pg.on').text()).toBe('2')
     // 不回第 1 页的话，筛出的 4 条会落在 slice(12, 24) 之外，表格会空
-    await wrapper.setProps({ trackFilter: '保底' })
+    await wrapper.setProps({ trackFilter: '次投' })
     expect(wrapper.findAll('.app-row')).toHaveLength(4)
     expect(wrapper.find('.pager').exists()).toBe(false)
   })
@@ -197,7 +197,7 @@ describe('applicationForm', () => {
   it('open 按 initial 回显、空值字段裁剪为 undefined', async () => {
     const { useApplicationForm } = await import('../../applicationForm')
     const { form, open, submit } = useApplicationForm()
-    open(makeApp({ company: '亚信科技', position: 'Java 开发', track: '保底', nextStep: '等通知' }), '预填公司')
+    open(makeApp({ company: '亚信科技', position: 'Java 开发', track: '次投', nextStep: '等通知' }), '预填公司')
     expect(form.company).toBe('亚信科技')
     expect(form.nextStep).toBe('等通知')
     open(null, '招商银行')

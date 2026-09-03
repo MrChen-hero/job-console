@@ -53,9 +53,9 @@ test.describe('求职工作台主流程', () => {
     await page.getByRole('button', { name: '保存' }).click()
     await expect(page.locator('.app-table')).toContainText('南方电网')
 
-    // 投向筛选：选「保底」筛掉这条主投记录，选回「所有投向」恢复
+    // 投向筛选：选「次投」筛掉这条主投记录，选回「所有投向」恢复
     await page.locator('[data-field="track-filter"]').click()
-    await page.locator('.el-select-dropdown:visible').getByRole('option', { name: '保底', exact: true }).click()
+    await page.locator('.el-select-dropdown:visible').getByRole('option', { name: '次投', exact: true }).click()
     await expect(page.locator('.app-table')).not.toContainText('南方电网')
     await page.locator('[data-field="track-filter"]').click()
     await page.locator('.el-select-dropdown:visible').getByRole('option', { name: '所有投向', exact: true }).click()

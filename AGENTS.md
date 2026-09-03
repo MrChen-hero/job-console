@@ -23,7 +23,7 @@
 
 | 目录 | 职责 | 不应承担的职责 |
 |---|---|---|
-| `src/storage/` | Dexie schema（当前 v5）、全部实体类型、备份导出/校验/导入、快照轮转 | 任何 UI 或业务语义 |
+| `src/storage/` | Dexie schema（当前 v6）、全部实体类型、备份导出/校验/导入、快照轮转 | 任何 UI 或业务语义 |
 | `src/shared/` | 布局壳（侧边栏/顶栏/抽屉）、共享 UI 原语（`src/shared/ui/`：AppIcon/Sparkline/SectionCard）、StorageBanner、markdown 工具（frontmatter/render） | 业务状态 |
 | `src/app/` | 路由、导航常量、主题 store、入口装配 | 模块业务逻辑 |
 | `src/modules/<name>/` | 各模块 store（Pinia 封装 Dexie）+ 视图 + 组件 + 就近测试 | 跨模块读取他模块 store 内部 |
@@ -40,6 +40,7 @@
 - 写库前必须用 `plain()`（JSON 克隆）去除 Pinia 响应式 Proxy（结构化克隆不兼容）。
 - `Application.status` 不变量：恒等于 `stageHistory` 末项 stage；唯一写路径 `trackerStore.changeStage`，其他 action（advance/markDropped/reopen）都经它。
 - 备份 `BACKUP_SCHEMA_VERSION = 4`，数据含十表（含 runtimeDemos / libraryCategories / runtimeProjects / deletedDocs）；改 schema 必须同步 backup 校验、`snapshots.ts` 的 `normalizeData` 与版本号。内置演示的 hidden 墓碑行 html 恒为空串，故 runtimeDemos 校验对墓碑行只验类型、不验非空——不为此升版本号，升了会让用户手里的旧 v4 备份导不进来。
+- 编译期枚举（`LIBRARY_CATEGORIES` 分类名、`TRACKS` 投向名）改名必须两处都做：Dexie 升级迁移（改本机库存量，v5 迁分类、v6 迁投向）+ 导入归一（`backup.ts` 的 `withMigratedTracks` 一类改写，管旧备份与旧快照）。只做前者，导入一份旧备份就又把旧值灌回来，而旧值在下拉里选不到。
 - 快照：覆盖导入与回退前自动 `createSnapshot`（保留 5 份，`restoreSnapshot` 走 importBackup overwrite，故回退本身也可回退）；旧快照缺新增表由 `normalizeData` 补空数组。
 - 导出下载统一走 `src/shared/downloadJson.ts`（Blob URL 延后 revoke，避免下载被提前中断）。
 - 测试中操作 Dexie 单例的用例，`beforeEach` 用 `db.delete()` + `db.open()` 重建；组件测试若有「发后即忘」写入，`afterEach` 等待落定（约 25ms），否则 unhandled rejection 会让 test:run 退出码非 0。

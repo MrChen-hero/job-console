@@ -59,8 +59,13 @@ export const STAGES = ['已投递', '笔试', '一面', '二面', 'HR面', 'Offe
 export type Stage = (typeof STAGES)[number]
 export const BATCHES = ['提前批', '正式批', '补录', '实习'] as const
 export type Batch = (typeof BATCHES)[number]
-export const TRACKS = ['主投', '保底', '机会型'] as const
+export const TRACKS = ['主投', '次投', '尝试', '练手'] as const
 export type Track = (typeof TRACKS)[number]
+/**
+ * 旧投向名 → 新四档。TRACKS 是编译期常量，改名后库里遗留的旧字符串会指向不存在的投向
+ * （筛选下拉里选不到，只在「所有投向」出现），故 Dexie v6 升级与备份/快照导入都按此表改写。
+ */
+export const LEGACY_TRACKS: Record<string, Track> = { 保底: '次投', 机会型: '尝试' }
 
 export interface StageChange {
   stage: Stage

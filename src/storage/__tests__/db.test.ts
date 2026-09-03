@@ -102,6 +102,52 @@ describe('db', () => {
     }
   })
 
+  it('v5 → v6 迁移：旧投向名改写为新四档，主投与未填投向不动', async () => {
+    const name = `test-${newId()}`
+    const legacy = new Dexie(name)
+    legacy.version(5).stores({
+      profile: 'id',
+      resumeVersions: 'id, updatedAt',
+      applications: 'id, status, appliedAt, nextActionAt',
+      companyPool: 'id, track',
+      libraryDocs: 'id, category, updatedAt',
+      libraryCategories: 'name',
+      deletedDocs: 'id',
+      milestones: 'id, date',
+      runtimeDemos: 'id, projectId, updatedAt',
+      runtimeProjects: 'id, updatedAt',
+      snapshots: '++id, createdAt',
+    })
+    await legacy.open()
+    // 旧库存的是已从 TRACKS 删掉的旧名，类型上不再存在，故经无类型的 table() 直接写入
+    await legacy.table('applications').bulkPut([
+      { ...makeApp({ id: 'a1' }), track: '保底' },
+      { ...makeApp({ id: 'a2' }), track: '机会型' },
+      { ...makeApp({ id: 'a3' }), track: '主投' },
+      makeApp({ id: 'a4' }),
+    ])
+    await legacy.table('companyPool').bulkPut([
+      { id: 'p1', company: '甲公司', track: '机会型', createdAt: '2026-09-01' },
+      { id: 'p2', company: '乙公司', track: '主投', createdAt: '2026-09-01' },
+    ])
+    await legacy.close()
+
+    const db = createDb(name)
+    try {
+      await db.open()
+      expect((await db.applications.get('a1'))?.track).toBe('次投')
+      expect((await db.applications.get('a2'))?.track).toBe('尝试')
+      expect((await db.applications.get('a3'))?.track).toBe('主投')
+      expect((await db.applications.get('a4'))?.track).toBeUndefined()
+      // companyPool.track 是索引字段，改写后索引也要跟着更新，否则按投向查不到
+      expect((await db.companyPool.get('p1'))?.track).toBe('尝试')
+      expect((await db.companyPool.where('track').equals('尝试').toArray())).toHaveLength(1)
+      expect((await db.companyPool.get('p2'))?.track).toBe('主投')
+    } finally {
+      await db.delete()
+    }
+  })
+
   it('v3 → v4 迁移：全局 main 资料池拆分为各版本独立资料池', async () => {
     const name = `test-${newId()}`
     await createV3Db(name, true, 2)

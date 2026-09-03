@@ -115,7 +115,7 @@ async function remove(entry: CompanyPoolEntry) {
           {{ entry.company }}
           <span
             class="pool-track"
-            :class="entry.track === '主投' ? 'track-main' : 'track-backup'"
+            :class="entry.track === '主投' ? 'track-main' : 'track-other'"
           >{{ entry.track }}</span>
         </b>
         <span class="pool-meta">
@@ -311,7 +311,7 @@ async function remove(entry: CompanyPoolEntry) {
   background: var(--primary-soft);
   border: 1px solid var(--primary-border);
 }
-.track-backup {
+.track-other {
   color: var(--text2);
   background: var(--card2);
   border: 1px solid var(--border);

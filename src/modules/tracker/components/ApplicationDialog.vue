@@ -145,7 +145,7 @@ function onSave() {
               v-model="form.track"
               data-field="track"
               clearable
-              placeholder="主投 / 保底 / 机会型"
+              placeholder="主投 / 次投 / 尝试 / 练手"
             >
               <ElOption
                 v-for="t in TRACKS"
