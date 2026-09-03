@@ -1,4 +1,29 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+
+/** 窄视口侧栏收为抽屉：导入/导出按钮用前展开、用后收起（展开态的 scrim 会拦住主内容点击） */
+async function openNav(page: Page) {
+  const menu = page.getByRole('button', { name: '打开导航' })
+  if (await menu.isVisible()) await menu.click()
+}
+
+async function closeNav(page: Page) {
+  const scrim = page.locator('.scrim')
+  // scrim 铺满视口但中心点落在抽屉自身上，真实点击打不中；派发事件绕过命中测试
+  if (await scrim.isVisible()) await scrim.dispatchEvent('click')
+}
+
+/** 侧栏导出，返回下载到的文件路径（工作台另有同名磁贴，故限定侧栏） */
+async function exportBackupFile(page: Page): Promise<string> {
+  await openNav(page)
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByLabel('主导航').getByRole('button', { name: '导出数据' }).click(),
+  ])
+  expect(download.suggestedFilename()).toMatch(/^jobconsole-backup-\d{4}-\d{2}-\d{2}\.json$/)
+  const path = await download.path()
+  await closeNav(page)
+  return path!
+}
 
 test.describe('求职工作台主流程', () => {
   test('五路由可达且导航高亮', async ({ page }) => {
@@ -259,26 +284,8 @@ test.describe('求职工作台主流程', () => {
     await page.getByRole('button', { name: '保存' }).click()
     await expect(page.locator('.app-table')).toContainText('备份验证公司')
 
-    // 窄视口侧栏收为抽屉：用前展开、用后收起（展开态的 scrim 会拦住主内容点击）
-    const openNav = async () => {
-      const menu = page.getByRole('button', { name: '打开导航' })
-      if (await menu.isVisible()) await menu.click()
-    }
-    const closeNav = async () => {
-      const scrim = page.locator('.scrim')
-      // scrim 铺满视口但中心点落在抽屉自身上，真实点击打不中；派发事件绕过命中测试
-      if (await scrim.isVisible()) await scrim.dispatchEvent('click')
-    }
-
-    // 导出：拿到真实下载文件（校验 blob URL 未被提前回收）
-    await openNav()
-    const [download] = await Promise.all([
-      page.waitForEvent('download'),
-      page.getByRole('button', { name: '导出数据' }).click(),
-    ])
-    const backupPath = await download.path()
-    expect(download.suggestedFilename()).toMatch(/^jobconsole-backup-\d{4}-\d{2}-\d{2}\.json$/)
-    await closeNav()
+    // 窄视口侧栏收为抽屉，导出/导入前后由 openNav/closeNav 处理（见文件头部）
+    const backupPath = await exportBackupFile(page)
 
     // 删掉这条投递
     await page.locator('.app-table .app-row', { hasText: '备份验证公司' }).click()
@@ -288,17 +295,48 @@ test.describe('求职工作台主流程', () => {
     await expect(page.locator('.app-table')).not.toContainText('备份验证公司')
 
     // 覆盖导入备份：数据回来，且「数据快照」入口出现（导入前自动快照）
-    await openNav()
-    await page.locator('input[type="file"][accept*="json"]').setInputFiles(backupPath!)
+    await openNav(page)
+    await page.locator('input[type="file"][accept*="json"]').setInputFiles(backupPath)
     await page.locator('.el-message-box').getByRole('button', { name: '覆盖导入' }).click()
     await page.waitForURL(/#\/tracker/)
     await expect(page.locator('.app-table')).toContainText('备份验证公司')
 
-    await openNav()
+    await openNav(page)
     const snapBtn = page.getByRole('button', { name: /数据快照/ })
     await expect(snapBtn).toBeVisible()
     await snapBtn.click()
     await expect(page.getByTestId('snapshot-list')).toContainText('导入前自动快照')
+  })
+
+  test('备份：内置内容的删除墓碑随备份往返', async ({ page }) => {
+    await page.goto('/#/showcase')
+    await expect(page.locator('.el-loading-mask')).toHaveCount(0)
+
+    // 删掉一个内置项目与一个内置演示页：各写一条墓碑行（演示墓碑的 html 是空串）
+    const builtin = page.locator('.proj', { hasText: '企业人事管理系统' })
+    await builtin.hover()
+    await builtin.getByRole('button', { name: '删除项目 企业人事管理系统' }).click()
+    await page.locator('.el-message-box').getByRole('button', { name: '删除' }).click()
+    await expect(page.locator('.proj', { hasText: '企业人事管理系统' })).toHaveCount(0)
+    await page.locator('.demo-row', { hasText: '审核状态机' }).getByRole('button', { name: '删除' }).click()
+    await page.locator('.el-message-box').getByRole('button', { name: '删除' }).click()
+    await expect(page.locator('.demo-row', { hasText: '审核状态机' })).toHaveCount(0)
+
+    const backupPath = await exportBackupFile(page)
+
+    // 把内置内容全恢复回来，再覆盖导入：墓碑随备份回来才算往返成功
+    await page.getByRole('button', { name: '↺ 恢复示例项目' }).click()
+    await page.locator('.el-message-box').getByRole('button', { name: '恢复' }).click()
+    await expect(page.locator('.proj', { hasText: '企业人事管理系统' })).toBeVisible()
+
+    await openNav(page)
+    await page.locator('input[type="file"][accept*="json"]').setInputFiles(backupPath)
+    // 空串 html 的墓碑行曾被自己的校验拒在 $.data.runtimeDemos[i].html
+    await page.locator('.el-message-box').getByRole('button', { name: '覆盖导入' }).click()
+    await page.waitForURL(/#\/showcase/)
+    await expect(page.locator('.el-loading-mask')).toHaveCount(0)
+    await expect(page.locator('.proj', { hasText: '企业人事管理系统' })).toHaveCount(0)
+    await expect(page.locator('.demo-row', { hasText: '审核状态机' })).toHaveCount(0)
   })
 
   test('移动端 390 无横向溢出', async ({ page }) => {
