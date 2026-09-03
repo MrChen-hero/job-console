@@ -19,6 +19,8 @@
 3. 沙箱与落地契约清单，加一个零依赖自检脚本。
 4. 落盘 `src/content/demos/<projectId>--<slug>.html`；可切换为「只产出临时文件、不进仓库」。
 
+> **执行期修订（2026-09-03，用户拍板）**：本仓库将作为公开模板开源，任何人的项目信息都不该变成所有使用者的内置内容。故**默认通道反转为 runtime**——技能只产出 HTML 到未跟踪的 `demo-out/`，由使用者自己在页面上「新增项目」填卡片文案并「上传演示页」；`showcase.config.ts` 与 `src/content/demos/` 默认不动，仅仓库主人做内置示例时才走编译时通道。自检脚本按路径自动判定通道，两套体积预算与归属规则随之分叉（runtime 300 KB/1 MB、文件名不参与归属；compile 120 KB/200 KB、文件名即归属）。
+
 ### 不纳入
 
 1. 改动演示站运行时代码（`deck.ts` / `DeckOverlay.vue` / `demoStore.ts` 结构不动）。
@@ -110,10 +112,10 @@ showcase-demo-page/
 
 ### 阶段 D · 自检与落地
 
-1. `node scripts/check-demo.mjs <file>`，红则改到绿。
-2. 写入 `src/content/demos/<projectId>--<slug>.html`；若开了「仅产出」开关，只留临时文件不进仓库。
-3. 隐私 grep（禁词表）+ `npm run build` 核对包体增量 + 390 / 1024 / 1440 三档视口目视。
-4. 需要时同步 `showcase.config.ts` 的项目文案（`title` / `eyebrow` / `summary` / `stack` / `demo.points`），避免卡片口径与演示页自相矛盾。
+1. `check-demo.mjs <file> --words .claude/privacy-words.local` 与 `smoke-demo.mjs <file>` 两条都要绿（前者管写法违规，后者管运行期真崩）。
+2. 产出留在未跟踪的 `demo-out/`，把「＋新增项目 → 上传演示页」的操作步骤与卡片建议文案交给用户，不代改 `showcase.config.ts`。
+3. 三档视口目视：Deck 常态 / 网页全屏 / 390px。
+4. 仅当要做仓库内置示例：另存 `src/content/demos/<projectId>--<slug>.html`，此时按编译时契约收紧（文件名归属 + 120/200 KB）并跑 `npm run build` 核对包体增量。
 
 ## 6. 单页形态规范（细节见 `references/landing-anatomy.md`）
 
@@ -156,12 +158,22 @@ showcase-demo-page/
 - [x] Checkpoint 3：`references/landing-anatomy.md` + `assets/skeleton.html` 完成，骨架自身过自检
 - [x] Checkpoint 4：`references/research-playbook.md` 完成——两条路线的取证清单与复刻规格模板
 - [x] Checkpoint 5：SKILL.md 正文写完（四阶段 + 硬规则 + reference 阅读时机），全文 ≤ 200 行
-- [ ] Checkpoint 6：端到端试跑 `D:\A-Project\Lab\Java\gbms-ai`（多模块 Java 单体 + AI 模块 + 前端，只读）——生成一页，自检绿 + 禁词比对无命中 + `npm run build` 退出码 0 且主 chunk 增量在预算内 + 三视口目视
+- [x] Checkpoint 6：端到端试跑 `D:\A-Project\Lab\Java\gbms-ai`（多模块 Java 单体 + AI 模块 + 前端，只读）——产出一页到 `demo-out/`，静态自检 + 冒烟双绿、禁词比对无命中，再用真实 UI 走一遍「新增项目 → 上传演示页 → 进 Deck 渲染」，三档视口目视
+
+## 执行记录（2026-09-03）
+
+试跑产出 `demo-out/cadre-archive-ai-chat.html`，43.2 KB：静态自检 0 阻塞 / 0 提醒 / 6 通过（含 13 条禁词比对），冒烟 21 个可见按钮点 17 个、无 JS 错误、三档视口横向溢出均 0px；临时 e2e 走通「新增项目 → 上传演示页（`<title>` 自动预填标题）→ Deck 落在该项目 → 页内 5 步研判流程 + 政策问答 2 条引用 + 只读拒答」，desktop / tablet / mobile 三 project 全过后删除该临时用例。
+
+执行期三处发现，均已回写进技能：
+
+1. **默认通道反转为 runtime**（用户拍板，见 §1 修订块）——公开模板不该内置某个人的项目内容。
+2. **`scrollIntoView` 会把整份文档一起滚走**：演示页初始动画结束后顶部条（含「合成数据 · 只读演示」标记）被滚出视口。静态自检与冒烟都查不出，靠截图逐像素采样发现（印章红像素 0），改成只滚消息容器后复测 632/784 命中。
+3. **390px 下 iframe 内的真实点击会被静默吞掉**：演示页在 Deck 里被裁剪，`locator.click()` 不报错但事件没到达，断言表现为「元素不存在」；改 `dispatchEvent('click')` 后三视口全过，已写进 `sandbox-contract.md` §6。
 
 ## 验证方式
 
 1. `node scripts/check-demo.mjs`：1 个正样本 + 3 个负样本的退出码符合预期。
 2. `quick_validate.py`：技能 frontmatter 与命名规则通过。
-3. 端到端一次真实产出：自检绿、隐私 grep 无命中、`npm run build` 退出码 0、主 chunk 增量在预算内、390 / 1024 / 1440 三视口目视无横向溢出。
+3. 端到端一次真实产出：静态自检 + 冒烟双绿、禁词比对无命中、真实 UI 走通「新增项目 → 上传演示页 → Deck 渲染」、390 / 1024 / 1440 三视口目视无横向溢出。
 
-不跑全量 e2e——本技能不改运行时代码，Deck 行为不变；若 Checkpoint 6 真的往 `src/content/demos/` 落了文件，再补跑一次演示站相关的 e2e 用例即可。
+不跑全量 e2e——本技能不改运行时代码，Deck 行为不变；产出物默认不进 `src/content/demos/`，也就不影响构建产物与既有 e2e 断言。

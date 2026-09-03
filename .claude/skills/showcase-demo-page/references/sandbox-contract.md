@@ -30,7 +30,16 @@ src/content/demos/*.html
 
 ## 2. 命名与归属
 
-文件名就是元数据，没有 frontmatter 这一层：
+先分清两个通道，契约不一样：
+
+| 通道 | 怎么进站 | 归属怎么定 | 影响面 |
+|---|---|---|---|
+| **runtime（默认）** | 用户在「项目演示」页「上传演示页」 | 上传弹窗的项目下拉，**文件名不参与** | 只存自己浏览器的 IndexedDB，随备份 JSON 走 |
+| **compile（仅内置示例）** | 文件放进 `src/content/demos/` | 文件名 `--` 前缀 | 进 git、进构建产物、成为所有使用者的内置内容 |
+
+本仓库是公开模板：**默认走 runtime**，产出物落未跟踪的 `demo-out/`，不改 `showcase.config.ts`。上传弹窗（`DemoUploadDialog.vue:26`）用 `<title>` 预填标题，用户可改；`projectId` 取自下拉框，默认第一个可见项目。
+
+编译时通道的文件名就是元数据，没有 frontmatter 这一层：
 
 | 派生项 | 规则 | 出处 |
 |---|---|---|
@@ -38,11 +47,9 @@ src/content/demos/*.html
 | `projectId` | `--` 之前的前缀 | `localContent.ts:56` |
 | 标题 | `<title>` 内容，缺失回落成 `id` | `localContent.ts:62` |
 
-命名格式：`<projectId>--<slug>.html`，全小写连字符。
+命名格式 `<projectId>--<slug>.html`，全小写连字符。**最容易踩的坑**：`projectId` 不在 `src/config/showcase.config.ts` 的 id 集合里时，代码不报错，**静默**把这个 demo 归到第一个项目上——表现是「演示页出现在了别人家」。自检脚本按路径自动判定通道，编译时才拦这一项。
 
-**最容易踩的坑**：`projectId` 不在 `src/config/showcase.config.ts` 的 id 集合里时，代码不报错，**静默**把这个 demo 归到第一个项目上——表现是「演示页出现在了别人家」。自检脚本会拦这一项。
-
-标题会出现在 Deck 的提示行「交互演示 · {标题}」，同一项目有多页时还带「（1 / N）」。所以标题写成「系统名 · 这一页演的是什么」，别写成文件名式的英文 slug。
+标题会出现在 Deck 的提示行「交互演示 · {标题}」，同一项目有多页时还带「（1 / N）」。写成「系统名 · 这一页演的是什么」，别写成英文 slug。
 
 ## 3. 禁用 API 与替代写法
 
@@ -73,11 +80,16 @@ src/content/demos/*.html
 
 ## 5. 体积预算
 
-目标 ≤ 120 KB，硬上限 200 KB。参照物：现有示例 demo 1.8 KB，主 chunk 618 KB。
+| 通道 | 目标 | 硬上限 | 为什么 |
+|---|---|---|---|
+| runtime | 300 KB | 1 MB | 存 IndexedDB，整段字符串还会进导出的备份 JSON |
+| compile | 120 KB | 200 KB | `eager: true` 原样内联进主 chunk，没有懒加载兜底 |
+
+参照物：现有内置示例 demo 1.8 KB，主 chunk 618 KB。
 
 超线的压法，按收益排序：合并重复 CSS（用 `:root` 变量 + 工具类，别每块重写一遍）→ 精简 SVG（去掉设计工具留下的 `<defs>`、注释、多余小数位）→ 砍假数据行数（10–20 行足够演示分页与筛选）→ 删掉没被任何交互引用的装饰性区块。
 
-压不下来就停手，把「demos 的 glob 改成非 eager 懒加载」记成后续项交给用户决定，不要自行改主站加载策略。
+编译时压不下来就停手，把「demos 的 glob 改成非 eager 懒加载」记成后续项交给用户决定，不要自行改主站加载策略。
 
 ## 6. 尺寸与自适应
 
@@ -94,6 +106,8 @@ src/content/demos/*.html
 
 配色自带一套固定值，与主站亮/暗主题无关——Deck 没给 iframe 任何主题通道（只传 `src`/`sandbox`/`title`）。想跟随主题需要给 Deck 加 postMessage，属另一次改动。
 
+**要写 e2e 点演示页内部时**：390px 下演示页被 Deck 裁剪，`locator.click()` 可能落在 iframe 可见区之外被静默吞掉（表现是断言「元素不存在」而点击本身不报错），改用 `dispatchEvent('click')` 绕过命中测试——与 `AGENTS.md` §5 记的 transform 轨道同类坑，桌面与平板不受影响。
+
 ## 7. 隐私类别
 
 演示页会随仓库部署到公开 Pages，等于对外发布。以下类别一律不出现在演示页、文件名、注释里：
@@ -106,25 +120,21 @@ src/content/demos/*.html
 
 ## 8. 落盘步骤
 
+默认（runtime 通道）：产出到 `demo-out/`，跑两个脚本，然后把上传方式交代给用户。
+
 ```bash
-# 1. 静态自检（红了就改到绿；退出码 0 才允许落盘）
+# 1. 静态自检（按路径自动判定通道；红了就改到绿，退出码 0 才算过）
 node .claude/skills/showcase-demo-page/scripts/check-demo.mjs \
-  src/content/demos/<projectId>--<slug>.html \
-  --words .claude/privacy-words.local
+  demo-out/<name>.html --words .claude/privacy-words.local
 
 # 2. 运行时冒烟：按真实条件（Blob URL + sandbox）加载，点一遍所有按钮，查 JS 错误与横向溢出
-node .claude/skills/showcase-demo-page/scripts/smoke-demo.mjs \
-  src/content/demos/<projectId>--<slug>.html
-
-# 3. 核对包体增量（build 必须退出码 0）
-npm run build
-
-# 4. 目视三档：桌面常态 / 网页全屏 / 390px
-npm run dev   # 进「项目演示」→ 点该项目卡片
+node .claude/skills/showcase-demo-page/scripts/smoke-demo.mjs demo-out/<name>.html
 ```
 
 两个脚本互补：静态自检抓的是「写法违规」（外链、禁用 API、命名、体积），冒烟抓的是「运行期真崩」（沙箱抛错导致整段脚本中断、固定宽度导致横向溢出）。静态检查放过的东西冒烟能抓到，反之也成立，两个都要跑。
 
-落盘后如果项目卡片文案与演示页自相矛盾，同步改 `src/config/showcase.config.ts` 的 `title` / `eyebrow` / `summary` / `stack` / `demo.points`——`demo.points` 会作为要点显示在演示页右侧信息区，两处口径必须一致。
+交付话术：让用户进「项目演示 →＋新增项目」填自己的卡片文案（标题 / 定位 / 简介 / 技术栈 / 要点），再点「上传演示页」选 `demo-out/` 里这个文件、在下拉里选刚建的项目。**不要**替用户改 `src/config/showcase.config.ts`——那是公开模板的内置内容，不该塞进某一个人的项目。
 
-新增项目（源项目不属于现有三个之一）时，先在 `SHOWCASE_PROJECTS` 追加一条（`id` 用中性英文短横线名），再用该 id 作文件名前缀。`accent` 只能取 `ProjectAccent` 里已定义的色名。
+仅当明确要做仓库内置示例时才走 compile 通道：另存到 `src/content/demos/<projectId>--<slug>.html`（文件名前缀必须先在 `SHOWCASE_PROJECTS` 里有对应 id），再跑一次自检（此时按编译时预算收紧）与 `npm run build` 核对包体增量。
+
+不管走哪个通道，最后都要目视三档：Deck 常态、网页全屏、390px。

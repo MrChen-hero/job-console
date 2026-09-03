@@ -5,9 +5,11 @@ description: 深度调研一个真实项目，产出一页单文件自包含、�
 
 # 项目演示页复刻
 
-把一个真实项目还原成一页能点的演示页：主视觉是产品界面的高保真模拟，下面接功能分区与实现要点。产出是**单文件自包含 HTML**，落到 `src/content/demos/`，由演示站 Deck 以 Blob URL + 沙箱 iframe 渲染。
+把一个真实项目还原成一页能点的演示页：主视觉是产品界面的高保真模拟，下面接功能分区与实现要点。产出是**单文件自包含 HTML**，由演示站 Deck 以 Blob URL + 沙箱 iframe 渲染。
 
-首版一个项目只做一页。Deck 的纵向多层已支持同项目多页，需要第二页时再追加一个文件，无需改代码。
+**默认只产出文件、不进仓库**：写到未跟踪的 `demo-out/`，由用户自己在「项目演示」页新增项目卡片并上传演示页（运行时通道，只存在他自己的浏览器里）。本仓库是公开模板，把某个人的项目信息写进 `showcase.config.ts` 或 `src/content/demos/` 会变成所有使用者的内置内容——只有仓库主人要做内置示例时才显式走编译时通道。
+
+首版一个项目只做一页。Deck 的纵向多层已支持同项目多页，需要第二页时再多产出一个文件即可。
 
 ## 按阶段读 reference
 
@@ -42,12 +44,15 @@ description: 深度调研一个真实项目，产出一页单文件自包含、�
 ## 阶段 D · 自检与落地
 
 ```bash
-node .claude/skills/showcase-demo-page/scripts/check-demo.mjs <file> --words .claude/privacy-words.local
-node .claude/skills/showcase-demo-page/scripts/smoke-demo.mjs <file>
-npm run build
+node .claude/skills/showcase-demo-page/scripts/check-demo.mjs demo-out/<name>.html --words .claude/privacy-words.local
+node .claude/skills/showcase-demo-page/scripts/smoke-demo.mjs demo-out/<name>.html
 ```
 
-三条都要显式核对退出码。静态自检管「写法违规」，冒烟管「运行期真崩」，两者互补，不能只跑一个。再目视三档（Deck 常态 / 网页全屏 / 390px），必要时同步 `src/config/showcase.config.ts` 的项目文案。
+两条都要显式核对退出码。静态自检管「写法违规」，冒烟管「运行期真崩」（沙箱抛错、横向溢出），两者互补，不能只跑一个。
+
+交付时告诉用户怎么装上去：「项目演示 →＋新增项目」填卡片文案 →「上传演示页」选这个文件。上传弹窗用 `<title>` 预填标题、按项目下拉决定归属。**不要**替用户改 `showcase.config.ts`。
+
+只有明确要做仓库内置示例时，才另存到 `src/content/demos/<projectId>--<slug>.html`：此时文件名与体积按编译时契约收紧（自检脚本按路径自动切换），并且要跑 `npm run build` 核对包体增量。
 
 ## 不可协商的硬规则
 
@@ -57,9 +62,9 @@ npm run build
 2. 禁 `localStorage` / `sessionStorage` / `document.cookie` / `history.pushState`——沙箱下抛错，**整段脚本就此中断**。
 3. 禁真实 `<form>` 提交、`window.open`、`target="_blank"`、`fetch` 及一切网络请求。
 4. 禁在演示页内调 `requestFullscreen`、禁访问 `parent` / `top`——Deck 管全屏，演示页不与主站通信。
-5. 文件名 `<projectId>--<slug>.html`，前缀必须命中 `showcase.config.ts` 的 id；不命中会**静默**归到第一个项目。
-6. `<title>` 非空，写成「系统名 · 这一页演的是什么」，它会出现在 Deck 提示行。
-7. 体积 ≤ 120 KB（硬上限 200 KB）：demos 是 eager 内联进主 chunk，没有懒加载兜底。
+5. 归属：运行时通道由上传弹窗的项目下拉决定，文件名随意；编译时通道靠文件名 `<projectId>--<slug>.html`，前缀不命中 `showcase.config.ts` 的 id 会**静默**落到第一个项目。
+6. `<title>` 非空，写成「系统名 · 这一页演的是什么」——上传弹窗用它预填标题，Deck 提示行也显示它。
+7. 体积：运行时 ≤ 300 KB（存 IndexedDB，且整段会进备份 JSON）；编译时 ≤ 120 KB、硬上限 200 KB（eager 内联进主 chunk，无懒加载兜底）。
 8. 布局全流式，390px 到整屏都不许横向溢出；配色自带固定一套，与主站主题无关。
 9. UTF-8 无 BOM。
 
@@ -73,7 +78,7 @@ npm run build
 
 | 症状 | 原因 | 解法 |
 |---|---|---|
-| 演示页出现在别的项目卡片下 | 文件名 `--` 前缀不在 `showcase.config.ts` 的 id 集合里，代码静默回落到第一个项目 | 改名，或先在 `SHOWCASE_PROJECTS` 补一条 |
+| 演示页出现在别的项目卡片下 | **仅编译时通道**：文件名 `--` 前缀不在 `showcase.config.ts` 的 id 集合里，代码静默回落到第一个项目 | 改名，或先在 `SHOWCASE_PROJECTS` 补一条 |
 | 页面只剩静态骨架，交互全死 | 脚本里用了被沙箱禁的 API，第一次访问就抛错，后面整段不执行 | 跑 `smoke-demo.mjs` 看报文，按提示换写法 |
 | 按钮点了没反应 | 真实 `<form>` 提交或 `target="_blank"` 被沙箱拦 | 改 `<button type="button">` + JS |
 | 图标、字体、图片全丢 | 引了外链或相对路径资源，`blob:` 下无处可解 | 内联 SVG + data URI + 系统字体栈 |
