@@ -30,6 +30,24 @@ describe('demoStore', () => {
     expect(store.merged.filter((d) => d.source === 'runtime')).toHaveLength(0)
   })
 
+  it('删除内置 demo：与普通文件一视同仁，走 hidden 墓碑且可随删行恢复', async () => {
+    const store = useDemoStore()
+    await store.load()
+    const builtinId = 'campus-market--review-flow'
+    await store.removeDemo(builtinId)
+    // 合并清单不再出现；runtime 清单也过滤墓碑行
+    expect(store.merged.some((d) => d.id === builtinId)).toBe(false)
+    // 墓碑行落在 runtimeDemos 表：html 置空、hidden 标记
+    const row = await db.runtimeDemos.get(builtinId)
+    expect(row?.hidden).toBe(true)
+    expect(row?.html).toBe('')
+    expect(row?.projectId).toBe('campus-market')
+    // 删掉墓碑行即恢复内置（与内置项目 hidden 墓碑同构）
+    await db.runtimeDemos.delete(builtinId)
+    await store.load()
+    expect(store.merged.some((d) => d.id === builtinId)).toBe(true)
+  })
+
   it('demoUrl：同内容复用同一 Blob URL', () => {
     const a = demoUrl('<p>same</p>')
     const b = demoUrl('<p>same</p>')

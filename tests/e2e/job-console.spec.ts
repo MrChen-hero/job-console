@@ -89,15 +89,39 @@ test.describe('求职工作台主流程', () => {
     const overlay = page.locator('[data-testid="deck-overlay"]')
     await expect(overlay).toBeVisible()
     await expect(overlay.locator('.dt-title')).toHaveText('企业人事管理系统')
+    // 首个项目没有内置演示：媒体位是占位，信息区照常给简介与要点
+    const face = overlay.locator('.deck-slide.current .deck-face.on')
+    await expect(face.locator('.dfm-label')).toContainText('暂无交互演示')
+    await expect(face).toContainText('权限与数据流转')
 
+    // 有演示页的项目：进去第一页就是 demo 的 iframe + 该项目基础信息（不再有中间的要点页）
     await page.keyboard.press('ArrowRight')
     await expect(overlay.locator('.dt-title')).toHaveText('校园二手交易小程序')
-    await page.keyboard.press('ArrowDown')
-    await expect(overlay.locator('.deck-slide.vertical .deck-face.on')).toContainText('内容治理设计')
-    await page.keyboard.press('ArrowDown')
-    await expect(overlay.locator('.deck-face.on iframe.df-iframe')).toBeVisible()
+    await expect(face.locator('iframe.df-iframe')).toBeVisible()
+    await expect(face).toContainText('内容治理设计')
+    // 沙箱 iframe 内真的渲染出了 demo 内容（Blob URL + sandbox allow-scripts 链路）
+    await expect(face.frameLocator('iframe.df-iframe').locator('h1')).toHaveText('审核状态机 · 交互演示')
+
+    // 网页全屏：藏掉 Deck 上下栏；Esc 先退全屏（Deck 不关），再按一次才关 Deck
+    await face.locator('.df-media.is-demo').hover()
+    await face.getByRole('button', { name: /^网页全屏/ }).click()
+    await expect(overlay.locator('.deck-top')).toBeHidden()
+    await page.keyboard.press('Escape')
+    await expect(overlay.locator('.deck-top')).toBeVisible()
+    await expect(overlay).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(overlay).toBeHidden()
+
+    // 卡片点击定位：点哪个项目卡，Deck 就落在哪个项目（此前恒从第一个项目开始）
+    await page.locator('.proj', { hasText: '设备监控数据平台' }).click()
+    await expect(overlay).toBeVisible()
+    await expect(overlay.locator('.dt-title')).toHaveText('设备监控数据平台')
+
+    // 演示行「查看」：直接落在该演示页所在纵向层（内置审核状态机 demo 属校园二手项目）
+    await page.keyboard.press('Escape')
+    await page.locator('.demo-row', { hasText: '审核状态机' }).getByRole('button', { name: '查看' }).click()
+    await expect(overlay.locator('.dt-title')).toHaveText('校园二手交易小程序')
+    await expect(face.locator('iframe.df-iframe')).toBeVisible()
   })
 
   test('演示站：项目卡片增删改（新增 / 删除示例 / 恢复）', async ({ page }) => {

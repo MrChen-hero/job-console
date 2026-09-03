@@ -22,7 +22,7 @@
 
 | 目录 | 职责 | 不应承担的职责 |
 |---|---|---|
-| `src/storage/` | Dexie schema（当前 v2）、全部实体类型、备份导出/校验/导入、快照轮转 | 任何 UI 或业务语义 |
+| `src/storage/` | Dexie schema（当前 v5）、全部实体类型、备份导出/校验/导入、快照轮转 | 任何 UI 或业务语义 |
 | `src/shared/` | 布局壳（侧边栏/顶栏/抽屉）、共享 UI 原语（`src/shared/ui/`：AppIcon/Sparkline/SectionCard）、StorageBanner、markdown 工具（frontmatter/render） | 业务状态 |
 | `src/app/` | 路由、导航常量、主题 store、入口装配 | 模块业务逻辑 |
 | `src/modules/<name>/` | 各模块 store（Pinia 封装 Dexie）+ 视图 + 组件 + 就近测试 | 跨模块读取他模块 store 内部 |
@@ -38,7 +38,7 @@
 - 简历资料池按版本独立（v4 起 Profile.id = versionId）：新建版本复制当前资料池为起点，复制版本连资料池一并复制，删除版本连带删资料池；state.profile 恒为当前激活版本的资料池。
 - 写库前必须用 `plain()`（JSON 克隆）去除 Pinia 响应式 Proxy（结构化克隆不兼容）。
 - `Application.status` 不变量：恒等于 `stageHistory` 末项 stage；唯一写路径 `trackerStore.changeStage`，其他 action（advance/markDropped/reopen）都经它。
-- 备份 `BACKUP_SCHEMA_VERSION = 4`，数据含十表（含 runtimeDemos / libraryCategories / runtimeProjects / deletedDocs）；改 schema 必须同步 backup 校验、`snapshots.ts` 的 `normalizeData` 与版本号。
+- 备份 `BACKUP_SCHEMA_VERSION = 4`，数据含十表（含 runtimeDemos / libraryCategories / runtimeProjects / deletedDocs）；改 schema 必须同步 backup 校验、`snapshots.ts` 的 `normalizeData` 与版本号。内置演示的 hidden 墓碑行 html 恒为空串，故 runtimeDemos 校验对墓碑行只验类型、不验非空——不为此升版本号，升了会让用户手里的旧 v4 备份导不进来。
 - 快照：覆盖导入与回退前自动 `createSnapshot`（保留 5 份，`restoreSnapshot` 走 importBackup overwrite，故回退本身也可回退）；旧快照缺新增表由 `normalizeData` 补空数组。
 - 导出下载统一走 `src/shared/downloadJson.ts`（Blob URL 延后 revoke，避免下载被提前中断）。
 - 测试中操作 Dexie 单例的用例，`beforeEach` 用 `db.delete()` + `db.open()` 重建；组件测试若有「发后即忘」写入，`afterEach` 等待落定（约 25ms），否则 unhandled rejection 会让 test:run 退出码非 0。
@@ -49,10 +49,12 @@
 
 ### 内容双通道（材料库/演示）
 - 编译时：`src/content/library/*.md`（frontmatter: title/category/tags）、`src/content/demos/<projectId>--<name>.html`（前缀决定归属项目）；由 `import.meta.glob(..., { query: '?raw', eager: true })` 收集。
-- 运行时：上传/编辑入 IndexedDB（libraryDocs 带 `source: 'runtime'`、runtimeDemos 表）；同 id runtime 覆盖内置展示。删除内置文档走 deletedDocs 墓碑表（内置 md 源文件删不掉），无「重置为内置」功能。
+- 运行时：上传/编辑入 IndexedDB（libraryDocs 带 `source: 'runtime'`、runtimeDemos 表）；同 id runtime 覆盖内置展示。删除内置文档走 deletedDocs 墓碑表（内置 md 源文件删不掉），删除内置演示页走 runtimeDemos 的 hidden 墓碑行（html 置空，删行即恢复），均无「重置为内置」功能。
 - 材料库分类：全部可增删改。自定义分类是 libraryCategories 表的普通行（name 即主键，改名换主键并迁移文档）；内置 4 类的改名/删除是同表的覆盖行（`builtin: true`，`renamedTo`/`hidden`），内置 md 的 frontmatter 是编译期产物改不动——文档归类在 store 读取时经映射生效，`restoreDefaultCategories` 整体还原。删除任何分类都要求分类下无文档。
 - 演示站项目：runtimeProjects 表，同 id 行覆盖内置项目（hidden:true 为删除墓碑），自建项目直接删行；合并视图在 showcase 模块 projectStore。
 - 交互 demo 用 Blob URL + `<iframe sandbox="allow-scripts">` 渲染，禁止外链依赖。
+- Deck 纵向层由 `deck.ts` 的 `deckLayers` 决定：**一个演示页一层，每层 = 媒体位（该 demo 的 iframe）+ 项目基础信息**（eyebrow/标题/简介/技术栈/要点，≥1025px 时要点走右列），所以点进项目的第一页就是第一个演示页；项目无演示页时只出一层 `cover`（媒体位为占位提示）。要点不再单独成页（`demo.title` 作要点小标题）。非当前项目只渲染一层 cover——同时挂 N 个 sandbox iframe 会让 N 份 demo 一起跑。
+- 演示区两级放大：网页全屏是纯 CSS（`.deck-overlay.page-fs` 藏上下栏与信息区，媒体位铺满视口，Esc 优先退全屏而非关 Deck，期间禁翻页），屏幕全屏对 iframe 调 `requestFullscreen`（退出交给浏览器）。**别用 `position: fixed` 做网页全屏**：`.deck-track` 有 transform，fixed 会以轨道而非视口为包含块；Teleport 又会让 iframe 重挂丢状态。
 
 ### UI
 - 样式走令牌（var(--xxx)），禁硬编码颜色；亮暗主题双适配。

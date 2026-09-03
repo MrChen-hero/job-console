@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { SHOWCASE_PROJECTS } from '../../../config/showcase.config'
-import { attachDemoPages, clampIndex, pagesOf, swipeIntent } from '../deck'
+import { clampIndex, deckLayers, swipeIntent, verticalIndexOf } from '../deck'
 import type { LocalDemo, RuntimeDemo } from '../../../storage/types'
+
+const project = SHOWCASE_PROJECTS[0]! // organs-system
+const demos = [
+  { id: 'd-1', projectId: 'organs-system', title: '一', html: '<p>1</p>' },
+  { id: 'd-2', projectId: 'organs-system', title: '二', html: '<p>2</p>' },
+  { id: 'd-3', projectId: 'campus-market', title: '别项目的', html: '<p>3</p>' },
+] as Array<LocalDemo | RuntimeDemo>
 
 describe('deck 导航纯逻辑', () => {
   it('clampIndex 边界', () => {
@@ -11,25 +18,26 @@ describe('deck 导航纯逻辑', () => {
     expect(clampIndex(0, 0)).toBe(0)
   })
 
-  it('pagesOf：每个项目首纵向页为配置要点页', () => {
-    for (const p of SHOWCASE_PROJECTS) {
-      const pages = pagesOf(p)
-      expect(pages).toHaveLength(1)
-      expect(pages[0]!.kind).toBe('points')
-      expect(pages[0]!.title).toBe(p.demo.title)
-    }
+  it('deckLayers：一个演示页一层，只收本项目的', () => {
+    const layers = deckLayers(project, demos)
+    expect(layers).toHaveLength(2)
+    expect(layers[0]).toEqual({ kind: 'demo', title: '一', html: '<p>1</p>', demoId: 'd-1' })
+    expect(layers[1]).toEqual({ kind: 'demo', title: '二', html: '<p>2</p>', demoId: 'd-2' })
   })
 
-  it('attachDemoPages：按 projectId 附加交互 demo 页', () => {
-    const project = SHOWCASE_PROJECTS[0]!
-    const local: LocalDemo = { id: 'organs-system--a', projectId: 'organs-system', title: '内置 demo', html: '<p>a</p>' }
-    const runtime: RuntimeDemo = {
-      id: 'rt-1', projectId: 'campus-market', title: '别项目的', html: '<p>b</p>',
-      createdAt: '2026-08-31', updatedAt: '2026-08-31',
-    }
-    const pages = attachDemoPages(project, [local, runtime])
-    expect(pages).toHaveLength(2)
-    expect(pages[1]).toEqual({ kind: 'demo', title: '内置 demo', html: '<p>a</p>', demoId: 'organs-system--a' })
+  it('deckLayers：没有演示页时只出一层封面（要点不再单独成页）', () => {
+    expect(deckLayers(project, [])).toEqual([{ kind: 'cover' }])
+    expect(deckLayers(project, [demos[2]!])).toEqual([{ kind: 'cover' }])
+    // 内置项目都配了要点，但要点渲染在每层的信息区，不占纵向层
+    expect(project.demo.points.length).toBeGreaterThan(0)
+  })
+
+  it('verticalIndexOf：演示页序号从 0 起（首层就是第一个演示页）', () => {
+    expect(verticalIndexOf(project, demos, 'd-1')).toBe(0)
+    expect(verticalIndexOf(project, demos, 'd-2')).toBe(1)
+    // 不属于该项目 / 查不到时落首层
+    expect(verticalIndexOf(project, demos, 'd-3')).toBe(0)
+    expect(verticalIndexOf(project, demos, 'missing')).toBe(0)
   })
 
   it('swipeIntent：阈值与横向主导判定', () => {

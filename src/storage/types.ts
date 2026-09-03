@@ -180,6 +180,8 @@ export interface RuntimeDemo {
   html: string
   createdAt: string
   updatedAt: string
+  /** 仅对内置 id 有意义：true = 已删除该内置演示（墓碑行，html 置空）；删行即恢复内置 */
+  hidden?: boolean
 }
 
 /** 编译时内置演示页（import.meta.glob 产出，不入库） */

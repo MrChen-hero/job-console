@@ -34,9 +34,20 @@ export const useDemoStore = defineStore('demo', {
   }),
 
   getters: {
+    /**
+     * 合并清单：内置 demo 过滤隐藏墓碑 ∪ runtime demo（过滤墓碑行）。
+     * 内置 demo 的删除与 library 内置文档同构：源文件是编译期产物删不掉，
+     * 以 runtimeDemos 表中同 id 的 hidden:true 行（html 置空）作墓碑表达。
+     */
     merged(state): MergedDemo[] {
-      const local = localDemos().map((d) => ({ source: 'local' as const, ...d }))
-      return [...local, ...state.runtimeDemos.map((d) => ({ source: 'runtime' as const, ...d }))]
+      const hiddenIds = new Set(state.runtimeDemos.filter((d) => d.hidden).map((d) => d.id))
+      const local = localDemos()
+        .filter((d) => !hiddenIds.has(d.id))
+        .map((d) => ({ source: 'local' as const, ...d }))
+      const runtime = state.runtimeDemos
+        .filter((d) => !d.hidden)
+        .map((d) => ({ source: 'runtime' as const, ...d }))
+      return [...local, ...runtime]
     },
 
     /** 按 projectId 分组（Deck 组装纵向页用） */
@@ -59,6 +70,10 @@ export const useDemoStore = defineStore('demo', {
       return row
     },
 
+    /**
+     * 删除演示页：runtime 行直接删行（顺带 revoke Blob URL）；
+     * 内置 demo 写 hidden 墓碑行——与 library 的 deletedDocs 同构，无「恢复内置」入口。
+     */
     async removeDemo(id: string) {
       const row = this.runtimeDemos.find((d) => d.id === id)
       if (row) {
@@ -67,8 +82,22 @@ export const useDemoStore = defineStore('demo', {
           URL.revokeObjectURL(url)
           blobUrlCache.delete(row.html)
         }
+        await db.runtimeDemos.delete(id)
+      } else {
+        const source = localDemos().find((d) => d.id === id)
+        if (!source) return
+        await db.runtimeDemos.put(
+          plain({
+            id: source.id,
+            projectId: source.projectId,
+            title: source.title,
+            html: '',
+            createdAt: nowIso(),
+            updatedAt: nowIso(),
+            hidden: true,
+          }),
+        )
       }
-      await db.runtimeDemos.delete(id)
       await this.load()
     },
   },

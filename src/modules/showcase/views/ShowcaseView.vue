@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
 import { useDemoStore, type MergedDemo } from '../demoStore'
 import { useProjectStore, type MergedProject, type ProjectInput } from '../projectStore'
+import { verticalIndexOf } from '../deck'
 import DeckOverlay from '../components/DeckOverlay.vue'
 import DemoUploadDialog from '../components/DemoUploadDialog.vue'
 import ProjectEditor from '../components/ProjectEditor.vue'
@@ -11,6 +12,7 @@ const demoStore = useDemoStore()
 const projectStore = useProjectStore()
 const deckOpen = ref(false)
 const deckStart = ref(0)
+const deckVStart = ref(0)
 const uploadOpen = ref(false)
 const preparing = ref(true)
 const editorOpen = ref(false)
@@ -48,9 +50,18 @@ function accentVar(accent: string): string {
   return map[accent] ?? 'var(--accent-violet)'
 }
 
-function openDeck(index: number) {
+/** 打开 Deck 并定位：index 为横向项目序，vertical 为纵向层（0 为主面） */
+function openDeck(index: number, vertical = 0) {
   deckStart.value = index
+  deckVStart.value = vertical
   deckOpen.value = true
+}
+
+/** 演示行「查看」：定位到所属项目，并直接落在该演示页所在的纵向层 */
+function openDemoDeck(demo: MergedDemo) {
+  const index = projectStore.visible.findIndex((p) => p.id === demo.projectId)
+  if (index < 0) return
+  openDeck(index, verticalIndexOf(projectStore.visible[index]!, demoStore.merged, demo.id))
 }
 
 function openCreate() {
@@ -105,7 +116,7 @@ async function onResetBuiltins() {
 }
 
 async function removeDemo(demo: MergedDemo) {
-  if (demo.source !== 'runtime') return
+  // 内置演示与上传演示一视同仁：内置走 runtimeDemos 墓碑行，runtime 直接删行
   try {
     await ElMessageBox.confirm(`删除交互演示「${demo.title}」？`, '删除确认', {
       confirmButtonText: '删除',
@@ -201,10 +212,9 @@ async function removeDemo(demo: MergedDemo) {
           <ElButton
             size="small"
             text
-            @click="openDeck(projectStore.visible.findIndex((p) => p.id === demo.projectId))"
+            @click="openDemoDeck(demo)"
           >查看</ElButton>
           <ElButton
-            v-if="demo.source === 'runtime'"
             size="small"
             text
             type="danger"
@@ -282,6 +292,8 @@ async function removeDemo(demo: MergedDemo) {
 
     <DeckOverlay
       v-if="deckOpen"
+      :start-index="deckStart"
+      :start-vertical="deckVStart"
       @close="deckOpen = false"
     />
   </div>

@@ -3,14 +3,18 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElButton } from 'element-plus'
 import { demoUrl, useDemoStore } from '../demoStore'
 import { useProjectStore, type MergedProject } from '../projectStore'
-import { attachDemoPages, clampIndex, swipeIntent, type DeckPage } from '../deck'
+import { clampIndex, deckLayers, swipeIntent, type DeckLayer } from '../deck'
 
 const emit = defineEmits<{ close: [] }>()
+
+const props = defineProps<{ startIndex?: number; startVertical?: number }>()
 
 const demoStore = useDemoStore()
 const projectStore = useProjectStore()
 const hIdx = ref(0)
 const vIdx = ref(0)
+/** 网页全屏：演示区铺满浏览器视口（藏顶栏/底栏/信息区），不进系统全屏，Esc 退出 */
+const pageFs = ref(false)
 
 /** 项目清单来自 projectStore（内置 ∪ 自建，已滤隐藏） */
 const projects = computed<MergedProject[]>(() => projectStore.visible)
@@ -18,7 +22,46 @@ const pageCount = computed(() => projects.value.length)
 /** 渲染用的收敛索引：打开 Deck 期间项目被删导致 hIdx 越界时不至于渲染空白 */
 const safeIdx = computed(() => clampIndex(hIdx.value, pageCount.value))
 const project = computed<MergedProject>(() => projects.value[safeIdx.value]!)
-const pages = computed<DeckPage[]>(() => attachDemoPages(project.value, demoStore.merged))
+const layers = computed<DeckLayer[]>(() => deckLayers(project.value, demoStore.merged))
+const safeV = computed(() => clampIndex(vIdx.value, layers.value.length))
+
+/** 非当前项目只渲染一层封面：同时挂 N 个 sandbox iframe 既吃内存，也会让 N 份 demo 一起跑 */
+const COVER: DeckLayer[] = [{ kind: 'cover' }]
+
+function facesOf(p: MergedProject): DeckLayer[] {
+  return p.id === project.value.id ? layers.value : COVER
+}
+
+function isOn(p: MergedProject, li: number): boolean {
+  return p.id === project.value.id ? li === safeV.value : li === 0
+}
+
+/** 封面媒体位文案：该项目有演示页（非当前项目才会走到封面）时说明进去能看到几个 */
+function coverLabel(p: MergedProject): string {
+  const n = demoStore.merged.filter((d) => d.projectId === p.id).length
+  return n > 0 ? `${n} 个交互演示 · 进入项目查看` : '暂无交互演示 · 上传 .html 后在此展示'
+}
+
+/** 纵向层提示：兼作当前演示页的标签（旧版是演示页顶部的 eyebrow），封面层不提示 */
+function layerHint(p: MergedProject, layer: DeckLayer, li: number): string {
+  if (p.id !== project.value.id || layer.kind !== 'demo') return ''
+  const n = layers.value.length
+  if (n <= 1) return `交互演示 · ${layer.title}`
+  return `交互演示 · ${layer.title}（${li + 1} / ${n}）· ↓↑ 切换演示页`
+}
+
+/** 屏幕全屏：对 iframe 元素 requestFullscreen（iframe 带 allowfullscreen），退出交给浏览器 */
+function screenFullscreen(event: MouseEvent) {
+  const iframe = (event.currentTarget as HTMLElement)
+    .closest('.df-media')
+    ?.querySelector<HTMLIFrameElement>('iframe')
+  if (!iframe || typeof iframe.requestFullscreen !== 'function') return
+  if (document.fullscreenElement) {
+    void document.exitFullscreen()
+    return
+  }
+  void iframe.requestFullscreen()
+}
 
 function goHorizontal(index: number) {
   hIdx.value = clampIndex(index, pageCount.value)
@@ -34,17 +77,23 @@ function prev() {
 }
 
 function goVertical(delta: number) {
-  // 层级 = 主面 + pages（要点页 + 交互 demo 页），vIdx 0 为主面
-  vIdx.value = clampIndex(vIdx.value + delta, pages.value.length + 1)
+  // 层级 = 该项目的演示页；无演示页时只有一层封面，vIdx 0 即第一个演示页
+  vIdx.value = clampIndex(safeV.value + delta, layers.value.length)
 }
 
 function onKeydown(event: KeyboardEvent) {
+  // Esc 先退网页全屏再关 Deck；网页全屏期间不翻页——演示铺满视口时翻页会让人不知道翻到了哪
+  if (event.key === 'Escape') {
+    if (pageFs.value) pageFs.value = false
+    else emit('close')
+    return
+  }
+  if (pageFs.value) return
   switch (event.key) {
     case 'ArrowRight': event.preventDefault(); next(); break
     case 'ArrowLeft': event.preventDefault(); prev(); break
     case 'ArrowDown': event.preventDefault(); goVertical(1); break
     case 'ArrowUp': event.preventDefault(); goVertical(-1); break
-    case 'Escape': emit('close'); break
   }
 }
 
@@ -54,6 +103,7 @@ let sy = 0
 let pressing = false
 
 function onPointerDown(event: PointerEvent) {
+  if (pageFs.value) return
   sx = event.clientX
   sy = event.clientY
   pressing = true
@@ -69,6 +119,9 @@ function onPointerUp(event: PointerEvent) {
 
 onMounted(async () => {
   await Promise.all([demoStore.load(), projectStore.load()])
+  // 初始定位须等 load 完成：点击的卡片/演示行可能是库里的自建项目，加载前不在 visible 清单中
+  hIdx.value = clampIndex(props.startIndex ?? 0, pageCount.value)
+  vIdx.value = clampIndex(props.startVertical ?? 0, layers.value.length)
   document.addEventListener('keydown', onKeydown)
   document.body.style.overflow = 'hidden'
 })
@@ -76,6 +129,8 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown)
   document.body.style.overflow = ''
+  // 关 Deck 时顺手退掉系统全屏：否则 iframe 卸载后浏览器会留在全屏空屏
+  if (document.fullscreenElement) void document.exitFullscreen()
 })
 
 const demoUrlFor = demoUrl
@@ -112,6 +167,7 @@ const accentSoft: Record<string, string> = {
 <template>
   <div
     class="deck-overlay"
+    :class="{ 'page-fs': pageFs }"
     data-testid="deck-overlay"
   >
     <div class="deck-top">
@@ -140,75 +196,101 @@ const accentSoft: Record<string, string> = {
           v-for="p in projects"
           :key="p.id"
           class="deck-slide"
-          :class="{ vertical: vIdx > 0 && p.id === project.id }"
+          :class="{ current: p.id === project.id }"
         >
           <div class="deck-viewport">
-            <!-- 主面 -->
+            <!-- 每层 = 演示媒体位（demo 的 iframe，无演示页时为占位）+ 项目基础信息 -->
             <div
+              v-for="(layer, li) in facesOf(p)"
+              :key="layer.kind === 'demo' ? layer.demoId : 'cover'"
               class="deck-face"
-              :class="{ on: !(p.id === project.id && vIdx > 0) }"
+              :class="{ on: isOn(p, li), cover: layer.kind !== 'demo' }"
             >
-              <span
-                class="df-eyebrow"
-                :style="{ color: accentColor[p.accent], background: accentSoft[p.accent] }"
-              >{{ p.eyebrow }}</span>
               <div
                 class="df-media"
-                :style="{ background: `linear-gradient(135deg, ${accentSoft[p.accent]}, transparent), var(--card2)`, color: accentColor[p.accent] }"
+                :class="layer.kind === 'demo' ? 'is-demo' : 'is-cover'"
               >
-                <span class="dfm-label">演示媒体位 · public/media</span>
-              </div>
-              <h2 class="df-title">
-                {{ p.title }}
-              </h2>
-              <p class="df-summary">
-                {{ p.summary }}
-              </p>
-              <div class="df-stack">
+                <template v-if="layer.kind === 'demo'">
+                  <iframe
+                    class="df-iframe"
+                    :src="demoUrlFor(layer.html)"
+                    sandbox="allow-scripts"
+                    allowfullscreen
+                    allow="fullscreen"
+                    :title="layer.title"
+                  />
+                  <!-- 控制条浮在演示底部（类视频播放器）：hover / 聚焦浮现，网页全屏时常驻 -->
+                  <div class="dfm-bar">
+                    <span class="dfm-name">{{ layer.title }}</span>
+                    <button
+                      class="dfm-btn df-page-fs"
+                      type="button"
+                      :aria-label="pageFs ? '退出网页全屏' : `网页全屏：${layer.title}`"
+                      @click="pageFs = !pageFs"
+                    >
+                      {{ pageFs ? '⤡ 退出网页全屏 (Esc)' : '⤢ 网页全屏' }}
+                    </button>
+                    <button
+                      class="dfm-btn df-screen-fs"
+                      type="button"
+                      :aria-label="`屏幕全屏：${layer.title}`"
+                      @click="screenFullscreen"
+                    >
+                      ⛶ 屏幕全屏
+                    </button>
+                  </div>
+                </template>
                 <span
-                  v-for="s in p.stack"
-                  :key="s"
-                  class="tag"
-                >{{ s }}</span>
+                  v-else
+                  class="dfm-label"
+                >{{ coverLabel(p) }}</span>
               </div>
-              <p class="df-hint">
-                ↓ 查看演示页（{{ pages.length }} 个）
-              </p>
-            </div>
-            <!-- 纵向演示页 -->
-            <template v-if="p.id === project.id">
-              <div
-                v-for="(page, pi) in pages"
-                :key="pi"
-                class="deck-face demo"
-                :class="{ on: p.id === project.id && vIdx === pi + 1 }"
-              >
-                <template v-if="page.kind === 'points'">
-                  <span class="df-eyebrow muted">DEMO PAGE · 纵向演示页</span>
-                  <h3 class="df-demo-title">
-                    {{ page.title }}
-                  </h3>
+
+              <div class="df-info">
+                <div class="dfi-main">
+                  <span
+                    class="df-eyebrow"
+                    :style="{ color: accentColor[p.accent], background: accentSoft[p.accent] }"
+                  >{{ p.eyebrow }}</span>
+                  <h2 class="df-title">
+                    {{ p.title }}
+                  </h2>
+                  <p class="df-summary">
+                    {{ p.summary }}
+                  </p>
+                  <div class="df-stack">
+                    <span
+                      v-for="s in p.stack"
+                      :key="s"
+                      class="tag"
+                    >{{ s }}</span>
+                  </div>
+                  <p
+                    v-if="layerHint(p, layer, li)"
+                    class="df-hint"
+                  >
+                    {{ layerHint(p, layer, li) }}
+                  </p>
+                </div>
+                <div
+                  v-if="p.demo.points.length > 0"
+                  class="dfi-side"
+                >
+                  <p class="df-points-title">
+                    {{ p.demo.title }}
+                  </p>
                   <!-- v-html 安全：内容为本机个人数据或自写 markdown（信任来源，见 src/shared/markdown/render.ts 注释） -->
                   <!-- eslint-disable-next-line vue/no-v-html -->
                   <ul class="df-points">
                     <li
-                      v-for="(pt, i) in page.points"
+                      v-for="(pt, i) in p.demo.points"
                       :key="i"
                       v-html="pt"
                     />
                   </ul>
-                </template>
-                <template v-else>
-                  <span class="df-eyebrow muted">交互演示 · {{ page.title }}</span>
-                  <iframe
-                    class="df-iframe"
-                    :src="demoUrlFor(page.html)"
-                    sandbox="allow-scripts"
-                    :title="page.title"
-                  />
-                </template>
+                </div>
               </div>
-            </template>
+            </div>
           </div>
         </section>
       </div>
@@ -303,15 +385,20 @@ const accentSoft: Record<string, string> = {
 .deck-face {
   position: absolute;
   inset: 0;
-  padding: 40px 64px;
+  padding: 26px 48px 30px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
+  overflow-y: auto;
   opacity: 0;
   transform: translateY(24px);
   transition: opacity 0.35s var(--ease), transform 0.35s var(--ease);
   pointer-events: none;
   visibility: hidden;
+}
+/* 无演示页的封面内容短，居中更好看；演示层从顶部排（媒体位 flex:1 自然铺满） */
+.deck-face.cover {
+  justify-content: center;
 }
 .deck-face.on {
   opacity: 1;
@@ -319,8 +406,35 @@ const accentSoft: Record<string, string> = {
   pointer-events: auto;
   visibility: visible;
 }
-.deck-face.demo {
+/* 媒体位：演示层放 iframe 并占满剩余高度，封面层是一条 150px 占位 */
+.df-media {
+  position: relative;
+  display: flex;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
   background: var(--card2);
+  overflow: hidden;
+}
+.df-media.is-demo {
+  flex: 1 1 auto;
+  min-height: 260px;
+  margin-bottom: 18px;
+}
+.df-media.is-cover {
+  flex: 0 0 auto;
+  height: 150px;
+  align-items: flex-end;
+  margin-bottom: 20px;
+}
+.dfm-label {
+  font-size: 11px;
+  font-weight: var(--fw-bold);
+  color: var(--text2);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 9px;
+  margin: 0 14px 12px;
 }
 .df-eyebrow {
   font-size: 12px;
@@ -331,74 +445,158 @@ const accentSoft: Record<string, string> = {
   border-radius: 999px;
   margin-bottom: 14px;
 }
-.df-eyebrow.muted {
-  color: var(--muted);
-  background: var(--card);
-  border: 1px solid var(--border);
-}
-.df-media {
-  height: 150px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--border);
-  margin-bottom: 20px;
-  position: relative;
-  overflow: hidden;
-}
-.dfm-label {
+/* 控制条浮在演示底部：默认隐形不遮挡演示，hover / 键盘聚焦 / 触屏时可见 */
+.dfm-bar {
   position: absolute;
-  left: 14px;
+  left: 50%;
   bottom: 12px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text2);
-  background: var(--card);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 24px);
+  padding: 5px 8px 5px 12px;
+  border-radius: 999px;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 3px 9px;
+  background: var(--card);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s var(--ease);
+}
+.df-media.is-demo:hover .dfm-bar,
+.df-media.is-demo:focus-within .dfm-bar {
+  opacity: 1;
+  pointer-events: auto;
+}
+/* 触屏无 hover：常驻可点 */
+@media (hover: none) {
+  .dfm-bar {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+.dfm-name {
+  font-size: 11.5px;
+  color: var(--muted);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dfm-btn {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card2);
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.16s var(--ease), background 0.16s var(--ease), border-color 0.16s var(--ease);
+}
+.dfm-btn:hover {
+  color: var(--primary-text);
+  background: var(--primary-soft);
+  border-color: var(--primary-border);
+}
+.dfm-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+/* 信息区：每层都有，恒在媒体位之下。宽屏分两列（左信息、右要点），把省下的高度让给演示 */
+.df-info {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 12px 36px;
+}
+.dfi-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dfi-side {
+  min-width: 0;
+}
+@media (min-width: 1025px) {
+  .df-info {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr);
+    align-items: start;
+  }
 }
 .df-title {
-  font-size: 34px;
+  font-size: 28px;
   font-weight: var(--fw-bold);
   letter-spacing: -.02em;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 .df-summary {
-  font-size: 14.5px;
+  font-size: 14px;
   color: var(--text2);
-  max-width: 640px;
-  margin-bottom: 16px;
+  max-width: 720px;
+  margin-bottom: 12px;
 }
 .df-stack {
   display: flex;
   gap: 7px;
   flex-wrap: wrap;
 }
+/* 技术栈 chip：与 ShowcaseView 卡片上的取值一致（scoped 不跨组件，各自声明） */
+.tag {
+  font-size: 11px;
+  color: var(--text2);
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1.5px 8px;
+}
 .df-hint {
-  margin-top: 18px;
+  margin-top: 12px;
   font-size: 12px;
   color: var(--muted);
 }
-.df-demo-title {
-  font-size: 26px;
-  font-weight: var(--fw-bold);
-  letter-spacing: -.02em;
-  margin-bottom: 14px;
+/* 演示要点：宽屏在右列，窄屏落到信息区下方；小标题取项目配置里的「演示页标题」 */
+.df-points-title {
+  font-size: 12.5px;
+  font-weight: var(--fw-semibold);
+  color: var(--text2);
 }
 .df-points {
-  font-size: 14px;
+  margin-top: 6px;
+  padding-left: 18px;
+  font-size: 13px;
   color: var(--text2);
-  max-width: 640px;
+  max-width: 720px;
 }
 .df-points li {
-  margin-bottom: 10px;
+  margin-bottom: 4px;
 }
 .df-iframe {
   flex: 1;
   width: 100%;
-  max-width: 860px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
+  border: 0;
   background: #fff;
+}
+/* 网页全屏：藏掉 Deck 上下栏与信息区，媒体位铺满视口（Esc 或控制条退出） */
+.deck-overlay.page-fs .deck-top,
+.deck-overlay.page-fs .deck-foot,
+.deck-overlay.page-fs .df-info {
+  display: none;
+}
+.deck-overlay.page-fs .deck-face {
+  padding: 0;
+}
+.deck-overlay.page-fs .df-media.is-demo {
+  min-height: 0;
+  margin-bottom: 0;
+  border: 0;
+  border-radius: 0;
+}
+.deck-overlay.page-fs .dfm-bar {
+  opacity: 1;
+  pointer-events: auto;
 }
 .deck-foot {
   display: flex;
@@ -441,10 +639,13 @@ const accentSoft: Record<string, string> = {
 }
 @media (max-width: 860px) {
   .deck-face {
-    padding: 26px;
+    padding: 18px 20px 22px;
+  }
+  .df-media.is-demo {
+    min-height: 180px;
   }
   .df-title {
-    font-size: 26px;
+    font-size: 22px;
   }
   .deck-hint {
     display: none;
@@ -452,7 +653,8 @@ const accentSoft: Record<string, string> = {
 }
 @media (prefers-reduced-motion: reduce) {
   .deck-track,
-  .deck-face {
+  .deck-face,
+  .dfm-bar {
     transition: none;
   }
 }
