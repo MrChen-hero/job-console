@@ -7,7 +7,8 @@
 - 技术栈：Vue 3.5（`<script setup lang="ts">`）、TypeScript、Vite 8（rolldown）、vue-router 5（hash 模式）、Pinia 4、Element Plus 2、Dexie 4（IndexedDB）、vitest + @vue/test-utils、Playwright。
 - 形态：纯前端个人信息管理系统「求职工作台」，无后端无账号；数据存浏览器 IndexedDB，可部署 GitHub Pages。
 - 五模块：工作台（dashboard）、投递管理（tracker）、简历管理（resume）、材料库（library）、项目演示（showcase）。
-- 设计语言「Cool Slate」：CSS 变量令牌（`src/styles/tokens.css`，亮/暗双主题）+ Element Plus 主题桥接；视觉基准是 `design-demo/cool-slate-light-demo.html`。
+- 设计语言「Cool Slate」：CSS 变量令牌（`src/styles/tokens.css`，亮/暗双主题）+ Element Plus 主题桥接；视觉基准是 `design-demo/cool-slate-light-demo.html`，设计系统说明见 [DESIGN.md](DESIGN.md)。
+- 未决事项与待清理项记在 [docs/tech-debt.md](docs/tech-debt.md)，动到相关位置前先看一眼。
 
 ## 2. 开始工作前
 

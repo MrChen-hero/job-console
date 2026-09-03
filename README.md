@@ -50,4 +50,4 @@ npm run test:e2e   # Playwright 端到端测试
 - **打印 PDF 排版不对？** 用 Chrome/Edge 的「打印 → 另存为 PDF」，纸张 A4、边距默认即可。
 - **上传的演示页白屏？** 交互 HTML 需单文件自包含（内联 CSS/JS），不允许依赖本地同目录资源。
 
-架构与开发约定见 [AGENTS.md](AGENTS.md)。
+架构与开发约定见 [AGENTS.md](AGENTS.md)，视觉设计系统（令牌、层级、动效尺度）见 [DESIGN.md](DESIGN.md)，未决事项见 [docs/tech-debt.md](docs/tech-debt.md)。

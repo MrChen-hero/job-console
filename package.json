@@ -10,8 +10,7 @@
     "lint": "eslint .",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:e2e": "playwright test",
-    "generate:assets": "node scripts/generate-project-assets.mjs"
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "dexie": "^4.4.5",

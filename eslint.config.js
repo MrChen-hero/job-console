@@ -5,7 +5,8 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', 'playwright-report', 'test-results', 'design-demo'] },
+  // .claude/ 与 demo-out/ 是本机工具与其产物（技能脚本按 Node 环境写，不适用本仓库的浏览器 globals）
+  { ignores: ['dist', 'node_modules', 'playwright-report', 'test-results', 'design-demo', '.claude', 'demo-out'] },
   js.configs.recommended,
   ...pluginVue.configs['flat/recommended'],
   ...tseslint.configs.recommended,
