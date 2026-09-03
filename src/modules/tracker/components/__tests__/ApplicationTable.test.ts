@@ -32,6 +32,18 @@ describe('ApplicationTable', () => {
     expect(wrapper.emitted('open')![0]).toEqual([apps[0]!.id])
   })
 
+  it('长职位名走单行裁剪：cell 带 clip-cell 且完整名称挂 title', () => {
+    const long = '示例集团-某省分公司-科技类1-科技岗-2027届校招（某市分公司）(J00001)'
+    const wrapper = mount(ApplicationTable, {
+      props: { applications: [makeApp({ position: long })], stageFilter: '全部', query: '' },
+    })
+    const cell = wrapper.find('.pos-cell')
+    // jsdom 不算布局，裁剪效果由 e2e 量行高验证；此处守住标记契约
+    expect(cell.classes()).toContain('clip-cell')
+    expect(cell.attributes('title')).toBe(long)
+    expect(cell.text()).toBe(long)
+  })
+
   it('状态筛选与搜索', () => {
     const apps = [makeApp(), makeApp({ company: '亚信科技', status: '无消息' })]
     const filtered = mount(ApplicationTable, {

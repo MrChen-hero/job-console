@@ -145,7 +145,10 @@ const pageNumbers = computed(() => Array.from({ length: pageCount.value }, (_, i
           <td>
             <b class="t-company">{{ app.company }}</b>
           </td>
-          <td class="dim">
+          <td
+            class="dim clip-cell pos-cell"
+            :title="app.position"
+          >
             {{ app.position }}
           </td>
           <td><span class="mini-tag">{{ app.batch }}</span></td>
@@ -162,10 +165,10 @@ const pageNumbers = computed(() => Array.from({ length: pageCount.value }, (_, i
               class="stale-hint"
             >超1月视为挂</span>
           </td>
-          <td class="dim">
+          <td class="dim clip-cell chan-cell">
             {{ app.channel }}
           </td>
-          <td class="dim next-cell">
+          <td class="dim clip-cell next-cell">
             {{ app.nextStep || '—' }}
           </td>
           <td>
@@ -399,11 +402,30 @@ tbody tr:last-child td {
   padding: 1.5px 8px;
   white-space: nowrap;
 }
-.next-cell {
-  max-width: 220px;
+/*
+ * 单行 + 省略号的三列：中文可在任意字符间断行，列宽被其他列一压就折成竖排把整行撑高
+ * （长职位名如「…-2027届校招（某市分公司）(J00001)」最明显）。职位/渠道/下一步都是
+ * 长度不可控的自由文本，统一裁剪；职位的完整名称挂在 title 上，鼠标悬停可看全。
+ */
+.clip-cell {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/*
+ * 职位的可视宽度随浏览器宽度伸缩：32vw 照实测标定——1440 得 461px，恰好容下 42 字的全名，
+ * 再窄才开始省略（1280 → 410px、768 → 246px、390 → 140px 下限）；
+ * 上限 520px 防止宽屏把整行的空隙都吃进这一列。
+ */
+.pos-cell {
+  max-width: clamp(140px, 32vw, 520px);
+}
+/* 渠道多为 2–4 字，但列宽被挤到 51px 时「官网」会断成两行、把整行撑高 10px */
+.chan-cell {
+  max-width: 140px;
+}
+.next-cell {
+  max-width: 220px;
 }
 .stale-hint {
   margin-left: 6px;
