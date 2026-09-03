@@ -142,7 +142,10 @@ const pageNumbers = computed(() => Array.from({ length: pageCount.value }, (_, i
           class="app-row"
           @click="emit('open', app.id)"
         >
-          <td>
+          <td
+            class="clip-cell comp-cell"
+            :title="app.company"
+          >
             <b class="t-company">{{ app.company }}</b>
           </td>
           <td
@@ -293,11 +296,15 @@ const pageNumbers = computed(() => Array.from({ length: pageCount.value }, (_, i
   border-radius: var(--r-md);
   /* 横向 + 纵向滚动：内容区撑满后，行多时纵向滚动而不是溢出 */
   overflow: auto;
+  /* 公司/职位两列的宽度以卡片宽度为基准（见 .comp-cell / .pos-cell 的 cqw） */
+  container-type: inline-size;
 }
 .app-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1080px;
+  /* 1040：公司/职位两列的下限（171+168）加上其余七列的内容宽度，正好是九列还能看的最窄形态。
+     再往下会把渠道等短列压到一字一行；比这更宽（原来是 1080）则 1366 视口会白挨 22px 滚动条。 */
+  min-width: 1040px;
 }
 th {
   text-align: left;
@@ -403,9 +410,9 @@ tbody tr:last-child td {
   white-space: nowrap;
 }
 /*
- * 单行 + 省略号的三列：中文可在任意字符间断行，列宽被其他列一压就折成竖排把整行撑高
- * （长职位名如「…-2027届校招（某市分公司）(J00001)」最明显）。职位/渠道/下一步都是
- * 长度不可控的自由文本，统一裁剪；职位的完整名称挂在 title 上，鼠标悬停可看全。
+ * 单行 + 省略号的四列：中文可在任意字符间断行，列宽被其他列一压就折成竖排把整行撑高
+ * （长职位名如「…-2027届校招（某市分公司）(J00001)」最明显）。公司/职位/渠道/下一步都是
+ * 长度不可控的自由文本，统一裁剪；公司与职位的完整内容挂在 title 上，鼠标悬停可看全。
  */
 .clip-cell {
   overflow: hidden;
@@ -413,15 +420,39 @@ tbody tr:last-child td {
   white-space: nowrap;
 }
 /*
- * 职位列固定 168px：约 11 个汉字后收「…」（如「示例集团-某省分公司-…」），完整名称看 title。
- * width 与 max-width 都写不是冗余：auto 表格布局在有富余宽度时会把余量按比例摊给各列，
- * 只写 max-width 时 ≥1450px 的视口会把这列摊到 225px（一行显示 24 字，同列的短职位名
- * 后面还拖 140px 空白）；写上 width 才真正钉住。
- * 上限不跟视口伸缩也是刻意的——列宽由最长的那条决定，放宽只会让短名字后面的空白更大。
+ * 公司与职位两列跟着卡片宽度分档伸缩，缩的顺序是「先缩职位，职位到底了才轮到公司」，
+ * 放大时反过来（先把公司放回全名，再把职位铺开）。窗口越宽显示越多，标准是尽量不出横向
+ * 滚动条。实测（Chromium，长公司名 + 长职位名 + 长渠道 + 长下一步的最坏一行）：
+ *
+ *   卡片    公司              职位              横向滚动
+ *   1542   300px（全名）      440px（约 35 字）   0
+ *   1452   300px             360px（约 27 字）   0
+ *   1292   300px             200px（约 13 字）   0
+ *   1192   232px（约 14 字）  168px（下限）       0
+ *   1132   172px             168px               0
+ *   1058   171px（下限）      168px               0    ← 两列都到底
+ *    972   171px             168px              75px  ← 九列已放不下，只能滚
+ *
+ * 两个减数 = 其余七列最坏宽度（批次/投递日/状态/渠道/下一步/面试/操作 合计约 792px）
+ * 加上另一列的上限，于是某列长到头时表格刚好铺满卡片。下限对应用户要求的最短形态：
+ * 公司「中国电信股份有限公司…」10 字、职位「人保财险-云南分公司-…」11 字。
+ *
+ * 两个坑，改这段前先看：
+ * 1) width 与 max-width 必须同值（故走 --w）。表格 auto 布局里 width 只是「首选宽度」，
+ *    列宽取 max(width, min(内容宽, max-width))——只写 width 压不过内容，只写 max-width
+ *    又会被富余宽度摊宽（实测 1920 下职位被摊到 225px）。
+ * 2) 基准用 cqw（容器 = .table-card）而不是 vw：侧栏 ≤1024px 收成抽屉，卡片宽与视口宽
+ *    不是固定差值；cqw 直接就是卡片宽度，省掉这层换算。
  */
+.comp-cell {
+  --w: clamp(171px, calc(100cqw - 960px), 300px);
+  width: var(--w);
+  max-width: var(--w);
+}
 .pos-cell {
-  width: 168px;
-  max-width: 168px;
+  --w: clamp(168px, calc(100cqw - 1092px), 440px);
+  width: var(--w);
+  max-width: var(--w);
 }
 /* 渠道多为 2–4 字，但列宽被挤到 51px 时「官网」会断成两行、把整行撑高 10px */
 .chan-cell {

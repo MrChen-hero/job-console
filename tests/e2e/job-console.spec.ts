@@ -77,24 +77,34 @@ test.describe('求职工作台主流程', () => {
     await expect(page.getByTestId('stat-total')).toHaveText('1')
   })
 
-  test('投递：长职位名单行省略，不把表格行撑成竖排', async ({ page }) => {
-    const LONG = '示例集团-某省分公司-科技类1-科技岗-2027届校招（某市分公司）(J00001)'
+  test('投递：长公司名与长职位名分档裁剪，不把表格行撑成竖排', async ({ page }) => {
+    const LONG_POS = '示例集团-某省分公司-科技类1-科技岗-2027届校招（某市分公司）(J00001)'
+    const LONG_COMP = '示例财产保险股份有限公司某省某市分公司'
     await page.goto('/#/tracker')
     await page.getByRole('button', { name: '＋ 新增投递' }).click()
-    await page.locator('input[data-field="company"]').fill('示例财产保险股份有限公司某省某市分公司')
-    await page.locator('input[data-field="position"]').fill(LONG)
+    await page.locator('input[data-field="company"]').fill(LONG_COMP)
+    await page.locator('input[data-field="position"]').fill(LONG_POS)
     await page.getByRole('button', { name: '保存' }).click()
 
-    const cell = page.locator('.pos-cell')
-    // 省略后完整名称只剩 title 能看全
-    await expect(cell).toHaveAttribute('title', LONG)
+    const pos = page.locator('.pos-cell')
+    const comp = page.locator('.comp-cell')
+    // 裁剪后完整内容只剩 title 能看全
+    await expect(pos).toHaveAttribute('title', LONG_POS)
+    await expect(comp).toHaveAttribute('title', LONG_COMP)
+    const cut = (el: HTMLElement) => el.scrollWidth > el.clientWidth
+    expect(await pos.evaluate(cut)).toBe(true)
+    expect(await comp.evaluate(cut)).toBe(true)
     // 单行行高 55px；中文按字断行会把这条 42 字的名字折成 3–8 行、行高冲到 100px 以上
     const row = await page.locator('.app-row').boundingBox()
     expect(row!.height).toBeLessThan(60)
-    // 列宽钉在 168px：任何视口都以「…」收尾，也不许再被富余宽度摊宽（摊宽会让短职位名后面空一大块）
-    const box = await cell.boundingBox()
-    expect(box!.width).toBeLessThanOrEqual(180)
-    expect(await cell.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true)
+    // 三个视口（1440/768/390）的卡片宽度都还没到放宽档，两列应停在下限附近
+    expect((await pos.boundingBox())!.width).toBeLessThanOrEqual(180)
+    expect((await comp.boundingBox())!.width).toBeLessThanOrEqual(185)
+    if (page.viewportSize()!.width >= 1440) {
+      // 分档宽度的标定目标：1440 视口下九列要能铺进卡片，不出横向滚动条
+      const scroll = await page.locator('.table-card').evaluate((el) => el.scrollWidth - el.clientWidth)
+      expect(scroll).toBeLessThanOrEqual(0)
+    }
     // 表格自己横向滚动，页面不许横向溢出
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
   })

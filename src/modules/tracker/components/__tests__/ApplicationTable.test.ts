@@ -32,16 +32,21 @@ describe('ApplicationTable', () => {
     expect(wrapper.emitted('open')![0]).toEqual([apps[0]!.id])
   })
 
-  it('长职位名走单行裁剪：cell 带 clip-cell 且完整名称挂 title', () => {
+  it('长职位名与长公司名走单行裁剪：cell 带 clip-cell 且完整内容挂 title', () => {
     const long = '示例集团-某省分公司-科技类1-科技岗-2027届校招（某市分公司）(J00001)'
+    const company = '示例财产保险股份有限公司某省某市分公司'
     const wrapper = mount(ApplicationTable, {
-      props: { applications: [makeApp({ position: long })], stageFilter: '全部', query: '' },
+      props: { applications: [makeApp({ position: long, company })], stageFilter: '全部', query: '' },
     })
-    const cell = wrapper.find('.pos-cell')
-    // jsdom 不算布局，裁剪效果由 e2e 量行高验证；此处守住标记契约
-    expect(cell.classes()).toContain('clip-cell')
-    expect(cell.attributes('title')).toBe(long)
-    expect(cell.text()).toBe(long)
+    // jsdom 不算布局，分档宽度与裁剪效果由 e2e 量行高/列宽验证；此处守住标记契约
+    const pos = wrapper.find('.pos-cell')
+    expect(pos.classes()).toContain('clip-cell')
+    expect(pos.attributes('title')).toBe(long)
+    expect(pos.text()).toBe(long)
+    const comp = wrapper.find('.comp-cell')
+    expect(comp.classes()).toContain('clip-cell')
+    expect(comp.attributes('title')).toBe(company)
+    expect(comp.text()).toBe(company)
   })
 
   it('状态筛选与搜索', () => {
