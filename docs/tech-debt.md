@@ -55,16 +55,7 @@ Cool Slate 重构期的一次性 UI 截图核对脚本（`node scripts/ui-shots.
 
 ## 已收口
 
+- **2026-09-03** 清掉四个可再生目录，工作区（除 `node_modules`）从约 59MB 降到 8.6MB：`.ui-shots/` 48MB（Cool Slate 重构期 13 批 UI 截图，需要时用 D-2 的脚本重跑）、`dist/`（`npm run build` 重建）、`playwright-report/` 与 `test-results/`（`npm run test:e2e` 重建）。命令：`rm -r .ui-shots dist playwright-report test-results`。
 - **2026-09-03** `npm run lint` 从 31 个 error 修回 0：`.claude/` 下的技能脚本按 Node 环境写（`process` / `console` / `TextDecoder`），撞上本仓库面向浏览器的 globals 配置。`eslint.config.js` 的 `ignores` 补上 `.claude` 与 `demo-out`——与 `design-demo` 同理，本机工具及其产物不进 lint 范围。教训：往仓库里加任何目录（哪怕不进 git）都要回跑一次 lint，`eslint .` 不看 `.gitignore`。
 - **2026-09-03** 移除 `package.json` 里的 `generate:assets`——它指向 `scripts/generate-project-assets.mjs`，而该文件早已取消跟踪，新克隆的仓库跑这条命令必然 `Cannot find module`。
 - **2026-09-03** README 与 AGENTS 补上指向 `DESIGN.md` 与本文件的链接（此前三份根级文档互不引用，DESIGN.md 等于隐藏文件）。
-
-## 待清理（本机可再生产物，命令需手动执行）
-
-以下四个目录都在 `.gitignore` 内、都能重新生成，删掉可回收约 50MB：
-
-```bash
-rm -r .ui-shots dist playwright-report test-results
-```
-
-`.ui-shots/` 48MB 是 Cool Slate 重构期 13 批 UI 截图（需要时用 D-2 那个脚本重跑）；`dist/` 由 `npm run build` 重建；`playwright-report/` 与 `test-results/` 由 `npm run test:e2e` 重建。
