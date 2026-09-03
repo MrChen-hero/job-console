@@ -1,0 +1,4 @@
+interface:
+  display_name: "项目演示页复刻"
+  short_description: "深度调研真实项目，生成单文件自包含的高保真交互演示页"
+  default_prompt: "用 showcase-demo-page 技能，为 <项目源码路径> 生成一页演示页"
