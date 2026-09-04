@@ -22,7 +22,9 @@ const blobUrlCache = new Map<string, string>()
 export function demoUrl(html: string): string {
   const cached = blobUrlCache.get(html)
   if (cached) return cached
-  const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
+  // charset=utf-8 不能省：Blob 里是 UTF-8 字节，不声明的话没写 <meta charset> 的上传页
+  // 会被 iframe 按浏览器默认编码（windows-1252）解码，中文全成乱码
+  const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }))
   blobUrlCache.set(html, url)
   return url
 }

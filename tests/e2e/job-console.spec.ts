@@ -235,6 +235,37 @@ test.describe('求职工作台主流程', () => {
     await expect(cards).toHaveCount(3)
   })
 
+  test('演示站：拖拽 .html 上传交互演示', async ({ page }) => {
+    await page.goto('/#/showcase')
+    await expect(page.locator('.el-loading-mask')).toHaveCount(0)
+    await page.getByRole('button', { name: '⬆ 上传交互演示' }).click()
+
+    // jsdom 的单测只能伪造 dataTransfer；这里用真实 DataTransfer 走一遍浏览器拖放链路
+    const dataTransfer = await page.evaluateHandle(() => {
+      const dt = new DataTransfer()
+      // 故意不写 <meta charset>：Blob 的 type 得带 charset=utf-8，否则中文按 windows-1252 解成乱码
+      const html = '<html><head><title>拖来的演示</title></head><body><h1>拖拽上传演示</h1></body></html>'
+      dt.items.add(new File([html], 'dragged-demo.html', { type: 'text/html' }))
+      return dt
+    })
+    const zone = page.locator('[data-testid="demo-file-label"]')
+    await zone.dispatchEvent('dragover', { dataTransfer })
+    await expect(zone).toHaveClass(/is-drag/)
+    await zone.dispatchEvent('drop', { dataTransfer })
+    // 文件名回显 + 标题按 <title> 自动回填
+    await expect(zone).toContainText('已选择：dragged-demo.html')
+    await expect(page.locator('input[data-field="du-title"]')).toHaveValue('拖来的演示')
+
+    await page.getByRole('button', { name: '保存演示' }).click()
+    const row = page.locator('.demo-row', { hasText: '拖来的演示' })
+    await expect(row).toBeVisible()
+    await expect(row.locator('.src-tag')).toHaveText('我的')
+    // 存进去的 HTML 能在沙箱 iframe 里渲染出来
+    await row.getByRole('button', { name: '查看' }).click()
+    const face = page.locator('[data-testid="deck-overlay"] .deck-slide.current .deck-face.on')
+    await expect(face.frameLocator('iframe.df-iframe').locator('h1')).toHaveText('拖拽上传演示')
+  })
+
   test('材料库：新增分类并筛选文档', async ({ page }) => {
     await page.goto('/#/library')
     await page.getByRole('button', { name: '＋ 新增分类' }).click()

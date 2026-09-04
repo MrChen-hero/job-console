@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { ElButton, ElDialog, ElInput, ElOption, ElSelect } from 'element-plus'
 import { useDemoStore } from '../demoStore'
 import { useProjectStore } from '../projectStore'
@@ -14,27 +14,66 @@ const form = reactive({
 })
 const error = ref('')
 const fileName = ref('')
+const dragging = ref(false)
 let pendingHtml = ''
+
+const HTML_EXT = /\.html?$/i
+
+const dropLabel = computed(() => {
+  if (dragging.value) return '松手即可上传'
+  return fileName.value ? `已选择：${fileName.value}` : '点击选择，或把 .html 文件拖到这里'
+})
+
+/** 点击选择与拖入共用：扩展名自己校验（accept 只约束文件选择器，管不到拖拽） */
+function readFile(file: File) {
+  if (!HTML_EXT.test(file.name)) {
+    error.value = '只支持 .html / .htm 文件'
+    return
+  }
+  void file.text().then((text) => {
+    pendingHtml = text
+    fileName.value = file.name
+    error.value = ''
+    if (!form.title) {
+      const match = /<title>([^<]*)<\/title>/i.exec(text)
+      form.title = match?.[1]?.trim() ?? file.name.replace(HTML_EXT, '')
+    }
+  })
+}
 
 function onFileChange(event: Event) {
   const inputEl = event.target as HTMLInputElement
   const file = inputEl.files?.[0]
-  if (!file) return
-  void file.text().then((text) => {
-    pendingHtml = text
-    fileName.value = file.name
-    if (!form.title) {
-      const match = /<title>([^<]*)<\/title>/i.exec(text)
-      form.title = match?.[1]?.trim() ?? file.name.replace(/\.html?$/i, '')
-    }
-    inputEl.value = ''
-  })
+  if (file) readFile(file)
+  // 立刻清空：不清的话同一个文件二次选择不触发 change。File 引用已交给 readFile，不受影响
+  inputEl.value = ''
+}
+
+function onDragOver(event: DragEvent) {
+  // 模板上的 .prevent 是必须的：不拦默认行为，浏览器会直接用新页面打开这个文件而不触发 drop
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+  dragging.value = true
+}
+
+function onDragLeave(event: DragEvent) {
+  // 移到内部元素上也会冒泡出 dragleave，落点仍在放置区内时不算离开
+  const next = event.relatedTarget as Node | null
+  if (next && (event.currentTarget as HTMLElement).contains(next)) return
+  dragging.value = false
+}
+
+function onDrop(event: DragEvent) {
+  dragging.value = false
+  // 拖入多个只取第一个
+  const file = event.dataTransfer?.files?.[0]
+  if (file) readFile(file)
 }
 
 /** 打开弹窗时校准默认项目：首个可见项目 */
 function onOpenPanel() {
   form.projectId = projectStore.visible[0]?.id ?? ''
   error.value = ''
+  dragging.value = false
 }
 
 async function save() {
@@ -60,6 +99,7 @@ function reset() {
   fileName.value = ''
   form.title = ''
   error.value = ''
+  dragging.value = false
 }
 </script>
 
@@ -77,7 +117,11 @@ function reset() {
       </p>
       <label
         class="du-file"
+        :class="{ 'is-drag': dragging }"
         data-testid="demo-file-label"
+        @dragover.prevent="onDragOver"
+        @dragleave="onDragLeave"
+        @drop.prevent="onDrop"
       >
         <input
           type="file"
@@ -85,7 +129,7 @@ function reset() {
           class="du-input"
           @change="onFileChange"
         >
-        <span>{{ fileName ? `已选择：${fileName}` : '点击选择 .html 文件' }}</span>
+        <span>{{ dropLabel }}</span>
       </label>
       <div class="du-field">
         <label for="du-project">所属项目</label>
@@ -142,6 +186,7 @@ function reset() {
 }
 .du-file {
   display: block;
+  position: relative;
   border: 1px dashed var(--border2);
   border-radius: var(--r-sm);
   padding: 14px;
@@ -150,14 +195,26 @@ function reset() {
   color: var(--text2);
   cursor: pointer;
   margin-bottom: 14px;
-  transition: border-color 0.18s;
+  transition: border-color 0.18s, color 0.18s, background 0.18s;
 }
-.du-file:hover {
+.du-file:hover,
+.du-file:focus-within {
   border-color: var(--primary);
   color: var(--primary);
 }
+/* 拖到区域上方的反馈：整块高亮，与 hover 区分开（底色变化） */
+.du-file.is-drag {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-soft);
+}
 .du-input {
-  display: none;
+  /* 不用 display:none：那样 input 不在焦点序列里，键盘用户打不开文件选择器 */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 .du-field {
   margin-bottom: 14px;
