@@ -204,6 +204,10 @@ test.describe('求职工作台主流程', () => {
     await page.locator('input[data-field="title"]').fill('我的毕设展示站')
     await page.locator('input[data-field="stack"]').fill('Vue, Vite')
     await page.locator('textarea[data-field="demoPoints"]').fill('要点一\n要点二')
+    // 表单分「基础信息 / 演示页」两组；技术栈按逗号解析成 chip、要点按行计数，均实时回显
+    await expect(page.locator('.pe-sec')).toHaveCount(2)
+    await expect(page.locator('.pe-chip')).toHaveText(['Vue', 'Vite'])
+    await expect(page.locator('.pe-count')).toHaveText('2 条')
     await page.getByRole('button', { name: '选择主题色' }).click()
     await page.getByRole('button', { name: '主题色 绿' }).click()
     await page.getByRole('button', { name: '保存项目' }).click()
@@ -249,11 +253,14 @@ test.describe('求职工作台主流程', () => {
       return dt
     })
     const zone = page.locator('[data-testid="demo-file-label"]')
+    // 放置区是这个弹窗的主体，别再被压回原来那种一行高的窄条
+    expect((await zone.boundingBox())!.height).toBeGreaterThanOrEqual(140)
     await zone.dispatchEvent('dragover', { dataTransfer })
     await expect(zone).toHaveClass(/is-drag/)
     await zone.dispatchEvent('drop', { dataTransfer })
     // 文件名回显 + 标题按 <title> 自动回填
     await expect(zone).toContainText('已选择：dragged-demo.html')
+    await expect(zone).toHaveClass(/is-picked/)
     await expect(page.locator('input[data-field="du-title"]')).toHaveValue('拖来的演示')
 
     await page.getByRole('button', { name: '保存演示' }).click()

@@ -51,6 +51,36 @@ button {
   outline-offset: 2px;
 }
 
+/* 表单内联告警：弹窗表单的校验错误统一外观。
+   各弹窗自己的 .xx-error 类名保留（测试按它定位），只把外观收到这里，避免每个弹窗抄一遍。 */
+.form-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 8px 11px;
+  border: 1px solid var(--danger-border);
+  border-radius: var(--r-sm);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.form-alert::before {
+  content: '!';
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: var(--danger);
+  color: var(--card);
+  font-size: 10px;
+  font-weight: var(--fw-bold);
+  line-height: 1;
+}
+
 /* ElDialog 垂直水平居中；小窗口内容超高时由内容区滚动，而非把顶部顶出视口。
    覆盖 element 默认的 margin:15vh auto（居上）。 */
 .el-overlay-dialog {

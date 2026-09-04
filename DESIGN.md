@@ -53,6 +53,7 @@
 
 - 字重只用四档令牌：`--fw-normal/medium/semibold/bold`，不写裸数字。字重不做全局覆盖（会影响 EP 组件），由组件按需引用。
 - `.tnum`（tabular-nums）与 `.mono`（`--mono` + tabular-nums）是 `global.css` 提供的全局工具类，用于所有数字密集场景：台账日期、看板计数 chip、KPI 数值与增量、分页页码、漏斗计数/百分比、版本 chip。
+- `.form-alert` 同为 `global.css` 的全局工具类：弹窗表单的校验错误外观（danger 描边 + `-soft` 底 + 圆形「!」标记）。各弹窗自己的 `.xx-error` 类名保留用于定位与间距，外观一律由这个类给。
 
 ## 可访问性下限
 
