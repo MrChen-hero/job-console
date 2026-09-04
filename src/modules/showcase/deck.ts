@@ -2,12 +2,14 @@ import type { LocalDemo, RuntimeDemo } from '../../storage/types'
 import type { ShowcaseProject } from '../../config/showcase.config'
 
 /**
- * Deck 纵向层：一个交互演示页一层——媒体位放该 demo 的 iframe，其下恒为项目基础信息
- * （eyebrow / 标题 / 简介 / 技术栈 / 演示要点）。所以「点进项目的第一页」就是第一个演示页。
- * 项目没有任何演示页时只出一层封面（cover）：媒体位换成占位提示，信息区不变。
+ * Deck 纵向层：一个交互演示页一层——媒体位放该 demo 的 iframe（上传式取 html 的 Blob URL，
+ * 链接式直接取 url），其下恒为项目基础信息（eyebrow / 标题 / 简介 / 技术栈）+ 要点。
+ * 要点取该演示页自己的 points，没填时由 DeckOverlay 回落到项目的 demo.points。
+ * 所以「点进项目的第一页」就是第一个演示页。项目没有任何演示页时只出一层封面（cover）：
+ * 媒体位换成占位提示，信息区不变。
  */
 export type DeckLayer =
-  | { kind: 'demo'; title: string; html: string; demoId: string }
+  | { kind: 'demo'; title: string; html: string; url?: string; points: string[]; demoId: string }
   | { kind: 'cover' }
 
 export function clampIndex(index: number, length: number): number {
@@ -26,7 +28,15 @@ function demosOf(
 export function deckLayers(project: ShowcaseProject, demos: Array<LocalDemo | RuntimeDemo>): DeckLayer[] {
   const own = demosOf(project, demos)
   if (own.length === 0) return [{ kind: 'cover' }]
-  return own.map((d) => ({ kind: 'demo' as const, title: d.title, html: d.html, demoId: d.id }))
+  return own.map((d) => ({
+    kind: 'demo' as const,
+    title: d.title,
+    html: d.html,
+    // 内置演示（LocalDemo）没有这两项，取值前先窄化
+    url: 'url' in d ? d.url : undefined,
+    points: ('points' in d ? d.points : undefined) ?? [],
+    demoId: d.id,
+  }))
 }
 
 /** 演示页所在的纵向层序号（0 起，首层即第一个演示页）；不属于该项目时落首层 */

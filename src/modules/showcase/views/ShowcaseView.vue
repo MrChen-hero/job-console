@@ -14,6 +14,7 @@ const deckOpen = ref(false)
 const deckStart = ref(0)
 const deckVStart = ref(0)
 const uploadOpen = ref(false)
+const uploadInitial = ref<MergedDemo | null>(null)
 const preparing = ref(true)
 const editorOpen = ref(false)
 const editorInitial = ref<MergedProject | null>(null)
@@ -67,6 +68,18 @@ function openDemoDeck(demo: MergedDemo) {
 function openCreate() {
   editorInitial.value = null
   editorOpen.value = true
+}
+
+/** 添加演示：新建态（清掉上一次的编辑目标，否则弹窗会回填上次那条） */
+function openDemoCreate() {
+  uploadInitial.value = null
+  uploadOpen.value = true
+}
+
+/** 编辑演示：只对 runtime 行开放——内置演示的 html 是编译期产物，改不了 */
+function openDemoEdit(demo: MergedDemo) {
+  uploadInitial.value = demo
+  uploadOpen.value = true
 }
 
 function openEdit(project: MergedProject) {
@@ -156,7 +169,7 @@ async function removeDemo(demo: MergedDemo) {
         <ElButton
           size="large"
           class="upload-open"
-          @click="uploadOpen = true"
+          @click="openDemoCreate"
         >
           ⬆ 上传交互演示
         </ElButton>
@@ -185,9 +198,12 @@ async function removeDemo(demo: MergedDemo) {
       @save="onSaveProject"
     />
 
-    <DemoUploadDialog v-model="uploadOpen" />
+    <DemoUploadDialog
+      v-model="uploadOpen"
+      :initial="uploadInitial"
+    />
 
-    <!-- 交互演示清单（含删除）；隐藏项目的演示页不在此列 -->
+    <!-- 交互演示清单（含编辑/删除）；隐藏项目的演示页不在此列 -->
     <div
       v-if="visibleDemos.length > 0"
       class="demo-list"
@@ -195,7 +211,7 @@ async function removeDemo(demo: MergedDemo) {
     >
       <div class="demo-list-head">
         <h3>交互演示页</h3>
-        <span class="demo-list-sub">在 Deck 纵向页中查看；沙箱 iframe 渲染</span>
+        <span class="demo-list-sub">在 Deck 纵向页中查看；上传页走沙箱 iframe，链接页直接嵌外部地址</span>
       </div>
       <div
         v-for="demo in visibleDemos"
@@ -208,12 +224,24 @@ async function removeDemo(demo: MergedDemo) {
           class="src-tag"
           :class="demo.source"
         >{{ demo.source === 'local' ? '内置' : '我的' }}</span>
+        <!-- 来源一眼可辨：链接页点「查看」进 Deck 后可能被对方站点拒绝嵌入 -->
+        <span
+          class="kind-tag"
+          :class="demo.source === 'runtime' && demo.url ? 'is-link' : 'is-html'"
+        >{{ demo.source === 'runtime' && demo.url ? '链接' : 'HTML' }}</span>
         <span class="demo-actions">
           <ElButton
             size="small"
             text
             @click="openDemoDeck(demo)"
           >查看</ElButton>
+          <ElButton
+            v-if="demo.source === 'runtime'"
+            size="small"
+            text
+            class="demo-edit"
+            @click="openDemoEdit(demo)"
+          >编辑</ElButton>
           <ElButton
             size="small"
             text
@@ -382,6 +410,19 @@ async function removeDemo(demo: MergedDemo) {
 .src-tag.runtime {
   color: var(--primary-text);
   background: var(--primary-soft);
+}
+/* 演示来源标记（HTML / 链接）：与 src-tag 同尺寸，用描边区分而不再加一种底色 */
+.kind-tag {
+  font-size: 10.5px;
+  font-weight: var(--fw-bold);
+  border-radius: var(--r-sm);
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.kind-tag.is-link {
+  border-color: var(--info-border);
+  color: var(--info);
 }
 .proj-empty {
   background: var(--card);

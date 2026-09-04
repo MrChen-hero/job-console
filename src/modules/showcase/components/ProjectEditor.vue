@@ -22,8 +22,6 @@ const form = reactive({
   accent: 'violet' as MergedProject['accent'],
   summary: '',
   stack: '',
-  demoTitle: '',
-  demoPoints: '',
 })
 const error = reactive({ value: '' })
 const accentOpen = ref(false)
@@ -32,7 +30,6 @@ const accentLabel = computed(() => ACCENT_OPTIONS.find((a) => a.id === form.acce
 
 /** 技术栈实时解析结果：既喂给 save()，也在输入框下方以 chip 回显，让「逗号分隔」的规则可见 */
 const stackList = computed(() => form.stack.split(/[,，]/).map((s) => s.trim()).filter(Boolean))
-const pointList = computed(() => form.demoPoints.split('\n').map((s) => s.trim()).filter(Boolean))
 
 /** 色板下拉收起态外观与 ElSelect 一致；旧数据 accent 不在色板内时仍显示原名与色点（令牌缺省回落 violet） */
 function pickAccent(id: MergedProject['accent']) {
@@ -47,8 +44,6 @@ function onOpen() {
   form.accent = props.initial?.accent ?? 'violet'
   form.summary = props.initial?.summary ?? ''
   form.stack = props.initial?.stack.join(', ') ?? ''
-  form.demoTitle = props.initial?.demo.title ?? ''
-  form.demoPoints = props.initial?.demo.points.join('\n') ?? ''
   error.value = ''
 }
 
@@ -59,8 +54,6 @@ function save() {
     accent: form.accent,
     summary: form.summary,
     stack: stackList.value,
-    demoTitle: form.demoTitle,
-    demoPoints: pointList.value,
   }
   error.value = validateProjectInput(input)
   if (error.value) return
@@ -87,18 +80,17 @@ function save() {
           {{ initial ? '编辑项目' : '新增项目' }}
         </h2>
         <p class="pe-lede">
-          Deck 里横向翻页的一张项目卡。
+          Deck 里横向翻页的一张项目卡。演示页与其要点在「上传交互演示」里按页单独填。
         </p>
       </div>
     </template>
-    <!-- 分节细线取当前主题色：与项目卡顶部色条同源，选色即时可见（accent 是装饰令牌，不做文字色） -->
-    <div
-      class="proj-form"
-      :style="{ '--pe-accent': `var(--accent-${form.accent}, var(--accent-violet))` }"
-    >
-      <h3 class="pe-sec">
-        基础信息
-      </h3>
+    <!-- 顶部色条取当前主题色：与项目卡顶部色条同源，选色即时可见（accent 是装饰令牌，不做文字色） -->
+    <div class="proj-form">
+      <div
+        class="pe-rail"
+        :style="{ background: `var(--accent-${form.accent}, var(--accent-violet))` }"
+        aria-hidden="true"
+      />
       <div class="pe-row">
         <div class="pe-field">
           <label for="pe-title">项目名称 <span class="req">*</span></label>
@@ -210,35 +202,6 @@ function save() {
           placeholder="一句话讲清项目做了什么、用了什么、结果如何"
         />
       </div>
-      <h3 class="pe-sec">
-        演示页
-      </h3>
-      <div class="pe-field">
-        <label for="pe-demo-title">演示页标题</label>
-        <ElInput
-          id="pe-demo-title"
-          v-model="form.demoTitle"
-          data-field="demoTitle"
-          placeholder="如：演示页 · 核心流程"
-        />
-      </div>
-      <div class="pe-field">
-        <label for="pe-demo-points">
-          演示页要点<span class="pe-tip">每行一条</span>
-          <span
-            v-if="pointList.length"
-            class="pe-count tnum"
-          >{{ pointList.length }} 条</span>
-        </label>
-        <ElInput
-          id="pe-demo-points"
-          v-model="form.demoPoints"
-          type="textarea"
-          :rows="4"
-          data-field="demoPoints"
-          placeholder="要点一&#10;要点二"
-        />
-      </div>
       <p
         v-if="error.value"
         class="pe-error form-alert"
@@ -279,23 +242,11 @@ function save() {
   line-height: 1.55;
   color: var(--muted);
 }
-/* 分节标签：小字 + 右侧延伸的主题色细线，把七个字段切成「基础信息 / 演示页」两组 */
-.pe-sec {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-  font-size: 11px;
-  font-weight: var(--fw-bold);
-  letter-spacing: 0.09em;
-  color: var(--muted);
-}
-.pe-sec::after {
-  content: '';
-  flex: 1;
-  height: 2px;
+/* 顶部主题色条：与 showcase 项目卡顶部色条同构，选色即时可见 */
+.pe-rail {
+  height: 3px;
   border-radius: 999px;
-  background: var(--pe-accent, var(--border));
+  margin-bottom: 16px;
   transition: background 0.16s var(--ease);
 }
 /* 首行：项目名称 + 主题色（148px 够放「紫」「橙」等一字色名 + 色点 + 箭头） */
@@ -307,8 +258,7 @@ function save() {
 /* 次行：两个短字段等分，比原来五个字段竖着排短一半 */
 .pe-row.two {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-}
-/* 下拉触发器：外观对齐 EP 输入控件（--control 描边、等高、圆角） */
+}/* 下拉触发器：外观对齐 EP 输入控件（--control 描边、等高、圆角） */
 .accent-select {
   display: flex;
   align-items: center;
@@ -400,7 +350,7 @@ function save() {
   color: var(--text2);
   margin-bottom: 6px;
 }
-/* 标签里的格式提示（逗号分隔 / 每行一条）：常规字重的次要说明，不与字段名抢注意力 */
+/* 标签里的格式提示（逗号分隔）：常规字重的次要说明，不与字段名抢注意力 */
 .pe-tip {
   margin-left: 6px;
   font-weight: var(--fw-normal);
@@ -409,12 +359,6 @@ function save() {
 }
 .pe-tip::before {
   content: '· ';
-}
-.pe-count {
-  float: right;
-  font-weight: var(--fw-normal);
-  font-size: 11px;
-  color: var(--muted);
 }
 .pe-chips {
   display: flex;

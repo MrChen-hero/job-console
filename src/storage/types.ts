@@ -177,12 +177,17 @@ export interface DeletedDocRow {
   id: string
 }
 
-/** 运行时上传的交互式 HTML 演示页 */
+/** 运行时交互演示：上传的单文件 HTML，或指向自部署演示站点的链接 */
 export interface RuntimeDemo {
   id: string
   projectId: string
   title: string
+  /** 上传式演示的 HTML 原文；链接式演示与墓碑行恒为空串 */
   html: string
+  /** 链接式演示地址（http/https）；与 html 二选一，有 url 即按链接渲染 */
+  url?: string
+  /** 该演示页自己的要点（Deck 侧栏）；未填时回落到所属项目的 demo.points */
+  points?: string[]
   createdAt: string
   updatedAt: string
   /** 仅对内置 id 有意义：true = 已删除该内置演示（墓碑行，html 置空）；删行即恢复内置 */
@@ -213,6 +218,11 @@ export interface RuntimeProject {
   accent: ProjectAccent
   summary: string
   stack: string[]
+  /**
+   * 项目封面要点：Deck 信息区在「该演示页没有自带要点」时的回落内容。
+   * 不由项目表单编辑（演示要点已归到每个演示页自己身上，见 RuntimeDemo.points），
+   * 只跟随内置配置或历史数据；编辑项目时原样保留。
+   */
   demo: { title: string; points: string[] }
   /** 仅对内置 id 有意义：true = 隐藏（删除）该内置项目 */
   hidden?: boolean

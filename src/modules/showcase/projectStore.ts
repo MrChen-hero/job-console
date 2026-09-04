@@ -27,8 +27,6 @@ export interface ProjectInput {
   accent: ProjectAccent
   summary: string
   stack: string[]
-  demoTitle: string
-  demoPoints: string[]
 }
 
 const ACCENTS: ProjectAccent[] = ACCENT_OPTIONS.map((a) => a.id)
@@ -105,7 +103,8 @@ export const useProjectStore = defineStore('showcase-projects', {
         accent: input.accent,
         summary: input.summary.trim(),
         stack: input.stack,
-        demo: { title: input.demoTitle.trim() || `${input.title.trim()} · 演示页`, points: input.demoPoints },
+        // 封面要点由各演示页自己带（RuntimeDemo.points），项目只留一个空壳标题
+        demo: { title: `${input.title.trim()} · 演示页`, points: [] },
         createdAt: now,
         updatedAt: now,
       }
@@ -117,9 +116,12 @@ export const useProjectStore = defineStore('showcase-projects', {
     /**
      * 编辑项目：自建项目改本行；内置项目写同 id 覆盖行（可经 resetBuiltins 恢复）。
      * hidden 状态在覆盖行上保留——编辑一个被隐藏的内置项目不应让它复活。
+     * demo（封面要点）不在表单里，按「已有行 → 内置原值 → 空壳」的顺序原样带过去，
+     * 否则改一次内置项目标题就会把它的封面要点清空。
      */
     async updateProject(id: string, input: ProjectInput): Promise<void> {
       const existing = this.runtimeProjects.find((p) => p.id === id)
+      const builtin = SHOWCASE_PROJECTS.find((p) => p.id === id)
       const row: RuntimeProject = {
         id,
         title: input.title.trim(),
@@ -127,7 +129,7 @@ export const useProjectStore = defineStore('showcase-projects', {
         accent: input.accent,
         summary: input.summary.trim(),
         stack: input.stack,
-        demo: { title: input.demoTitle.trim() || `${input.title.trim()} · 演示页`, points: input.demoPoints },
+        demo: existing?.demo ?? builtin?.demo ?? { title: `${input.title.trim()} · 演示页`, points: [] },
         hidden: existing?.hidden,
         createdAt: existing?.createdAt ?? nowIso(),
         updatedAt: nowIso(),

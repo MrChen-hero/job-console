@@ -92,21 +92,32 @@ describe('exportBackup', () => {
     }
   })
 
-  it('非墓碑的演示行仍要求 html 非空', () => {
-    const result = validateBackup({
+  it('非墓碑的演示行要求 html 与 url 至少有一个', () => {
+    const demoRow = (over: Record<string, unknown>) => ({
       schemaVersion: BACKUP_SCHEMA_VERSION,
       exportedAt: '2026-09-03T00:00:00.000Z',
       data: {
         profile: [], resumeVersions: [], applications: [], companyPool: [], libraryDocs: [],
         milestones: [],
-        runtimeDemos: [{ id: 'd1', projectId: 'p1', title: '空演示', html: '' }],
+        runtimeDemos: [{ id: 'd1', projectId: 'p1', title: '演示', html: '', ...over }],
         libraryCategories: [], runtimeProjects: [], deletedDocs: [],
       },
     })
-    expect(result.ok).toBe(false)
-    if (!result.ok) {
-      expect(result.issues.map((i) => i.path)).toContain('$.data.runtimeDemos[0].html')
-    }
+    // 两者皆空：拒
+    const empty = validateBackup(demoRow({}))
+    expect(empty.ok).toBe(false)
+    if (!empty.ok) expect(empty.issues.map((i) => i.path)).toContain('$.data.runtimeDemos[0]')
+    // 链接式演示：html 空但有 url，且带自己的要点 —— 放行
+    const link = validateBackup(demoRow({ url: 'https://demo.example.com', points: ['要点一'] }))
+    expect(link.ok).toBe(true)
+    // url 类型不对：拒
+    const badUrl = validateBackup(demoRow({ url: 42 }))
+    expect(badUrl.ok).toBe(false)
+    if (!badUrl.ok) expect(badUrl.issues.map((i) => i.path)).toContain('$.data.runtimeDemos[0].url')
+    // points 不是字符串数组：拒
+    const badPoints = validateBackup(demoRow({ url: 'https://demo.example.com', points: [1, 2] }))
+    expect(badPoints.ok).toBe(false)
+    if (!badPoints.ok) expect(badPoints.issues.map((i) => i.path)).toContain('$.data.runtimeDemos[0].points')
   })
 
   it('profile 行缺条目数组时被拒绝（否则简历页渲染期崩）', () => {

@@ -29,6 +29,24 @@ export function demoUrl(html: string): string {
   return url
 }
 
+/** 回收某段 html 对应的 Blob URL（内容被替换或行被删除时） */
+function revokeHtml(html: string): void {
+  const url = blobUrlCache.get(html)
+  if (!url) return
+  URL.revokeObjectURL(url)
+  blobUrlCache.delete(html)
+}
+
+export interface DemoInput {
+  projectId: string
+  title: string
+  /** 上传式演示的 HTML；链接式传空串 */
+  html: string
+  /** 链接式演示地址；两者只填其一 */
+  url?: string
+  points?: string[]
+}
+
 export const useDemoStore = defineStore('demo', {
   state: () => ({
     runtimeDemos: [] as RuntimeDemo[],
@@ -64,12 +82,32 @@ export const useDemoStore = defineStore('demo', {
       this.loaded = true
     },
 
-    async addDemo(input: { projectId: string; title: string; html: string }): Promise<RuntimeDemo> {
+    async addDemo(input: DemoInput): Promise<RuntimeDemo> {
       const now = nowIso()
       const row: RuntimeDemo = { ...input, id: newId(), createdAt: now, updatedAt: now }
       await db.runtimeDemos.put(plain(row))
       await this.load()
       return row
+    },
+
+    /**
+     * 编辑演示页（仅 runtime 行）：标题/要点/来源可改。
+     * 内置演示的 html 是编译期产物，不提供编辑入口，故查不到行时直接返回。
+     * 行优先从 state 取，取不到再落库查一次——别让「store 还没 load」把一次编辑静默吞掉。
+     */
+    async updateDemo(id: string, input: DemoInput): Promise<void> {
+      const existing = this.runtimeDemos.find((d) => d.id === id) ?? (await db.runtimeDemos.get(id))
+      if (!existing) return
+      // 换掉 html 时把旧内容的 Blob URL 回收，否则旧 URL 会一直挂在缓存里
+      if (existing.html && existing.html !== input.html) revokeHtml(existing.html)
+      await db.runtimeDemos.put(plain({
+        ...existing,
+        ...input,
+        id,
+        createdAt: existing.createdAt,
+        updatedAt: nowIso(),
+      }))
+      await this.load()
     },
 
     /**
@@ -79,11 +117,7 @@ export const useDemoStore = defineStore('demo', {
     async removeDemo(id: string) {
       const row = this.runtimeDemos.find((d) => d.id === id)
       if (row) {
-        const url = blobUrlCache.get(row.html)
-        if (url) {
-          URL.revokeObjectURL(url)
-          blobUrlCache.delete(row.html)
-        }
+        revokeHtml(row.html)
         await db.runtimeDemos.delete(id)
       } else {
         const source = localDemos().find((d) => d.id === id)

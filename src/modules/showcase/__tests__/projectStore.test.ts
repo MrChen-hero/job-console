@@ -11,8 +11,6 @@ function input(over: Partial<ProjectInput> = {}): ProjectInput {
     accent: 'teal',
     summary: '一句话简介',
     stack: ['Vue', 'Pinia'],
-    demoTitle: '演示页 · 核心流程',
-    demoPoints: ['要点一', '要点二'],
     ...over,
   }
 }
@@ -41,7 +39,23 @@ describe('showcase projectStore', () => {
     const mine = store.find(row.id)!
     expect(mine.source).toBe('runtime')
     expect(mine.overridden).toBe(false)
-    expect(mine.demo.points).toEqual(['要点一', '要点二'])
+    // 演示要点已归到每个演示页自己身上，项目只留空壳封面要点
+    expect(mine.demo.points).toEqual([])
+    expect(mine.demo.title).toBe('我的新项目 · 演示页')
+  })
+
+  it('编辑项目：封面要点不在表单里，按已有行→内置原值原样保留', async () => {
+    const store = useProjectStore()
+    await store.load()
+    // 内置项目：改标题不该清掉它配置里的封面要点
+    const builtinId = store.visible[0]!.id
+    const before = store.find(builtinId)!.demo
+    await store.updateProject(builtinId, input({ title: '改名不清要点' }))
+    expect(store.find(builtinId)!.demo).toEqual(before)
+    // 自建项目：二次编辑沿用首建时写下的值
+    const row = await store.addProject(input())
+    await store.updateProject(row.id, input({ title: '再改一次' }))
+    expect(store.find(row.id)!.demo.title).toBe('我的新项目 · 演示页')
   })
 
   it('编辑内置项目：写覆盖行，可重置', async () => {

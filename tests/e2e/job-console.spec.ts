@@ -203,11 +203,9 @@ test.describe('求职工作台主流程', () => {
     await page.getByRole('button', { name: '＋ 新增项目' }).click()
     await page.locator('input[data-field="title"]').fill('我的毕设展示站')
     await page.locator('input[data-field="stack"]').fill('Vue, Vite')
-    await page.locator('textarea[data-field="demoPoints"]').fill('要点一\n要点二')
-    // 表单分「基础信息 / 演示页」两组；技术栈按逗号解析成 chip、要点按行计数，均实时回显
-    await expect(page.locator('.pe-sec')).toHaveCount(2)
+    // 技术栈按逗号解析成 chip 实时回显；演示页字段已移到「上传交互演示」，此处不该再有
     await expect(page.locator('.pe-chip')).toHaveText(['Vue', 'Vite'])
-    await expect(page.locator('.pe-count')).toHaveText('2 条')
+    await expect(page.locator('textarea[data-field="demoPoints"]')).toHaveCount(0)
     await page.getByRole('button', { name: '选择主题色' }).click()
     await page.getByRole('button', { name: '主题色 绿' }).click()
     await page.getByRole('button', { name: '保存项目' }).click()
@@ -262,15 +260,70 @@ test.describe('求职工作台主流程', () => {
     await expect(zone).toContainText('已选择：dragged-demo.html')
     await expect(zone).toHaveClass(/is-picked/)
     await expect(page.locator('input[data-field="du-title"]')).toHaveValue('拖来的演示')
+    // 演示要点现在跟着这一页走（原先挂在项目上）
+    await page.locator('textarea[data-field="du-points"]').fill('状态机：待审核 → 通过\n敏感词：命中拦截')
+    await expect(page.locator('.du-count')).toHaveText('2 条')
 
     await page.getByRole('button', { name: '保存演示' }).click()
     const row = page.locator('.demo-row', { hasText: '拖来的演示' })
     await expect(row).toBeVisible()
     await expect(row.locator('.src-tag')).toHaveText('我的')
-    // 存进去的 HTML 能在沙箱 iframe 里渲染出来
+    await expect(row.locator('.kind-tag')).toHaveText('HTML')
+    // 存进去的 HTML 能在沙箱 iframe 里渲染出来，侧栏要点取这一页自己的
     await row.getByRole('button', { name: '查看' }).click()
     const face = page.locator('[data-testid="deck-overlay"] .deck-slide.current .deck-face.on')
     await expect(face.frameLocator('iframe.df-iframe').locator('h1')).toHaveText('拖拽上传演示')
+    await expect(face.locator('.df-points-title')).toHaveText('拖来的演示')
+    await expect(face.locator('.df-points li')).toHaveText(['状态机：待审核 → 通过', '敏感词：命中拦截'])
+  })
+
+  test('演示站：链接式演示页（自部署地址 + 逐页要点 + 编辑）', async ({ page }) => {
+    // 用本站自己的静态资源当「外部地址」：断言只关心 src 与嵌入链路，不引入外网依赖
+    const DEMO_URL = 'http://127.0.0.1:4173/favicon.png'
+    await page.goto('/#/showcase')
+    await expect(page.locator('.el-loading-mask')).toHaveCount(0)
+    await page.getByRole('button', { name: '⬆ 上传交互演示' }).click()
+
+    // 切到链接来源：放置区换成链接面板，两者同高
+    const zoneH = (await page.locator('[data-testid="demo-file-label"]').boundingBox())!.height
+    await page.locator('[data-field="src-link"]').click()
+    const panel = page.locator('[data-testid="demo-link-panel"]')
+    await expect(panel).toBeVisible()
+    // 两个面板同高，切来源不跳版；boundingBox 在高 DPR 设备上带子像素残差，比到 1px 即可
+    expect(Math.abs((await panel.boundingBox())!.height - zoneH)).toBeLessThan(1)
+    await expect(page.locator('[data-testid="demo-file-label"]')).toHaveCount(0)
+
+    // 非 http/https 一律拒（javascript: 这类伪协议不能进 iframe src）
+    await page.locator('input[data-field="du-url"]').fill('javascript:alert(1)')
+    await page.locator('input[data-field="du-title"]').fill('自部署演示')
+    await page.getByRole('button', { name: '保存演示' }).click()
+    await expect(page.locator('.du-error')).toContainText('只支持 http / https 链接')
+
+    await page.locator('input[data-field="du-url"]').fill(DEMO_URL)
+    await page.locator('textarea[data-field="du-points"]').fill('自部署：Nginx + Docker')
+    await page.getByRole('button', { name: '保存演示' }).click()
+    const row = page.locator('.demo-row', { hasText: '自部署演示' })
+    await expect(row.locator('.kind-tag')).toHaveText('链接')
+
+    // 进 Deck：iframe 直接指向该地址，并多出「新标签打开」兜底入口
+    await row.getByRole('button', { name: '查看' }).click()
+    const face = page.locator('[data-testid="deck-overlay"] .deck-slide.current .deck-face.on')
+    await expect(face.locator('iframe.df-iframe')).toHaveAttribute('src', DEMO_URL)
+    // 外部地址与 Blob 的 sandbox 不同档：外部源放开同源特权才能用它自己的存储
+    await expect(face.locator('iframe.df-iframe')).toHaveAttribute('sandbox', /allow-same-origin/)
+    await expect(face.locator('.df-open-tab')).toHaveAttribute('href', DEMO_URL)
+    await expect(face.locator('.df-points li')).toHaveText(['自部署：Nginx + Docker'])
+    await page.keyboard.press('Escape')
+
+    // 编辑这条：回填链接与要点，改完清单与 Deck 都跟着变
+    await row.getByRole('button', { name: '编辑' }).click()
+    await expect(page.locator('input[data-field="du-url"]')).toHaveValue(DEMO_URL)
+    await expect(page.locator('textarea[data-field="du-points"]')).toHaveValue('自部署：Nginx + Docker')
+    await page.locator('input[data-field="du-title"]').fill('自部署演示（改）')
+    await page.locator('textarea[data-field="du-points"]').fill('自部署：Nginx + Docker\n证书：Let\'s Encrypt 自动续期')
+    await page.getByRole('button', { name: '保存演示' }).click()
+    await expect(page.locator('.demo-row', { hasText: '自部署演示（改）' })).toBeVisible()
+    await expect(page.locator('.demo-row', { hasText: '自部署演示' })).toHaveCount(1)
   })
 
   test('材料库：新增分类并筛选文档', async ({ page }) => {

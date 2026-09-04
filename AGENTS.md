@@ -39,7 +39,7 @@
 - 简历资料池按版本独立（v4 起 Profile.id = versionId）：新建版本复制当前资料池为起点，复制版本连资料池一并复制，删除版本连带删资料池；state.profile 恒为当前激活版本的资料池。
 - 写库前必须用 `plain()`（JSON 克隆）去除 Pinia 响应式 Proxy（结构化克隆不兼容）。
 - `Application.status` 不变量：恒等于 `stageHistory` 末项 stage；唯一写路径 `trackerStore.changeStage`，其他 action（advance/markDropped/reopen）都经它。
-- 备份 `BACKUP_SCHEMA_VERSION = 4`，数据含十表（含 runtimeDemos / libraryCategories / runtimeProjects / deletedDocs）；改 schema 必须同步 backup 校验、`snapshots.ts` 的 `normalizeData` 与版本号。内置演示的 hidden 墓碑行 html 恒为空串，故 runtimeDemos 校验对墓碑行只验类型、不验非空——不为此升版本号，升了会让用户手里的旧 v4 备份导不进来。
+- 备份 `BACKUP_SCHEMA_VERSION = 4`，数据含十表（含 runtimeDemos / libraryCategories / runtimeProjects / deletedDocs）；改 schema 必须同步 backup 校验、`snapshots.ts` 的 `normalizeData` 与版本号。runtimeDemos 的 html 只验类型不验非空（内置演示的 hidden 墓碑行 html 恒为空串，链接式演示的内容在 url），非墓碑行改为要求「html 与 url 至少有一个」；`url`/`points` 是可选字段，给了才验类型——都不为此升版本号，升了会让用户手里的旧 v4 备份导不进来。
 - 编译期枚举（`LIBRARY_CATEGORIES` 分类名、`TRACKS` 投向名）改名必须两处都做：Dexie 升级迁移（改本机库存量，v5 迁分类、v6 迁投向）+ 导入归一（`backup.ts` 的 `withMigratedTracks` 一类改写，管旧备份与旧快照）。只做前者，导入一份旧备份就又把旧值灌回来，而旧值在下拉里选不到。
 - 快照：覆盖导入与回退前自动 `createSnapshot`（保留 5 份，`restoreSnapshot` 走 importBackup overwrite，故回退本身也可回退）；旧快照缺新增表由 `normalizeData` 补空数组。
 - 导出下载统一走 `src/shared/downloadJson.ts`（Blob URL 延后 revoke，避免下载被提前中断）。
@@ -53,9 +53,10 @@
 - 编译时：`src/content/library/*.md`（frontmatter: title/category/tags）、`src/content/demos/<projectId>--<name>.html`（前缀决定归属项目）；由 `import.meta.glob(..., { query: '?raw', eager: true })` 收集。
 - 运行时：上传/编辑入 IndexedDB（libraryDocs 带 `source: 'runtime'`、runtimeDemos 表）；同 id runtime 覆盖内置展示。删除内置文档走 deletedDocs 墓碑表（内置 md 源文件删不掉），删除内置演示页走 runtimeDemos 的 hidden 墓碑行（html 置空，删行即恢复），均无「重置为内置」功能。
 - 材料库分类：全部可增删改。自定义分类是 libraryCategories 表的普通行（name 即主键，改名换主键并迁移文档）；内置 4 类的改名/删除是同表的覆盖行（`builtin: true`，`renamedTo`/`hidden`），内置 md 的 frontmatter 是编译期产物改不动——文档归类在 store 读取时经映射生效，`restoreDefaultCategories` 整体还原。删除任何分类都要求分类下无文档。
-- 演示站项目：runtimeProjects 表，同 id 行覆盖内置项目（hidden:true 为删除墓碑），自建项目直接删行；合并视图在 showcase 模块 projectStore。
-- 交互 demo 用 Blob URL + `<iframe sandbox="allow-scripts">` 渲染，禁止外链依赖。
-- Deck 纵向层由 `deck.ts` 的 `deckLayers` 决定：**一个演示页一层，每层 = 媒体位（该 demo 的 iframe）+ 项目基础信息**（eyebrow/标题/简介/技术栈/要点，≥1025px 时要点走右列），所以点进项目的第一页就是第一个演示页；项目无演示页时只出一层 `cover`（媒体位为占位提示）。要点不再单独成页（`demo.title` 作要点小标题）。非当前项目只渲染一层 cover——同时挂 N 个 sandbox iframe 会让 N 份 demo 一起跑。
+- 演示站项目：runtimeProjects 表，同 id 行覆盖内置项目（hidden:true 为删除墓碑），自建项目直接删行；合并视图在 showcase 模块 projectStore。项目的 `demo: {title, points}` 只作**封面回落**（演示页没自带要点时才用），不在项目表单里编辑——`updateProject` 按「已有行 → 内置原值」原样带过去，别让改标题清空内置项目的封面要点。
+- 交互演示两种来源（RuntimeDemo 二选一，`url` 有值即链接式）：**上传式** html 走 Blob URL + `<iframe sandbox="allow-scripts">`（Blob 继承本站源，绝不能给 allow-same-origin）；**链接式** url 直接进 iframe src，sandbox 放开 `allow-same-origin allow-forms allow-popups`（外部源的同源特权只作用于它自己），并额外给一个「新标签打开」入口兜对方站点的 X-Frame-Options。只收 http/https，伪协议在 `DemoUploadDialog` 就拒掉。
+- 演示要点归**每个演示页**自己（`RuntimeDemo.points`，在「上传交互演示」弹窗里按页填），Deck 侧栏优先取它，为空才回落到项目的 `demo.points`；内置演示（LocalDemo）没有 points，恒走回落。
+- Deck 纵向层由 `deck.ts` 的 `deckLayers` 决定：**一个演示页一层，每层 = 媒体位（该 demo 的 iframe）+ 项目基础信息**（eyebrow/标题/简介/技术栈/要点，≥1025px 时要点走右列），所以点进项目的第一页就是第一个演示页；项目无演示页时只出一层 `cover`（媒体位为占位提示）。要点不单独成页（要点小标题取该演示页标题，回落时取 `demo.title`）。非当前项目只渲染一层 cover——同时挂 N 个 sandbox iframe 会让 N 份 demo 一起跑。
 - 演示区两级放大：网页全屏是纯 CSS（`.deck-overlay.page-fs` 藏上下栏与信息区，媒体位铺满视口，Esc 优先退全屏而非关 Deck，期间禁翻页），屏幕全屏对 iframe 调 `requestFullscreen`（退出交给浏览器）。**别用 `position: fixed` 做网页全屏**：`.deck-track` 有 transform，fixed 会以轨道而非视口为包含块；Teleport 又会让 iframe 重挂丢状态。
 
 ### UI

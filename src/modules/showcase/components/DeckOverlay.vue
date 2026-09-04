@@ -39,7 +39,35 @@ function isOn(p: MergedProject, li: number): boolean {
 /** 封面媒体位文案：该项目有演示页（非当前项目才会走到封面）时说明进去能看到几个 */
 function coverLabel(p: MergedProject): string {
   const n = demoStore.merged.filter((d) => d.projectId === p.id).length
-  return n > 0 ? `${n} 个交互演示 · 进入项目查看` : '暂无交互演示 · 上传 .html 后在此展示'
+  return n > 0 ? `${n} 个交互演示 · 进入项目查看` : '暂无交互演示 · 上传 .html 或填演示链接后在此展示'
+}
+
+/**
+ * 演示媒体位的 src：链接式直接用外部地址，上传式转 Blob URL。
+ * sandbox 两者不同——Blob URL 继承本站源，给 allow-same-origin 等于把本站的
+ * localStorage/IndexedDB 交给演示页；外部地址本就是别的源，同源特权只作用于它自己，
+ * 放开才能让自部署演示正常用自己的存储与接口。
+ */
+function demoSrc(layer: Extract<DeckLayer, { kind: 'demo' }>): string {
+  return layer.url ? layer.url : demoUrl(layer.html)
+}
+
+function demoSandbox(layer: Extract<DeckLayer, { kind: 'demo' }>): string {
+  return layer.url ? 'allow-scripts allow-same-origin allow-forms allow-popups' : 'allow-scripts'
+}
+
+/**
+ * 信息区侧栏的要点：优先该演示页自己的 points（每页各讲自己的事），
+ * 没填时回落到项目的封面要点 demo.points（内置项目与老数据都靠这条）。
+ */
+function sidePoints(p: MergedProject, layer: DeckLayer): string[] {
+  if (layer.kind === 'demo' && layer.points.length > 0) return layer.points
+  return p.demo.points
+}
+
+function sideTitle(p: MergedProject, layer: DeckLayer): string {
+  if (layer.kind === 'demo' && layer.points.length > 0) return layer.title
+  return p.demo.title
 }
 
 /** 纵向层提示：兼作当前演示页的标签（旧版是演示页顶部的 eyebrow），封面层不提示 */
@@ -133,8 +161,6 @@ onBeforeUnmount(() => {
   if (document.fullscreenElement) void document.exitFullscreen()
 })
 
-const demoUrlFor = demoUrl
-
 /* accent → 令牌映射（黑/灰等中性色同样有令牌）；amber/rose 是旧数据值，映射到黄/红 */
 const accentColor: Record<string, string> = {
   red: 'var(--accent-red)',
@@ -213,8 +239,9 @@ const accentSoft: Record<string, string> = {
                 <template v-if="layer.kind === 'demo'">
                   <iframe
                     class="df-iframe"
-                    :src="demoUrlFor(layer.html)"
-                    sandbox="allow-scripts"
+                    :src="demoSrc(layer)"
+                    :sandbox="demoSandbox(layer)"
+                    referrerpolicy="no-referrer"
                     allowfullscreen
                     allow="fullscreen"
                     :title="layer.title"
@@ -222,6 +249,15 @@ const accentSoft: Record<string, string> = {
                   <!-- 控制条浮在演示底部（类视频播放器）：hover / 聚焦浮现，网页全屏时常驻 -->
                   <div class="dfm-bar">
                     <span class="dfm-name">{{ layer.title }}</span>
+                    <!-- 链接式演示：对方站点禁止嵌入（X-Frame-Options / CSP）时，这是唯一能看的路 -->
+                    <a
+                      v-if="layer.url"
+                      class="dfm-btn df-open-tab"
+                      :href="layer.url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      :aria-label="`在新标签打开：${layer.title}`"
+                    >↗ 新标签打开</a>
                     <button
                       class="dfm-btn df-page-fs"
                       type="button"
@@ -273,17 +309,17 @@ const accentSoft: Record<string, string> = {
                   </p>
                 </div>
                 <div
-                  v-if="p.demo.points.length > 0"
+                  v-if="sidePoints(p, layer).length > 0"
                   class="dfi-side"
                 >
                   <p class="df-points-title">
-                    {{ p.demo.title }}
+                    {{ sideTitle(p, layer) }}
                   </p>
                   <!-- v-html 安全：内容为本机个人数据或自写 markdown（信任来源，见 src/shared/markdown/render.ts 注释） -->
                   <!-- eslint-disable-next-line vue/no-v-html -->
                   <ul class="df-points">
                     <li
-                      v-for="(pt, i) in p.demo.points"
+                      v-for="(pt, i) in sidePoints(p, layer)"
                       :key="i"
                       v-html="pt"
                     />
@@ -485,6 +521,9 @@ const accentSoft: Record<string, string> = {
   white-space: nowrap;
 }
 .dfm-btn {
+  /* 「新标签打开」是 <a>，与两个 <button> 同外观：inline-flex 居中 + 去下划线 */
+  display: inline-flex;
+  align-items: center;
   height: 28px;
   padding: 0 12px;
   border-radius: 999px;
@@ -493,6 +532,7 @@ const accentSoft: Record<string, string> = {
   color: var(--text2);
   font-size: 12px;
   font-weight: var(--fw-semibold);
+  text-decoration: none;
   cursor: pointer;
   white-space: nowrap;
   transition: color 0.16s var(--ease), background 0.16s var(--ease), border-color 0.16s var(--ease);

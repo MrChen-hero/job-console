@@ -12,7 +12,10 @@ export interface ShowcaseProject {
   accent: ProjectAccent
   summary: string
   stack: string[]
-  /** 纵向第一页（要点式演示页）；上传的交互式 HTML demo 追加其后 */
+  /**
+   * 封面要点：Deck 信息区的回落内容——该演示页自己填了 points（RuntimeDemo.points）时用它的，
+   * 没填才用这里。项目表单不编辑这一项，只跟随本配置或历史数据。
+   */
   demo: ShowcaseDemoPage
 }
 

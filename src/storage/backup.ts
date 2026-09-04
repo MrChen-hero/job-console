@@ -134,12 +134,20 @@ export function validateBackup(
       requireString(rec, 'id', path, issues)
       requireString(rec, 'projectId', path, issues)
       requireString(rec, 'title', path, issues)
-      // 删除内置演示的墓碑行 html 恒为空串（见 RuntimeDemo.hidden），故只校验类型不校验非空；
+      // html 只校验类型不校验非空：删除内置演示的墓碑行 html 恒为空串（见 RuntimeDemo.hidden），
+      // 链接式演示的内容也在 url 而非 html。非墓碑行要求「html 与 url 至少有一个有内容」。
       // 不升 BACKUP_SCHEMA_VERSION：升了会让用户手里的旧 v4 备份反而导不进来。
-      if (rec.hidden === true) {
-        if (typeof rec.html !== 'string') issues.push({ path: `${path}.html`, message: '必须是字符串' })
-      } else {
-        requireString(rec, 'html', path, issues)
+      if (typeof rec.html !== 'string') issues.push({ path: `${path}.html`, message: '必须是字符串' })
+      if (rec.url !== undefined && typeof rec.url !== 'string') {
+        issues.push({ path: `${path}.url`, message: '必须是字符串' })
+      }
+      if (rec.points !== undefined) requireStringArray(rec, 'points', path, issues)
+      if (rec.hidden !== true) {
+        const html = typeof rec.html === 'string' ? rec.html.trim() : ''
+        const url = typeof rec.url === 'string' ? rec.url.trim() : ''
+        if (html === '' && url === '') {
+          issues.push({ path, message: 'html 与 url 至少要有一个' })
+        }
       }
     })
   }
