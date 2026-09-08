@@ -53,6 +53,7 @@ test.describe('求职工作台主流程', () => {
     await page.getByRole('button', { name: '保存' }).click()
     await expect(page.locator('.app-table')).toContainText('南方电网')
 
+    if (await page.locator('.filter-toggle').isVisible()) await page.locator('.filter-toggle').click()
     // 投向筛选：选「次投」筛掉这条主投记录，选回「所有投向」恢复
     await page.locator('[data-field="track-filter"]').click()
     await page.locator('.el-select-dropdown:visible').getByRole('option', { name: '次投', exact: true }).click()
@@ -77,6 +78,53 @@ test.describe('求职工作台主流程', () => {
     await expect(page.getByTestId('stat-total')).toHaveText('1')
   })
 
+  test('待办清单：点击与键盘直达对应投递详情', async ({ page }) => {
+    await page.goto('/#/tracker')
+    for (const [company, nextStep] of [['测试公司甲', '准备笔试'], ['测试公司乙', '准备面试']] as const) {
+      await page.getByRole('button', { name: '＋ 新增投递' }).click()
+      await page.locator('input[data-field="company"]').fill(company)
+      await page.locator('input[data-field="position"]').fill('研发工程师')
+      await page.locator('input[data-field="nextStep"]').fill(nextStep)
+      await page.locator('input[data-field="nextActionAt"]').fill('2026-10-15')
+      await page.locator('input[data-field="nextActionAt"]').press('Tab')
+      await page.getByRole('button', { name: '保存', exact: true }).click()
+      await expect(page.locator('.app-table')).toContainText(company)
+    }
+
+    await page.goto('/#/')
+    await expect(page.getByRole('heading', { name: '待办清单', exact: true })).toBeVisible()
+    const todo = page.getByRole('link', { name: /准备面试，测试公司乙/ })
+    await todo.click()
+    await expect(page).toHaveURL(/\/tracker\?applicationId=/)
+    const detailUrl = page.url()
+    const drawer = page.locator('.app-drawer')
+    await expect(drawer).toBeVisible()
+    await expect(drawer).toContainText('测试公司乙')
+    await expect(drawer).toContainText('准备面试')
+
+    // 刷新后仍能等待本地数据加载并打开同一条详情。
+    await page.reload()
+    await expect(drawer).toBeVisible()
+    await expect(drawer).toContainText('测试公司乙')
+    await page.keyboard.press('Escape')
+    await expect(drawer).toBeHidden()
+    await expect(page).toHaveURL(/#\/tracker$/)
+
+    await page.goto('/#/')
+    await todo.focus()
+    await todo.press('Enter')
+    await expect(drawer).toBeVisible()
+    await expect(drawer).toContainText('测试公司乙')
+
+    // 无效链接不打开空白抽屉，同一路由切换回有效链接仍可打开。
+    await page.goto('/#/tracker?applicationId=missing')
+    await expect(page.locator('.app-table')).toContainText('测试公司甲')
+    await expect(drawer).toBeHidden()
+    await page.goto(detailUrl)
+    await expect(drawer).toBeVisible()
+    await expect(drawer).toContainText('测试公司乙')
+  })
+
   test('投递：长公司名与长职位名分档裁剪，不把表格行撑成竖排', async ({ page }) => {
     const LONG_POS = '示例集团-某省分公司-科技类1-科技岗-2027届校招（某市分公司）(J00001)'
     const LONG_COMP = '示例财产保险股份有限公司某省某市分公司'
@@ -86,6 +134,13 @@ test.describe('求职工作台主流程', () => {
     await page.locator('input[data-field="position"]').fill(LONG_POS)
     await page.getByRole('button', { name: '保存' }).click()
 
+    if (page.viewportSize()!.width <= 720) {
+      const card = page.locator('.mobile-app')
+      await expect(card).toContainText(LONG_COMP)
+      await expect(card).toContainText(LONG_POS)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0)
+      return
+    }
     const pos = page.locator('.pos-cell')
     const comp = page.locator('.comp-cell')
     // 裁剪后完整内容只剩 title 能看全
@@ -240,7 +295,7 @@ test.describe('求职工作台主流程', () => {
   test('演示站：拖拽 .html 上传交互演示', async ({ page }) => {
     await page.goto('/#/showcase')
     await expect(page.locator('.el-loading-mask')).toHaveCount(0)
-    await page.getByRole('button', { name: '⬆ 上传交互演示' }).click()
+    await page.getByRole('button', { name: '＋ 添加交互演示' }).click()
 
     // jsdom 的单测只能伪造 dataTransfer；这里用真实 DataTransfer 走一遍浏览器拖放链路
     const dataTransfer = await page.evaluateHandle(() => {
@@ -282,7 +337,7 @@ test.describe('求职工作台主流程', () => {
     const DEMO_URL = 'http://127.0.0.1:4173/favicon.png'
     await page.goto('/#/showcase')
     await expect(page.locator('.el-loading-mask')).toHaveCount(0)
-    await page.getByRole('button', { name: '⬆ 上传交互演示' }).click()
+    await page.getByRole('button', { name: '＋ 添加交互演示' }).click()
 
     // 切到链接来源：放置区换成链接面板，两者同高
     const zoneH = (await page.locator('[data-testid="demo-file-label"]').boundingBox())!.height
@@ -328,13 +383,15 @@ test.describe('求职工作台主流程', () => {
 
   test('材料库：新增分类并筛选文档', async ({ page }) => {
     await page.goto('/#/library')
-    await page.getByRole('button', { name: '＋ 新增分类' }).click()
+    await page.getByRole('button', { name: '管理分类' }).click()
+    await page.getByRole('button', { name: '新增分类', exact: true }).click()
     await page.locator('.el-message-box__input input').fill('行为面')
     await page.locator('.el-message-box').getByRole('button', { name: '保存' }).click()
     await expect(page.locator('.cat-row', { hasText: '行为面' })).toBeVisible()
 
+    await page.getByRole('button', { name: '完成', exact: true }).click()
     // 新分类下新建文档并按分类筛选
-    await page.getByRole('button', { name: '＋ 新建文档' }).click()
+    await page.getByRole('button', { name: '新建文档', exact: true }).click()
     await page.locator('input[data-field="title"]').fill('宝洁八大问')
     await page.locator('[data-testid="doc-editor"] .el-select').click()
     await page.getByRole('option', { name: '行为面' }).click()
@@ -351,19 +408,23 @@ test.describe('求职工作台主流程', () => {
     await page.locator('.cat-row', { hasText: '八股面经' }).locator('.chip').click()
     await expect(page.locator('.lib-item', { hasText: '八股题库' })).toBeVisible()
 
-    // 重命名八股面经 → 基础知识（分类行 hover 出现操作按钮，Playwright 点击自带 hover）
-    await page.locator('.cat-row', { hasText: '八股面经' }).locator('button[aria-label="重命名分类 八股面经"]').click()
+    // 从分类管理弹窗重命名。
+    await page.getByRole('button', { name: '管理分类' }).click()
+    await page.getByRole('button', { name: '重命名分类 八股面经', exact: true }).click()
     await page.locator('.el-message-box__input input').fill('基础知识')
     await page.locator('.el-message-box').getByRole('button', { name: '保存' }).click()
     await expect(page.locator('.cat-row', { hasText: '基础知识' })).toBeVisible()
     await expect(page.locator('.cat-row', { hasText: '八股面经' })).toHaveCount(0)
+    await page.getByRole('button', { name: '完成', exact: true }).click()
     // 内置文档经映射跟随新分类
     await page.locator('.cat-row', { hasText: '基础知识' }).locator('.chip').click()
     await expect(page.locator('.lib-item', { hasText: '八股题库' })).toBeVisible()
 
     // 恢复默认
-    await page.getByRole('button', { name: '↺ 恢复默认' }).click()
+    await page.getByRole('button', { name: '管理分类' }).click()
+    await page.getByRole('button', { name: '恢复默认分类', exact: true }).click()
     await page.locator('.el-message-box').getByRole('button', { name: '恢复' }).click()
+    await page.getByRole('button', { name: '完成', exact: true }).click()
     await expect(page.locator('.cat-row', { hasText: '八股面经' })).toBeVisible()
     await expect(page.locator('.cat-row', { hasText: '基础知识' })).toHaveCount(0)
     await page.locator('.cat-row', { hasText: '八股面经' }).locator('.chip').click()
@@ -411,7 +472,8 @@ test.describe('求职工作台主流程', () => {
     const backupPath = await exportBackupFile(page)
 
     // 删掉这条投递
-    await page.locator('.app-table .app-row', { hasText: '备份验证公司' }).click()
+    if (page.viewportSize()!.width <= 720) await page.locator('.mobile-app-open', { hasText: '备份验证公司' }).click()
+    else await page.locator('.app-table .app-row', { hasText: '备份验证公司' }).click()
     const drawer = page.locator('.app-drawer')
     await drawer.getByRole('button', { name: '删除' }).dispatchEvent('click')
     await page.locator('.el-message-box').getByRole('button', { name: '删除' }).click()
@@ -420,7 +482,9 @@ test.describe('求职工作台主流程', () => {
     // 覆盖导入备份：数据回来，且「数据快照」入口出现（导入前自动快照）
     await openNav(page)
     await page.locator('input[type="file"][accept*="json"]').setInputFiles(backupPath)
-    await page.locator('.el-message-box').getByRole('button', { name: '覆盖导入' }).click()
+    await page.getByRole('radio', { name: /^覆盖导入/ }).check()
+    await page.getByRole('checkbox', { name: '我确认用备份替换现有数据' }).check()
+    await page.getByRole('button', { name: '确认覆盖导入' }).click()
     await page.waitForURL(/#\/tracker/)
     await expect(page.locator('.app-table')).toContainText('备份验证公司')
 
@@ -455,7 +519,9 @@ test.describe('求职工作台主流程', () => {
     await openNav(page)
     await page.locator('input[type="file"][accept*="json"]').setInputFiles(backupPath)
     // 空串 html 的墓碑行曾被自己的校验拒在 $.data.runtimeDemos[i].html
-    await page.locator('.el-message-box').getByRole('button', { name: '覆盖导入' }).click()
+    await page.getByRole('radio', { name: /^覆盖导入/ }).check()
+    await page.getByRole('checkbox', { name: '我确认用备份替换现有数据' }).check()
+    await page.getByRole('button', { name: '确认覆盖导入' }).click()
     await page.waitForURL(/#\/showcase/)
     await expect(page.locator('.el-loading-mask')).toHaveCount(0)
     await expect(page.locator('.proj', { hasText: '企业人事管理系统' })).toHaveCount(0)

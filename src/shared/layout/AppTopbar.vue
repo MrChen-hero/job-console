@@ -5,6 +5,7 @@ import { useThemeStore } from '../../app/stores/theme'
 import AppIcon from '../ui/AppIcon.vue'
 
 const emit = defineEmits<{ toggle: [] }>()
+defineProps<{ navOpen?: boolean }>()
 
 const route = useRoute()
 const theme = useThemeStore()
@@ -18,6 +19,8 @@ const crumb = computed(() => (route.meta.crumb as string) ?? '')
       <button
         class="icon-btn menu-btn"
         aria-label="打开导航"
+        :aria-expanded="Boolean(navOpen)"
+        aria-controls="main-sidebar"
         @click="emit('toggle')"
       >
         <AppIcon name="menu" />

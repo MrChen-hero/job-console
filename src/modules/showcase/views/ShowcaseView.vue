@@ -32,6 +32,9 @@ const visibleDemos = computed(() =>
 function projectNameOf(projectId: string): string {
   return projectStore.merged.find((p) => p.id === projectId)?.title ?? projectId
 }
+function demoCount(projectId: string): number {
+  return visibleDemos.value.filter((demo) => demo.projectId === projectId).length
+}
 
 /** 顶部色条颜色：走 accent 令牌（黑/灰中性色令牌同样存在）；旧数据值映射到黄/红 */
 function accentVar(accent: string): string {
@@ -154,7 +157,7 @@ async function removeDemo(demo: MergedDemo) {
         把项目讲成一个可以翻页的故事
       </h1>
       <p class="hero-sub">
-        对外展示的门户站点：主页介绍 + 双轴幻灯片演示（横向翻项目、纵向看演示页）。个人信息自动取自简历模块，项目内容独立配置。
+        选择项目查看演示，支持上传网页或添加链接。左右切换项目，上下查看同一项目的不同演示。
       </p>
       <div class="hero-actions">
         <ElButton
@@ -171,7 +174,7 @@ async function removeDemo(demo: MergedDemo) {
           class="upload-open"
           @click="openDemoCreate"
         >
-          ⬆ 上传交互演示
+          ＋ 添加交互演示
         </ElButton>
         <ElButton
           size="large"
@@ -211,7 +214,7 @@ async function removeDemo(demo: MergedDemo) {
     >
       <div class="demo-list-head">
         <h3>交互演示页</h3>
-        <span class="demo-list-sub">在 Deck 纵向页中查看；上传页走沙箱 iframe，链接页直接嵌外部地址</span>
+        <span class="demo-list-sub">选择“查看”即可打开对应演示，也可以添加网页文件或演示链接。</span>
       </div>
       <div
         v-for="demo in visibleDemos"
@@ -269,7 +272,8 @@ async function removeDemo(demo: MergedDemo) {
         tabindex="0"
         :style="{ '--proj-accent': accentVar(p.accent) }"
         @click="openDeck(i)"
-        @keydown.enter.prevent="openDeck(i)"
+        @keydown.enter.self.prevent="openDeck(i)"
+        @keydown.space.self.prevent="openDeck(i)"
       >
         <div class="proj-top">
           <b class="proj-name">{{ p.title }}</b>
@@ -312,7 +316,7 @@ async function removeDemo(demo: MergedDemo) {
           >{{ s }}</span>
         </div>
         <div class="proj-foot">
-          <span>点击进入演示</span>
+          <span>{{ demoCount(p.id) ? `${demoCount(p.id)} 个交互演示 · 点击查看` : '暂无交互演示 · 查看项目介绍' }}</span>
           <span>→</span>
         </div>
       </div>
@@ -447,11 +451,13 @@ async function removeDemo(demo: MergedDemo) {
 /* 悬停类设备：默认隐藏，卡片 hover / 焦点进入时浮现 */
 @media (hover: hover) {
   .proj-acts {
-    display: none;
+    opacity: 0;
+    pointer-events: none;
   }
   .proj:hover .proj-acts,
   .proj:focus-within .proj-acts {
-    display: inline-flex;
+    opacity: 1;
+    pointer-events: auto;
   }
 }
 .proj-acts :deep(.el-button) {
@@ -571,6 +577,44 @@ async function removeDemo(demo: MergedDemo) {
   }
 }
 @media (max-width: 720px) {
+  .demo-list-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .demo-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 8px;
+    padding: 14px 0;
+  }
+  .demo-title {
+    grid-column: 1 / -1;
+    overflow-wrap: anywhere;
+  }
+  .demo-proj {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .src-tag,
+  .kind-tag {
+    white-space: nowrap;
+  }
+  .demo-actions {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 8px;
+    margin-left: 0;
+    margin-top: 4px;
+  }
+  .demo-actions :deep(.el-button) {
+    min-width: 0;
+    height: 44px;
+    margin: 0;
+    background: var(--card2);
+  }
   .proj-grid {
     grid-template-columns: minmax(0, 1fr);
   }

@@ -96,6 +96,9 @@ watch(
 )
 
 const pageCount = computed(() => Math.ceil(sorted.value.length / PER))
+watch(pageCount, (count) => {
+  page.value = Math.min(page.value, Math.max(1, count))
+})
 const paged = computed(() => sorted.value.slice((page.value - 1) * PER, page.value * PER))
 
 const pageNumbers = computed(() => Array.from({ length: pageCount.value }, (_, i) => i + 1))
@@ -103,6 +106,42 @@ const pageNumbers = computed(() => Array.from({ length: pageCount.value }, (_, i
 
 <template>
   <div class="table-card">
+    <div
+      class="mobile-apps"
+      aria-label="投递列表"
+    >
+      <article
+        v-for="app in paged"
+        :key="app.id"
+        class="mobile-app"
+      >
+        <button
+          class="mobile-app-open"
+          :aria-label="`${app.company}，${app.position}，查看详情`"
+          @click="emit('open', app.id)"
+        >
+          <span class="mobile-app-head"><b>{{ app.company }}</b><span
+            class="stage-badge"
+            :class="STAGE_BADGE[app.status]"
+          >{{ app.status }}</span></span>
+          <span class="mobile-position">{{ app.position }}</span>
+          <span class="mobile-next">{{ app.nextStep || '暂未安排下一步' }}</span>
+          <span class="mobile-date mono">{{ app.nextActionAt ? `下一步日期 ${app.nextActionAt}` : `投递于 ${app.appliedAt}` }}</span>
+        </button>
+        <button
+          class="star-btn"
+          :class="{ starred: app.starred }"
+          :aria-pressed="Boolean(app.starred)"
+          :aria-label="`收藏 ${app.company}`"
+          @click="emit('toggle-star', app.id)"
+        >
+          <AppIcon
+            name="star"
+            :size="15"
+          />
+        </button>
+      </article>
+    </div>
     <table
       class="app-table"
       data-testid="app-table"
@@ -298,6 +337,23 @@ const pageNumbers = computed(() => Array.from({ length: pageCount.value }, (_, i
   overflow: auto;
   /* 公司/职位两列的宽度以卡片宽度为基准（见 .comp-cell / .pos-cell 的 cqw） */
   container-type: inline-size;
+}
+.mobile-apps { display: none; }
+@media (max-width: 720px) {
+  .app-table { display: none; }
+  .mobile-apps { display: grid; }
+  .mobile-app { position: relative; border-bottom: 1px solid var(--border); }
+  .mobile-app:last-child { border-bottom: 0; }
+  .mobile-app-open { display: grid; gap: 7px; padding: 16px; width: 100%; text-align: left; }
+  .mobile-app-open:hover { background: var(--card2); }
+  .mobile-app-head { display: flex; align-items: start; gap: 12px; justify-content: space-between; }
+  .mobile-app-head b { overflow-wrap: anywhere; }
+  .mobile-position { color: var(--text2); overflow-wrap: anywhere; }
+  .mobile-next { margin-top: 5px; padding-right: 40px; overflow-wrap: anywhere; }
+  .mobile-date { color: var(--muted); font-size: 11px; padding-right: 40px; }
+  .mobile-app .star-btn { position: absolute; bottom: 10px; right: 12px; width: 40px; height: 40px; }
+  .table-foot { flex-wrap: wrap; padding: 12px; }
+  .pager { flex-wrap: wrap; }
 }
 .app-table {
   width: 100%;

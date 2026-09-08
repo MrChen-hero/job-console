@@ -60,6 +60,11 @@
 - 演示区两级放大：网页全屏是纯 CSS（`.deck-overlay.page-fs` 藏上下栏与信息区，媒体位铺满视口，Esc 优先退全屏而非关 Deck，期间禁翻页），屏幕全屏对 iframe 调 `requestFullscreen`（退出交给浏览器）。**别用 `position: fixed` 做网页全屏**：`.deck-track` 有 transform，fixed 会以轨道而非视口为包含块；Teleport 又会让 iframe 重挂丢状态。
 
 ### UI
+- 工作台待办按日期升序全部展示，以日期块颜色区分已逾期、今天与后续，不显示分组标题；列表最高 360px，溢出滚动，悬停或键盘焦点进入时显示滚动条。条目通过 `/tracker?applicationId=...` 进入投递详情，数据加载后打开抽屉。
+- 投递表格与手机卡片复用 filtered/sorted/paged 数据，≤720px 显示卡片；筛选可折叠，数据数量下降时校正当前页码。
+- 材料库搜索与分类共同约束选中文档，分类管理为独立弹窗；DocEditor 通过异步 persist 回调确认保存成功，失败保留输入。离开保护弹窗必须 append-to-body，避免手机导航打开时被主内容 inert 屏蔽。
+- 简历 ≤1180px 切换编辑/预览，以 CSS 隐藏保留输入；缩放同时设置占位宽高，观察器下一帧更新，打印解除缩放与占位限制。
+- 导入弹窗先展示本机/备份数量，默认合并，覆盖需勾选确认；备份使用 shallowRef 保留普通对象，禁止将响应式 Proxy 交给 IndexedDB。复用既有 importBackup 与覆盖前自动快照。
 - 样式走令牌（var(--xxx)），禁硬编码颜色；亮暗主题双适配。
 - 可交互元素用原生 button/a 或补全 role/tabindex/键盘（Enter/Space）；删除等破坏性操作必须 ElMessageBox 确认；错误提示 role="alert"。
 - jsdom 局限：ElDialog/ElDrawer 过渡无法测试——表单逻辑抽 composable 单测，弹层交互留给 Playwright E2E（`src/test/setup.ts` 已 stub 这两个组件）。
@@ -70,7 +75,7 @@
 
 ## 5. 测试
 
-- 单测与源码就近 `src/**/*.test.ts`；E2E 在 `tests/e2e/job-console.spec.ts`（desktop/tablet/mobile 三视口）。
+- 单测与源码就近 `src/**/*.test.ts`；E2E 在 `tests/e2e/job-console.spec.ts` 与 `tests/e2e/ui-improvements.spec.ts`（desktop/tablet/mobile 三视口）。
 - 异步断言涉 Dexie 写链时用 `vi.waitFor`（宏任务，flushPromises 不够）。
 - 同毫秒 updatedAt 排序不稳定：测试定位用业务字段（公司名等）不用数组下标。
 - E2E 中窄视口（≤1024px 侧边栏收为抽屉、transform 轨道内卡片）不可直达元素：侧栏项用 hash 直达路由（抽屉默认收起），transform 内交互用 `dispatchEvent` 派发。

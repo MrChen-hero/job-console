@@ -17,6 +17,7 @@ export interface DocEditorInitial {
 const props = defineProps<{
   /** 编辑目标；为 null 时是新建 */
   initial?: DocEditorInitial | null
+  persist: (input: { id?: string; category: LibraryCategory; title: string; body: string; tags: string[] }) => Promise<void>
 }>()
 
 const emit = defineEmits<{
@@ -33,25 +34,43 @@ const form = reactive({
   body: props.initial?.body ?? '',
 })
 const error = ref('')
+const saving = ref(false)
+const original = ref(JSON.stringify(form))
+const dirty = computed(() => JSON.stringify(form) !== original.value)
 const preview = computed(() => renderMarkdown(form.body))
 
-function save() {
+async function save(): Promise<boolean> {
+  if (saving.value) return false
   if (form.title.trim() === '') {
     error.value = '请填写标题'
-    return
+    return false
   }
   if (form.body.trim() === '') {
     error.value = '正文不能为空'
-    return
+    return false
   }
-  emit('save', {
+  const input = {
     id: props.initial?.id,
     category: form.category,
     title: form.title.trim(),
     body: form.body,
     tags: form.tags.split(/[,，]/).map((s) => s.trim()).filter(Boolean),
-  })
+  }
+  saving.value = true
+  error.value = ''
+  try {
+    await props.persist(input)
+    original.value = JSON.stringify(form)
+    emit('save', input)
+    return true
+  } catch {
+    error.value = '保存失败，内容已保留，请重试'
+    return false
+  } finally {
+    saving.value = false
+  }
 }
+defineExpose({ dirty, save, saving })
 </script>
 
 <template>
@@ -131,12 +150,16 @@ function save() {
       {{ error }}
     </p>
     <div class="editor-actions">
-      <ElButton @click="emit('cancel')">
+      <ElButton
+        :disabled="saving"
+        @click="emit('cancel')"
+      >
         取消
       </ElButton>
       <ElButton
         type="primary"
         class="editor-save"
+        :loading="saving"
         @click="save"
       >
         保存

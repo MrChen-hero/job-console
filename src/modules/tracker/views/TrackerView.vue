@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElButton, ElMessage, ElOption, ElSelect } from 'element-plus'
 import type { Application, CompanyPoolEntry, Stage, Track } from '../../../storage/types'
 import { TRACKS } from '../../../storage/types'
@@ -15,6 +15,7 @@ import AppIcon from '../../../shared/ui/AppIcon.vue'
 
 const store = useTrackerStore()
 const route = useRoute()
+const router = useRouter()
 const mode = ref<'table' | 'board' | 'pool'>('table')
 const stageFilter = ref<Stage | '全部'>('全部')
 const channelFilter = ref('')
@@ -22,6 +23,14 @@ const channelFilter = ref('')
 const trackFilter = ref<Track | ''>('')
 const starredOnly = ref(false)
 const query = ref('')
+const filtersOpen = ref(false)
+const filterCount = computed(() => [stageFilter.value !== '全部', Boolean(channelFilter.value), Boolean(trackFilter.value), starredOnly.value].filter(Boolean).length)
+function clearFilters() {
+  stageFilter.value = '全部'
+  channelFilter.value = ''
+  trackFilter.value = ''
+  starredOnly.value = false
+}
 const dialogVisible = ref(false)
 const editing = ref<Application | null>(null)
 const presetCompany = ref('')
@@ -30,11 +39,26 @@ const drawerId = ref('')
 /** 渠道列表来自现有数据动态聚合 */
 const channels = computed(() => [...new Set(store.applications.map((a) => a.channel))].sort((a, b) => a.localeCompare(b, 'zh')))
 
-onMounted(() => {
-  void store.load()
+onMounted(async () => {
   // 支持从工作台磁贴直达看板：/tracker?mode=board
   const wanted = route.query.mode
   if (wanted === 'board' || wanted === 'pool' || wanted === 'table') mode.value = wanted
+  await store.load()
+  openDrawerFromRoute()
+})
+
+/** 等投递加载后再打开，刷新直达链接时也能显示完整详情。 */
+function openDrawerFromRoute() {
+  const id = route.query.applicationId
+  drawerId.value = typeof id === 'string' && store.find(id) ? id : ''
+}
+
+watch(() => route.query.applicationId, openDrawerFromRoute)
+watch(drawerId, (id) => {
+  if (id !== '' || !('applicationId' in route.query)) return
+  const query = { ...route.query }
+  delete query.applicationId
+  void router.replace({ query })
 })
 
 function openCreate() {
@@ -106,74 +130,96 @@ const STAGES_FOR_FILTER = ['已投递', '笔试', '一面', '二面', 'HR面', '
       </div>
 
       <template v-if="mode === 'table'">
-        <ElSelect
-          v-model="stageFilter"
-          class="filter-select"
-          aria-label="筛选状态"
-        >
-          <ElOption
-            value="全部"
-            label="全部状态"
-          />
-          <ElOption
-            v-for="s in STAGES_FOR_FILTER"
-            :key="s"
-            :value="s"
-            :label="s"
-          />
-        </ElSelect>
-        <ElSelect
-          v-model="channelFilter"
-          class="filter-select"
-          aria-label="筛选渠道"
-          placeholder="所有渠道"
-        >
-          <ElOption
-            value=""
-            label="所有渠道"
-          />
-          <ElOption
-            v-for="c in channels"
-            :key="c"
-            :value="c"
-            :label="c"
-          />
-        </ElSelect>
-        <ElSelect
-          v-model="trackFilter"
-          class="filter-select"
-          data-field="track-filter"
-          aria-label="筛选投向"
-          placeholder="所有投向"
-        >
-          <ElOption
-            value=""
-            label="所有投向"
-          />
-          <ElOption
-            v-for="t in TRACKS"
-            :key="t"
-            :value="t"
-            :label="t"
-          />
-        </ElSelect>
         <button
-          type="button"
-          class="star-toggle"
-          :class="{ on: starredOnly }"
-          :aria-pressed="starredOnly ? 'true' : 'false'"
-          @click="starredOnly = !starredOnly"
+          class="filter-toggle"
+          :aria-expanded="filtersOpen"
+          aria-controls="tracker-filters"
+          @click="filtersOpen = !filtersOpen"
         >
-          <AppIcon
-            name="star"
-            :size="15"
-          />
-          只看收藏
+          筛选{{ filterCount ? `（${filterCount}）` : '' }}
         </button>
+        <div
+          id="tracker-filters"
+          class="tracker-filters"
+          :class="{ expanded: filtersOpen }"
+        >
+          <ElSelect
+            v-model="stageFilter"
+            class="filter-select"
+            aria-label="筛选状态"
+          >
+            <ElOption
+              value="全部"
+              label="全部状态"
+            />
+            <ElOption
+              v-for="s in STAGES_FOR_FILTER"
+              :key="s"
+              :value="s"
+              :label="s"
+            />
+          </ElSelect>
+          <ElSelect
+            v-model="channelFilter"
+            class="filter-select"
+            aria-label="筛选渠道"
+            placeholder="所有渠道"
+          >
+            <ElOption
+              value=""
+              label="所有渠道"
+            />
+            <ElOption
+              v-for="c in channels"
+              :key="c"
+              :value="c"
+              :label="c"
+            />
+          </ElSelect>
+          <ElSelect
+            v-model="trackFilter"
+            class="filter-select"
+            data-field="track-filter"
+            aria-label="筛选投向"
+            placeholder="所有投向"
+          >
+            <ElOption
+              value=""
+              label="所有投向"
+            />
+            <ElOption
+              v-for="t in TRACKS"
+              :key="t"
+              :value="t"
+              :label="t"
+            />
+          </ElSelect>
+          <button
+            type="button"
+            class="star-toggle"
+            :class="{ on: starredOnly }"
+            :aria-pressed="starredOnly ? 'true' : 'false'"
+            @click="starredOnly = !starredOnly"
+          >
+            <AppIcon
+              name="star"
+              :size="15"
+            />
+            只看收藏
+          </button>
+          <button
+            v-if="filterCount"
+            class="clear-filters"
+            @click="clearFilters"
+          >
+            清空筛选
+          </button>
+        </div>
         <input
           v-model="query"
           class="search-input"
           placeholder="搜索公司 / 职位 / 备注"
+          aria-label="搜索投递"
           data-field="search"
         >
       </template>
@@ -250,6 +296,9 @@ const STAGES_FOR_FILTER = ['已投递', '笔试', '一面', '二面', 'HR面', '
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-sm);
 }
+.tracker-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.filter-toggle { display: none; }
+.clear-filters { min-height: 36px; color: var(--primary-text); }
 /* 滑块切换：凹槽 + 白色滑块，对齐 demo .seg / .seg-btn */
 .mode-seg {
   display: inline-flex;
@@ -333,5 +382,13 @@ const STAGES_FOR_FILTER = ['已投递', '笔试', '一面', '二面', 'HR面', '
     flex: 1;
     width: auto;
   }
+}
+@media (max-width: 720px) {
+  .filter-toggle { display: block; min-height: 40px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-sm); }
+  .tracker-filters { display: none; width: 100%; order: 4; padding-top: 10px; border-top: 1px solid var(--border); }
+  .tracker-filters.expanded { display: flex; }
+  .search-input { flex-basis: 100%; }
+  .tracker-toolbar .toolbar-right { width: auto; margin-left: auto; }
+  .mode-btn { padding: 0 10px; }
 }
 </style>

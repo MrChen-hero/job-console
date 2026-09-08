@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { ElButton, ElMessage } from 'element-plus'
 import { useResumeStore } from '../store'
 import { applyExampleProfile } from '../exampleProfile'
@@ -10,6 +10,8 @@ import ResumeSheet from '../sheet/ResumeSheet.vue'
 
 const store = useResumeStore()
 const preparing = ref(true)
+const viewMode = ref<'edit' | 'preview'>('edit')
+const saveState = ref('已保存到本机')
 
 async function initStore() {
   await store.load()
@@ -21,15 +23,23 @@ void initStore()
    previewEl 位于 v-else 分支，需 watch 其挂载后再测量与观察。 */
 const previewEl = ref<HTMLElement | null>(null)
 const sheetScale = ref(1)
+const sheetHeight = ref(0)
+const sheetWidth = ref(794)
 let previewObserver: ResizeObserver | null = null
+let measureFrame = 0
 
 const A4_WIDTH_PX = 794 // 210mm 在 96dpi 下的像素值
 
 function measurePreview(): void {
   const el = previewEl.value
   if (!el) return
-  const available = el.clientWidth
-  sheetScale.value = available > 0 ? Math.min(1, available / A4_WIDTH_PX) : 1
+  const paper = el.querySelector<HTMLElement>('.sheet')
+  if (!paper || !el.clientWidth) return
+  const style = getComputedStyle(el)
+  const available = el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+  sheetWidth.value = paper.offsetWidth || A4_WIDTH_PX
+  sheetHeight.value = paper.offsetHeight
+  sheetScale.value = Math.min(1, Math.max(0, available) / sheetWidth.value)
 }
 
 watch(previewEl, (el) => {
@@ -37,11 +47,19 @@ watch(previewEl, (el) => {
   previewObserver = null
   if (!el) return
   measurePreview()
-  previewObserver = new ResizeObserver(measurePreview)
+  // 尺寸通知后下一帧再写布局，避免观察器同步写回自身尺寸形成循环。
+  previewObserver = new ResizeObserver(() => {
+    cancelAnimationFrame(measureFrame)
+    measureFrame = requestAnimationFrame(measurePreview)
+  })
   previewObserver.observe(el)
+  const paper = el.querySelector('.sheet')
+  if (paper) previewObserver.observe(paper)
 })
+watch(viewMode, async () => { await nextTick(); measurePreview() })
 
 onBeforeUnmount(() => {
+  cancelAnimationFrame(measureFrame)
   previewObserver?.disconnect()
   previewObserver = null
 })
@@ -91,34 +109,55 @@ async function fillExample() {
     <div
       v-else
       class="resume-layout"
+      :class="`mode-${viewMode}`"
     >
+      <div class="resume-controls no-print">
+        <div class="resume-current">
+          <strong>{{ store.activeVersion?.name }}</strong><span role="status">{{ saveState }}</span>
+        </div>
+        <div
+          class="resume-switch"
+          role="group"
+          aria-label="简历视图"
+        >
+          <button
+            :aria-pressed="viewMode === 'edit'"
+            @click="viewMode = 'edit'"
+          >
+            编辑
+          </button>
+          <button
+            :aria-pressed="viewMode === 'preview'"
+            @click="viewMode = 'preview'"
+          >
+            预览
+          </button>
+        </div>
+        <ElButton
+          type="primary"
+          class="print-btn"
+          @click="printResume"
+        >
+          <AppIcon
+            name="printer"
+            :size="15"
+            class="btn-ic"
+          />打印 / 导出 PDF
+        </ElButton>
+        <span class="resume-hint">预览和导出使用已保存的内容。</span>
+      </div>
       <div class="resume-side no-print">
         <VersionManager />
-        <ProfileEditor />
+        <ProfileEditor @save-state="saveState = $event" />
       </div>
       <div class="resume-main">
-        <div class="resume-toolbar no-print">
-          <span class="resume-hint">左侧编辑，右侧实时预览；打印时仅输出 A4 纸面。</span>
-          <ElButton
-            type="primary"
-            class="print-btn"
-            @click="printResume"
-          >
-            <AppIcon
-              name="printer"
-              :size="15"
-              class="btn-ic"
-            />
-            打印 / 导出 PDF
-          </ElButton>
-        </div>
         <div
           ref="previewEl"
           class="resume-preview paper-stage"
         >
           <div
             class="sheet-scaler"
-            :style="{ width: `calc(210mm * ${sheetScale})` }"
+            :style="{ width: `${sheetWidth * sheetScale}px`, height: `${sheetHeight * sheetScale}px` }"
           >
             <div :style="{ transform: `scale(${sheetScale})` }">
               <ResumeSheet />
@@ -131,6 +170,13 @@ async function fillExample() {
 </template>
 
 <style scoped>
+.resume-controls { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--card); }
+.resume-current { display: grid; gap: 2px; margin-right: auto; }
+.resume-current span { color: var(--muted); font-size: 12px; }
+.resume-controls .resume-hint { width: 100%; }
+.resume-switch { display: none; gap: 4px; padding: 3px; border-radius: var(--r-sm); background: var(--surface-muted); }
+.resume-switch button { min-height: 38px; padding: 0 16px; border-radius: var(--r-sm); }
+.resume-switch button[aria-pressed='true'] { background: var(--card); color: var(--primary-text); }
 .resume-main {
   min-width: 0;
   display: grid;
@@ -195,6 +241,8 @@ async function fillExample() {
   overflow: auto;
 }
 .sheet-scaler {
+  flex-shrink: 0;
+  overflow: hidden;
   /* transform 缩放后不改变布局占位，需手动给包裹层设定 A4 等比宽度与高度 */
   transform-origin: top left;
 }
@@ -206,6 +254,8 @@ async function fillExample() {
   box-shadow: var(--shadow-md);
 }
 @media (max-width: 1180px) {
+  .resume-switch { display: flex; }
+  .mode-edit .resume-main, .mode-preview .resume-side { display: none; }
   .resume-layout {
     grid-template-columns: 1fr;
   }
@@ -235,9 +285,15 @@ async function fillExample() {
   }
   .resume-preview {
     display: block !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: visible !important;
   }
+  .resume-main { display: block !important; }
   .sheet-scaler {
     width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
   }
   .sheet-scaler > div {
     transform: none !important;

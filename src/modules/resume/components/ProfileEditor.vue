@@ -13,6 +13,7 @@ import EntryCard from './EntryCard.vue'
 import EntryDialog from './EntryDialog.vue'
 
 const store = useResumeStore()
+const emit = defineEmits<{ 'save-state': [state: string] }>()
 
 const TABS: Array<{ key: SectionKey; label: string }> = [
   { key: 'basic', label: '基本信息' },
@@ -32,6 +33,12 @@ const editingId = ref<string | null>(null)
 const basicForm = reactive<Record<string, string>>({})
 const basicError = ref('')
 const selfEvalText = ref('')
+const basicOriginal = ref('')
+const selfOriginal = ref('')
+const saving = ref(false)
+const saveError = ref('')
+const dirty = computed(() => JSON.stringify(basicForm) !== basicOriginal.value || selfEvalText.value !== selfOriginal.value)
+watch([dirty, saving, saveError], () => emit('save-state', saving.value ? '正在保存…' : saveError.value ? '保存失败，修改已保留' : dirty.value ? '有未保存修改' : '已保存到本机'), { immediate: true })
 
 const currentSection = computed(() => SECTION_DEFS.find((s) => s.key === openGroup.value))
 
@@ -146,19 +153,22 @@ const entries = computed<Array<Record<string, unknown>>>(() => {
 })
 
 watch(
-  () => [store.profile, openGroup.value] as const,
+  () => store.profile?.id,
   () => {
-    if (openGroup.value === 'basic' && store.profile) {
+    if (store.profile) {
       for (const f of BASIC_FIELDS) {
         const raw = store.profile.basic[f.key as keyof typeof store.profile.basic]
         basicForm[f.key] = raw != null ? String(raw) : ''
       }
     }
-    if (openGroup.value === 'selfEvaluation' && store.profile) {
+    if (store.profile) {
       selfEvalText.value = store.profile.selfEvaluation.join('\n')
     }
+    basicOriginal.value = JSON.stringify(basicForm)
+    selfOriginal.value = selfEvalText.value
+    saveError.value = ''
   },
-  { immediate: true, deep: true },
+  { immediate: true },
 )
 
 function openCreate() {
@@ -212,6 +222,7 @@ function onMove(index: number, dir: -1 | 1) {
 }
 
 async function saveBasic() {
+  if (saving.value) return
   const record: Record<string, unknown> = {}
   for (const f of BASIC_FIELDS) {
     const value = (basicForm[f.key] ?? '').trim()
@@ -222,12 +233,25 @@ async function saveBasic() {
     record[f.key] = value
   }
   basicError.value = ''
-  await store.updateBasic(record as never)
+  saving.value = true
+  saveError.value = ''
+  try {
+    await store.updateBasic(record as never)
+    basicOriginal.value = JSON.stringify(basicForm)
+  } catch { saveError.value = '保存失败，请重试'; basicError.value = saveError.value }
+  finally { saving.value = false }
 }
 
 async function saveSelfEvaluation() {
+  if (saving.value) return
   const items = selfEvalText.value.split('\n').map((s) => s.trim()).filter(Boolean)
-  await store.setSelfEvaluation(items)
+  saving.value = true
+  saveError.value = ''
+  try {
+    await store.setSelfEvaluation(items)
+    selfOriginal.value = selfEvalText.value
+  } catch { saveError.value = '保存失败，请重试' }
+  finally { saving.value = false }
 }
 </script>
 
@@ -392,6 +416,7 @@ async function saveSelfEvaluation() {
             <ElButton
               type="primary"
               class="basic-save"
+              :loading="saving"
               @click="saveBasic"
             >
               保存基本信息
@@ -415,10 +440,18 @@ async function saveSelfEvaluation() {
             <ElButton
               type="primary"
               class="self-save"
+              :loading="saving"
               @click="saveSelfEvaluation"
             >
               保存自我评价
             </ElButton>
+            <p
+              v-if="saveError"
+              class="form-alert"
+              role="alert"
+            >
+              {{ saveError }}
+            </p>
           </div>
 
           <!-- 列表类条目 -->

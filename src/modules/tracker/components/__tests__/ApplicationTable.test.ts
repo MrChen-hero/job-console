@@ -22,6 +22,16 @@ function makeApp(overrides: Partial<Application> = {}): Application {
 }
 
 describe('ApplicationTable', () => {
+  it('删除末页唯一记录后回到有效页，手机和桌面共用结果', async () => {
+    const apps = Array.from({ length: 13 }, (_, i) => makeApp({ company: `公司${i}` }))
+    const wrapper = mount(ApplicationTable, { props: { applications: apps, stageFilter: '全部', query: '' } })
+    await wrapper.find('button[aria-label="末页"]').trigger('click')
+    expect(wrapper.findAll('.app-row')).toHaveLength(1)
+    await wrapper.setProps({ applications: apps.slice(0, 12) })
+    expect(wrapper.findAll('.app-row')).toHaveLength(12)
+    expect(wrapper.findAll('.mobile-app')).toHaveLength(12)
+    expect(wrapper.find('.pager').exists()).toBe(false)
+  })
   it('渲染行并支持点击打开', async () => {
     const apps = [makeApp(), makeApp({ company: '亚信科技', status: '无消息' })]
     const wrapper = mount(ApplicationTable, {

@@ -1,10 +1,13 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { ElMessageBox } from 'element-plus'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../../storage/db'
 import { useLibraryStore } from '../store'
 import LibraryView from '../views/LibraryView.vue'
+import { enableAutoUnmount } from '@vue/test-utils'
+enableAutoUnmount(afterEach)
+vi.mock('vue-router', () => ({ onBeforeRouteLeave: vi.fn() }))
 
 describe('LibraryView', () => {
   beforeEach(async () => {
@@ -31,6 +34,18 @@ describe('LibraryView', () => {
     expect(titles.length).toBe(2)
     expect(titles.join()).toContain('AI 岗版')
     expect(titles.join()).not.toContain('八股题库')
+    expect(wrapper.find('.reader-title').text()).toContain('自我介绍')
+  })
+
+  it('搜索覆盖正文和标签，无匹配时清空阅读区', async () => {
+    const wrapper = mount(LibraryView)
+    await flushPromises()
+    await wrapper.find('.library-search').setValue('HashMap')
+    expect(wrapper.findAll('.lib-item')).toHaveLength(1)
+    expect(wrapper.find('.reader-title').text()).toContain('Java')
+    await wrapper.find('.library-search').setValue('no-match-unique')
+    expect(wrapper.find('.reader-title').exists()).toBe(false)
+    expect(wrapper.find('.lib-empty').text()).toContain('未找到匹配文档')
   })
 
   it('新建文档：编辑器保存后进入列表（runtime）', async () => {
@@ -122,7 +137,7 @@ describe('LibraryView 分类管理', () => {
     await store.upsertDoc({ category: '行为面', title: '宝洁八大问', body: 'x', tags: [] })
     await flushPromises()
     const confirm = vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
-    const row = wrapper.findAll('.cat-row').find((r) => r.text().includes('行为面'))!
+    const row = wrapper.findAll('.category-manage-row').find((r) => r.text().includes('行为面'))!
     await row.find('button[aria-label="删除分类 行为面"]').trigger('click')
     await vi.waitFor(() => expect(store.customCategories).toContain('行为面')) // 仍存在：非空被拒
     await store.removeDoc(store.docs.find((d) => d.title === '宝洁八大问')!.id)
@@ -139,7 +154,7 @@ describe('LibraryView 分类管理', () => {
     await store.upsertDoc({ category: '行为面', title: '宝洁八大问', body: 'x', tags: [] })
     await flushPromises()
     const prompt = vi.spyOn(ElMessageBox, 'prompt').mockResolvedValue({ value: '行为面试' } as never)
-    const row = wrapper.findAll('.cat-row').find((r) => r.text().includes('行为面'))!
+    const row = wrapper.findAll('.category-manage-row').find((r) => r.text().includes('行为面'))!
     await row.find('button[aria-label="重命名分类 行为面"]').trigger('click')
     await vi.waitFor(() => expect(store.customCategories).toEqual(['行为面试']))
     expect(store.docs.find((d) => d.title === '宝洁八大问')!.category).toBe('行为面试')

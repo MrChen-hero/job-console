@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppSidebar from './AppSidebar.vue'
 import AppTopbar from './AppTopbar.vue'
@@ -7,6 +7,8 @@ import StorageBanner from '../StorageBanner.vue'
 
 const route = useRoute()
 const navOpen = ref(false)
+const shell = ref<HTMLElement | null>(null)
+let navTrigger: HTMLElement | null = null
 
 /* 是否处于抽屉模式（≤1024）。jsdom 没有 window.matchMedia，探测不到时降级为
    抽屉模式：这样 inert / aria-hidden 在单测里成对可断言。桌面模式下这两个属性
@@ -26,11 +28,25 @@ function closeNav(): void {
 }
 
 function onKeydown(event: KeyboardEvent): void {
+  if (!showScrim.value || (event.target instanceof Element && event.target.closest('.el-overlay, .el-message-box__wrapper'))) return
   if (event.key === 'Escape') closeNav()
+  if (event.key !== 'Tab') return
+  const items = Array.from(shell.value?.querySelectorAll<HTMLElement>('.sidebar button:not([disabled]), .sidebar a[href]') ?? []).filter((el) => el.getClientRects().length > 0)
+  const first = items[0]
+  const last = items.at(-1)
+  if (!first || !last) return
+  if (event.shiftKey && (document.activeElement === first || !items.includes(document.activeElement as HTMLElement))) { event.preventDefault(); last.focus() }
+  else if (!event.shiftKey && (document.activeElement === last || !items.includes(document.activeElement as HTMLElement))) { event.preventDefault(); first.focus() }
 }
 
 const showScrim = computed(() => navOpen.value && isDrawer.value)
 const sidebarHidden = computed(() => isDrawer.value && !navOpen.value)
+watch(showScrim, async (open) => {
+  if (open) navTrigger = document.activeElement as HTMLElement
+  await nextTick()
+  if (open) shell.value?.querySelector<HTMLElement>('.nav-item')?.focus()
+  else navTrigger?.focus()
+})
 
 watch(() => route.fullPath, closeNav)
 
@@ -45,19 +61,29 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app-shell">
+  <div
+    ref="shell"
+    class="app-shell"
+  >
     <AppSidebar
       :open="navOpen"
       :hidden="sidebarHidden"
+      @close="closeNav"
     />
     <div
       v-if="showScrim"
       class="scrim"
       @click="closeNav"
     />
-    <div class="main-column">
+    <div
+      class="main-column"
+      :inert="showScrim || undefined"
+    >
       <StorageBanner />
-      <AppTopbar @toggle="navOpen = !navOpen" />
+      <AppTopbar
+        :nav-open="navOpen"
+        @toggle="navOpen = !navOpen"
+      />
       <main class="content">
         <RouterView />
       </main>

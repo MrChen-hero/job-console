@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
+import { ElButton, ElDialog, ElMessage, ElMessageBox } from 'element-plus'
 import type { LibraryCategory } from '../../../storage/types'
 import { useLibraryStore, filterByCategory, type MergedDoc } from '../store'
 import { renderMarkdown } from '../../../shared/markdown/render'
 import AppIcon from '../../../shared/ui/AppIcon.vue'
 import DocEditor from '../components/DocEditor.vue'
+import { markdownPreview } from '../../../shared/markdown/preview'
+import { newId } from '../../../storage/types'
 
 const store = useLibraryStore()
 const activeTab = ref<LibraryCategory | '全部'>('全部')
@@ -13,6 +16,45 @@ const activeId = ref('')
 const editorOpen = ref(false)
 const editorInitial = ref<MergedDoc | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
+const search = ref('')
+const categoryManager = ref(false)
+const editor = ref<InstanceType<typeof DocEditor> | null>(null)
+const leaveOpen = ref(false)
+const leaveSaving = ref(false)
+let resolveLeave: ((value: boolean) => void) | null = null
+
+function finishLeave(value: boolean) {
+  leaveOpen.value = false
+  resolveLeave?.(value)
+  resolveLeave = null
+}
+async function saveAndLeave() {
+  leaveSaving.value = true
+  try {
+    if (await editor.value?.save()) finishLeave(true)
+    else finishLeave(false)
+  } finally { leaveSaving.value = false }
+}
+async function mayLeave(): Promise<boolean> {
+  if (editor.value?.saving || resolveLeave) return false
+  if (!editor.value?.dirty) return true
+  leaveOpen.value = true
+  return new Promise((resolve) => { resolveLeave = resolve })
+}
+async function closeEditor() {
+  if (await mayLeave()) editorOpen.value = false
+}
+onBeforeRouteLeave(mayLeave)
+function beforeUnload(event: BeforeUnloadEvent) {
+  if (!editor.value?.dirty) return
+  event.preventDefault()
+  event.returnValue = ''
+}
+onMounted(() => window.addEventListener('beforeunload', beforeUnload))
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', beforeUnload)
+  resolveLeave?.(false)
+})
 
 onMounted(async () => {
   await store.load()
@@ -20,7 +62,24 @@ onMounted(async () => {
 })
 
 const tabs = computed<Array<LibraryCategory | '全部'>>(() => ['全部', ...store.categories])
-const visibleDocs = computed(() => filterByCategory(store.docs, activeTab.value))
+const visibleDocs = computed(() => {
+  const query = search.value.trim().toLocaleLowerCase()
+  return filterByCategory(store.docs, activeTab.value).filter((doc) => !query || `${doc.title} ${doc.body} ${doc.tags.join(' ')}`.toLocaleLowerCase().includes(query))
+})
+const excerpts = computed(() => new Map(store.docs.map((doc) => [doc.id, markdownPreview(doc.body).slice(0, 100)])))
+watch(visibleDocs, (docs) => {
+  if (!docs.some((doc) => doc.id === activeId.value)) activeId.value = docs[0]?.id ?? ''
+})
+async function selectCategory(tab: string) {
+  if (!await mayLeave()) return
+  editorOpen.value = false
+  activeTab.value = tab
+}
+async function selectDoc(id: string) {
+  if (!await mayLeave()) return
+  editorOpen.value = false
+  activeId.value = id
+}
 const activeDoc = computed(() => store.docs.find((d) => d.id === activeId.value))
 const activeHtml = computed(() => (activeDoc.value ? renderMarkdown(activeDoc.value.body) : ''))
 
@@ -115,7 +174,10 @@ function sourceLabel(doc: MergedDoc): string {
   return '内置'
 }
 
-function openCreate() {
+async function openCreate() {
+  if (!await mayLeave()) return
+  editorOpen.value = false
+  await nextTick()
   editorInitial.value = null
   editorOpen.value = true
 }
@@ -125,14 +187,12 @@ function openEdit(doc: MergedDoc) {
   editorOpen.value = true
 }
 
-async function onSave(input: { id?: string; category: LibraryCategory; title: string; body: string; tags: string[] }) {
-  await store.upsertDoc(input)
-  editorOpen.value = false
-  if (input.id) {
-    activeId.value = input.id
-  } else {
-    activeId.value = store.docs.find((d) => d.title === input.title)?.id ?? ''
-  }
+async function persistDoc(input: { id?: string; category: LibraryCategory; title: string; body: string; tags: string[] }) {
+  const id = input.id ?? newId()
+  await store.upsertDoc({ ...input, id })
+  activeTab.value = input.category
+  search.value = ''
+  activeId.value = id
   ElMessage.success('已保存')
 }
 
@@ -172,6 +232,111 @@ async function onFileChange(event: Event) {
 
 <template>
   <div class="library-view">
+    <div class="library-toolbar">
+      <input
+        v-model="search"
+        class="library-search"
+        aria-label="搜索材料"
+        placeholder="搜索标题、正文或标签"
+        :disabled="editorOpen"
+      >
+      <ElButton
+        class="upload-btn"
+        @click="pickFile"
+      >
+        上传文档
+      </ElButton>
+      <ElButton
+        type="primary"
+        class="create-btn"
+        @click="openCreate"
+      >
+        新建文档
+      </ElButton>
+      <ElButton
+        class="manage-categories"
+        @click="categoryManager = true"
+      >
+        管理分类
+      </ElButton>
+    </div>
+    <ElDialog
+      v-model="categoryManager"
+      title="管理分类"
+      width="480px"
+    >
+      <div
+        v-for="category in store.categories"
+        :key="category"
+        class="category-manage-row"
+      >
+        <span>{{ category }} <small>（{{ catCount(category) }}）</small></span>
+        <button
+          class="cat-act"
+          :aria-label="`重命名分类 ${category}`"
+          @click="renameCategory(category)"
+        >
+          重命名
+        </button>
+        <button
+          class="cat-act"
+          :aria-label="`删除分类 ${category}`"
+          @click="removeCategory(category)"
+        >
+          删除
+        </button>
+      </div>
+      <template #footer>
+        <ElButton
+          class="cat-add"
+          @click="addCategory"
+        >
+          新增分类
+        </ElButton>
+        <ElButton
+          v-if="store.hasBuiltinOverrides"
+          @click="restoreDefaults"
+        >
+          恢复默认分类
+        </ElButton>
+        <ElButton @click="categoryManager = false">
+          完成
+        </ElButton>
+      </template>
+    </ElDialog>
+    <ElDialog
+      :model-value="leaveOpen"
+      title="保存文档修改？"
+      append-to-body
+      width="420px"
+      :show-close="!leaveSaving"
+      :close-on-click-modal="!leaveSaving"
+      :close-on-press-escape="!leaveSaving"
+      @update:model-value="(open: boolean) => { if (!open) finishLeave(false) }"
+    >
+      <p>当前文档有未保存的修改，请选择如何处理。</p>
+      <template #footer>
+        <ElButton
+          :disabled="leaveSaving"
+          @click="finishLeave(false)"
+        >
+          继续编辑
+        </ElButton>
+        <ElButton
+          :disabled="leaveSaving"
+          @click="finishLeave(true)"
+        >
+          放弃修改
+        </ElButton>
+        <ElButton
+          type="primary"
+          :loading="leaveSaving"
+          @click="saveAndLeave"
+        >
+          保存并继续
+        </ElButton>
+      </template>
+    </ElDialog>
     <input
       ref="fileInput"
       type="file"
@@ -194,7 +359,7 @@ async function onFileChange(event: Event) {
           <button
             class="cat chip"
             :class="{ on: activeTab === tab }"
-            @click="activeTab = tab"
+            @click="selectCategory(tab)"
           >
             <AppIcon
               :name="CATEGORY_ICONS[tab] ?? 'layers'"
@@ -203,58 +368,6 @@ async function onFileChange(event: Event) {
             <span>{{ tab }}</span>
           </button>
           <span class="cat-n mono">{{ catCount(tab) }}</span>
-          <span class="cat-acts">
-            <button
-              class="cat-act"
-              :aria-label="`重命名分类 ${tab}`"
-              @click.stop="renameCategory(tab)"
-            >
-              ✎
-            </button>
-            <button
-              class="cat-act"
-              :aria-label="`删除分类 ${tab}`"
-              @click.stop="removeCategory(tab)"
-            >
-              ✕
-            </button>
-          </span>
-        </div>
-        <div class="cat-manage">
-          <ElButton
-            size="small"
-            text
-            class="cat-add"
-            @click="addCategory"
-          >
-            ＋ 新增分类
-          </ElButton>
-          <ElButton
-            v-if="store.hasBuiltinOverrides"
-            size="small"
-            text
-            class="cat-restore"
-            @click="restoreDefaults"
-          >
-            ↺ 恢复默认
-          </ElButton>
-        </div>
-        <div class="lib-cats-foot">
-          <ElButton
-            size="small"
-            class="upload-btn"
-            @click="pickFile"
-          >
-            ⬆ 上传 .md
-          </ElButton>
-          <ElButton
-            size="small"
-            type="primary"
-            class="create-btn"
-            @click="openCreate"
-          >
-            ＋ 新建文档
-          </ElButton>
         </div>
       </div>
 
@@ -266,7 +379,7 @@ async function onFileChange(event: Event) {
             :key="doc.id"
             class="lib-item"
             :class="{ on: doc.id === activeId }"
-            @click="activeId = doc.id"
+            @click="selectDoc(doc.id)"
           >
             <span class="doc-top">
               <b class="doc-item-title">{{ doc.title }}</b>
@@ -275,7 +388,7 @@ async function onFileChange(event: Event) {
                 :class="doc.kind"
               >{{ sourceLabel(doc) }}</span>
             </span>
-            <span class="doc-ex">{{ doc.body.slice(0, 80) }}</span>
+            <span class="doc-ex">{{ excerpts.get(doc.id) }}</span>
             <span class="doc-foot">
               <span class="doc-tags">
                 <span
@@ -290,7 +403,7 @@ async function onFileChange(event: Event) {
             v-if="visibleDocs.length === 0"
             class="lib-empty"
           >
-            该分类暂无文档。
+            {{ search ? '未找到匹配文档，试试其他关键词。' : '该分类暂无文档。' }}
           </p>
         </div>
       </div>
@@ -299,9 +412,11 @@ async function onFileChange(event: Event) {
       <div class="reader">
         <template v-if="editorOpen">
           <DocEditor
+            ref="editor"
             :initial="editorInitial"
-            @save="onSave"
-            @cancel="editorOpen = false"
+            :persist="persistDoc"
+            @save="editorOpen = false"
+            @cancel="closeEditor"
           />
         </template>
         <template v-else-if="activeDoc">
@@ -350,6 +465,12 @@ async function onFileChange(event: Event) {
 </template>
 
 <style scoped>
+.library-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
+.library-toolbar .el-button { margin: 0; min-height: 40px; }
+.library-search { flex: 1; min-width: 180px; padding: 9px 12px; border: 1px solid var(--control); border-radius: var(--r-sm); background: var(--card); }
+.category-manage-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.category-manage-row > span { flex: 1; overflow-wrap: anywhere; }
+.category-manage-row .cat-act { width: auto; min-width: 60px; min-height: 40px; font-size: 13px; }
 .library-view {
   min-width: 0;
 }

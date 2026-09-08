@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { ElButton, ElDatePicker, ElInput, ElMessage, ElMessageBox } from 'element-plus'
 import { db } from '../../../storage/db'
 import { exportBackup } from '../../../storage/backup'
@@ -16,6 +16,15 @@ const dashboard = useDashboardStore()
 const tracker = useTrackerStore()
 const router = useRouter()
 const preparing = ref(true)
+const todos = computed(() => {
+  const today = localToday()
+  return dashboard.todos.map((todo) => ({
+    ...todo,
+    tone: todo.date < today ? 'overdue' : todo.date === today ? 'today' : 'later',
+    dateLabel: todo.date < today ? '已逾期' : todo.date === today ? '今天' : '后续',
+    dateText: todo.date.slice(0, 4) === today.slice(0, 4) ? todo.date.slice(5) : todo.date,
+  }))
+})
 
 onMounted(async () => {
   await dashboard.load()
@@ -253,9 +262,10 @@ function onQuick(item: (typeof QUICK)[number]) {
         </div>
         <div
           class="kpi-delta mono"
-          :class="kpi.delta.abs >= 0 ? 'up' : 'down'"
+          :class="{ up: kpi.delta.abs > 0, down: kpi.delta.abs < 0 }"
+          title="较四周前"
         >
-          {{ kpi.delta.abs >= 0 ? '▲' : '▼' }} {{ kpi.delta.text }}
+          {{ kpi.delta.abs === 0 ? '暂无变化' : `${kpi.delta.abs > 0 ? '▲' : '▼'} ${kpi.delta.text}` }}
         </div>
         <Sparkline
           class="kpi-spark"
@@ -268,6 +278,7 @@ function onQuick(item: (typeof QUICK)[number]) {
     <div class="row-a">
       <SectionCard
         title="投递漏斗"
+        class="funnel-card"
         sub="各阶段转化情况"
       >
         <div class="funnel">
@@ -302,22 +313,34 @@ function onQuick(item: (typeof QUICK)[number]) {
       </SectionCard>
 
       <SectionCard
-        title="本周待办"
+        title="待办清单"
         sub="下一步动作"
+        class="todo-card"
       >
-        <div class="todo-list">
-          <div
-            v-for="todo in dashboard.todos"
+        <div
+          class="todo-list"
+          role="region"
+          aria-label="待办清单，按日期从早到晚排列"
+          :tabindex="todos.length ? 0 : undefined"
+        >
+          <RouterLink
+            v-for="todo in todos"
             :key="todo.id"
+            :to="{ path: '/tracker', query: { applicationId: todo.id } }"
+            :aria-label="`${todo.dateLabel}，${todo.date}，${todo.label}，${todo.sub}，查看投递详情`"
             class="todo"
           >
-            <span class="pill mono">{{ todo.date.slice(5) }}</span>
+            <span
+              class="pill mono todo-date"
+              :class="todo.tone"
+              :title="`${todo.dateLabel} · ${todo.date}`"
+            >{{ todo.dateText }}</span>
             <span class="todo-text">
               {{ todo.label }}
               <span class="todo-sub">{{ todo.sub }}</span>
             </span>
             <StatusBadge :stage="todo.status" />
-          </div>
+          </RouterLink>
           <p
             v-if="dashboard.todos.length === 0"
             class="card-empty"
@@ -467,6 +490,7 @@ function onQuick(item: (typeof QUICK)[number]) {
   letter-spacing: -.02em;
 }
 .kpi-delta {
+  color: var(--muted);
   margin-top: 9px;
   font-size: 12px;
 }
@@ -543,17 +567,66 @@ function onQuick(item: (typeof QUICK)[number]) {
 .todo-list {
   display: grid;
   gap: 9px;
+  max-height: 360px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
   padding: 15px 19px 18px;
+}
+.todo-list:hover,
+.todo-list:focus-within {
+  scrollbar-color: var(--border2) transparent;
+}
+.todo-list:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -3px;
+}
+.todo-list::-webkit-scrollbar {
+  width: 6px;
+}
+.todo-list::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: var(--r-sm);
+}
+.todo-list:hover::-webkit-scrollbar-thumb,
+.todo-list:focus-within::-webkit-scrollbar-thumb {
+  background: var(--border2);
+}
+.todo-date.overdue {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: var(--danger-border);
+}
+.todo-date.today {
+  color: var(--primary-text);
+  background: var(--primary-soft);
+  border-color: var(--primary-border);
 }
 .todo {
   display: grid;
+  min-height: 48px;
+  padding: 4px 0;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: var(--r-sm);
+}
+.todo:hover,
+.todo:focus-visible {
+  background: var(--primary-soft);
+  color: var(--primary-text);
+}
+.todo:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
 }
 .todo-text {
   font-size: 13px;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 .todo-sub {
   display: block;
@@ -736,6 +809,7 @@ function onQuick(item: (typeof QUICK)[number]) {
   font-weight: var(--fw-semibold);
 }
 @media (max-width: 1360px) {
+  .todo-card { order: -1; }
   .kpi-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -746,8 +820,13 @@ function onQuick(item: (typeof QUICK)[number]) {
 }
 @media (max-width: 720px) {
   .kpi-row {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
+  .kpi { padding: 12px; }
+  .kpi-value { font-size: 28px; }
+  .kpi-spark { display: none; }
+  .todo { gap: 8px; }
   /* 磁贴保持 2 列：3 列在窄屏会把图标与文案挤成两行 */
   .act-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

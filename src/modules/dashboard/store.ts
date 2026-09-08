@@ -70,7 +70,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
   })
 
-  /** 本周待办：有下一步日期的投递，按日期升序 */
+  /** 待办清单：有下一步日期的投递，按日期升序 */
   const todos = computed(() =>
     tracker.applications
       .filter((a) => a.nextStep && a.nextActionAt)
@@ -92,4 +92,3 @@ export const useDashboardStore = defineStore('dashboard', () => {
 
   return { stats, funnel, series, todos, staleCount, load }
 })
-

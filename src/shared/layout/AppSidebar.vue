@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, shallowRef } from 'vue'
 import { useRoute } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { NAV_ITEMS } from '../../app/nav'
 import { db } from '../../storage/db'
-import { exportBackup, importBackup, validateBackup, type ImportMode } from '../../storage/backup'
+import { exportBackup, importBackup, validateBackup, type BackupFile, type ImportMode } from '../../storage/backup'
 import { backupFileName, downloadJson } from '../downloadJson'
 import AppIcon from '../ui/AppIcon.vue'
 import SnapshotDialog from '../SnapshotDialog.vue'
+import ImportDialog from '../ImportDialog.vue'
 
 defineProps<{ open?: boolean; hidden?: boolean }>()
+const emit = defineEmits<{ close: [] }>()
 
 const route = useRoute()
 
@@ -35,6 +37,9 @@ async function onExport() {
 const fileInput = ref<HTMLInputElement | null>(null)
 const snapshotOpen = ref(false)
 const snapshotCount = ref(0)
+// 备份要交给 IndexedDB 结构化克隆，保持解析结果为普通对象。
+const incomingBackup = shallowRef<BackupFile | null>(null)
+const currentBackup = shallowRef<BackupFile | null>(null)
 
 async function refreshSnapshotCount() {
   try {
@@ -50,25 +55,6 @@ onMounted(() => {
 
 function onImportClick() {
   fileInput.value?.click()
-}
-
-/** 选导入方式：覆盖（清库替换，导入前自动快照）或合并（按 id 合并）；×/Esc 取消 */
-async function pickMode(): Promise<ImportMode | null> {
-  try {
-    await ElMessageBox.confirm(
-      '「覆盖导入」清空本机现有数据并替换为备份内容（导入前自动存一份当前数据快照，可回退）；「合并导入」按 id 合并，未冲突的现有数据保留。',
-      '导入数据',
-      {
-        confirmButtonText: '覆盖导入',
-        cancelButtonText: '合并导入',
-        type: 'warning',
-        distinguishCancelAndClose: true,
-      },
-    )
-    return 'overwrite'
-  } catch (action) {
-    return action === 'cancel' ? 'merge' : null
-  }
 }
 
 async function onImportFile(event: Event) {
@@ -89,14 +75,18 @@ async function onImportFile(event: Event) {
     ElMessage.error(`备份文件校验失败${first ? `：${first.path} ${first.message}` : ''}`)
     return
   }
-  const mode = await pickMode()
-  if (!mode) return
   try {
-    await importBackup(db, result.file, mode)
+    currentBackup.value = await exportBackup(db)
+    incomingBackup.value = result.file
+    emit('close')
   } catch {
-    ElMessage.error('导入失败，请重试')
-    return
+    ElMessage.error('读取本机数据失败，请重试')
   }
+}
+
+async function executeImport(mode: ImportMode) {
+  if (!incomingBackup.value) throw new Error('No backup selected')
+  await importBackup(db, incomingBackup.value, mode)
   ElMessage.success('导入完成，正在刷新…')
   setTimeout(() => window.location.reload(), 900)
 }
@@ -109,12 +99,20 @@ async function openSnapshots() {
 
 <template>
   <aside
+    id="main-sidebar"
     class="sidebar"
     :class="{ open }"
     aria-label="主导航"
     :aria-hidden="hidden ? 'true' : undefined"
     :inert="hidden || undefined"
   >
+    <button
+      class="nav-close"
+      aria-label="关闭导航"
+      @click="emit('close')"
+    >
+      关闭导航 ×
+    </button>
     <div class="brand">
       <div
         class="brand-mark"
@@ -191,6 +189,12 @@ async function openSnapshots() {
       >
     </div>
     <SnapshotDialog v-model="snapshotOpen" />
+    <ImportDialog
+      :incoming="incomingBackup"
+      :current="currentBackup"
+      :persist="executeImport"
+      @close="incomingBackup = null; currentBackup = null"
+    />
     <div class="sidebar-foot">
       <span class="sync-dot" />
       <span class="foot-note">数据仅存本机浏览器</span>
@@ -199,6 +203,7 @@ async function openSnapshots() {
 </template>
 
 <style scoped>
+.nav-close { display: none; }
 .sidebar {
   width: var(--sidebar-w);
   position: fixed;
@@ -333,6 +338,7 @@ async function openSnapshots() {
   font-size: 11.5px;
 }
 @media (max-width: 1024px) {
+  .nav-close { display: block; min-height: 40px; align-self: flex-end; color: var(--text2); margin-bottom: 8px; }
   .sidebar {
     transform: translateX(-100%);
     transition: transform 0.22s var(--ease);
