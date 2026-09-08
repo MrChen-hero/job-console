@@ -124,7 +124,7 @@ describe('LibraryView 分类管理', () => {
     await wrapper.find('.category-create').trigger('click')
     await wrapper.get('#new-category-name').setValue('八股面经')
     await wrapper.get('.category-save').trigger('click')
-    await vi.waitFor(() => expect(wrapper.text()).toContain('该分类已存在'))
+    await vi.waitFor(() => expect(wrapper.text()).toContain('分类名称已存在'))
     expect(store.customCategories).not.toContain('八股面经')
   })
 
@@ -138,7 +138,8 @@ describe('LibraryView 分类管理', () => {
     const confirm = vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
     const row = wrapper.findAll('.category-manage-row').find((r) => r.text().includes('行为面'))!
     await row.find('button[aria-label="删除分类 行为面"]').trigger('click')
-    await vi.waitFor(() => expect(store.customCategories).toContain('行为面')) // 仍存在：非空被拒
+    await vi.waitFor(() => expect(wrapper.get('[role="alert"]').text()).toContain('该分类下还有文档'))
+    expect(store.customCategories).toContain('行为面')
     await store.removeDoc(store.docs.find((d) => d.title === '宝洁八大问')!.id)
     await row.find('button[aria-label="删除分类 行为面"]').trigger('click')
     await vi.waitFor(() => expect(store.customCategories).not.toContain('行为面'))
@@ -152,11 +153,12 @@ describe('LibraryView 分类管理', () => {
     await store.addCategory('行为面')
     await store.upsertDoc({ category: '行为面', title: '宝洁八大问', body: 'x', tags: [] })
     await flushPromises()
-    const prompt = vi.spyOn(ElMessageBox, 'prompt').mockResolvedValue({ value: '行为面试' } as never)
     const row = wrapper.findAll('.category-manage-row').find((r) => r.text().includes('行为面'))!
-    await row.find('button[aria-label="重命名分类 行为面"]').trigger('click')
+    await row.find('button[aria-label="编辑分类 行为面"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('#new-category-name').setValue('行为面试')
+    await wrapper.get('.category-save').trigger('click')
     await vi.waitFor(() => expect(store.customCategories).toEqual(['行为面试']))
     expect(store.docs.find((d) => d.title === '宝洁八大问')!.category).toBe('行为面试')
-    prompt.mockRestore()
   })
 })

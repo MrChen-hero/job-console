@@ -1,0 +1,13 @@
+// 仅加载项目实际使用的组件样式；内部依赖由各 style/css 入口补齐。
+import 'element-plus/es/components/button/style/css'
+import 'element-plus/es/components/checkbox/style/css'
+import 'element-plus/es/components/date-picker/style/css'
+import 'element-plus/es/components/dialog/style/css'
+import 'element-plus/es/components/drawer/style/css'
+import 'element-plus/es/components/dropdown/style/css'
+import 'element-plus/es/components/input/style/css'
+import 'element-plus/es/components/loading/style/css'
+import 'element-plus/es/components/message/style/css'
+import 'element-plus/es/components/message-box/style/css'
+import 'element-plus/es/components/popover/style/css'
+import 'element-plus/es/components/select/style/css'

@@ -8,10 +8,7 @@ import { ACCENT_OPTIONS, validateProjectInput } from '../projectStore'
 const props = defineProps<{
   /** 编辑目标；为 null 时是新建 */
   initial?: MergedProject | null
-}>()
-
-const emit = defineEmits<{
-  save: [input: ProjectInput]
+  persist: (input: ProjectInput) => Promise<void>
 }>()
 
 const visible = defineModel<boolean>({ default: false })
@@ -26,6 +23,7 @@ const form = reactive({
 })
 const error = reactive({ value: '' })
 const accentOpen = ref(false)
+const saving = ref(false)
 
 const accentLabel = computed(() => ACCENT_OPTIONS.find((a) => a.id === form.accent)?.label ?? form.accent)
 
@@ -49,7 +47,8 @@ function onOpen() {
   error.value = ''
 }
 
-function save() {
+async function save() {
+  if (saving.value) return
   const input: ProjectInput = {
     title: form.title,
     eyebrow: form.eyebrow,
@@ -60,8 +59,14 @@ function save() {
   }
   error.value = validateProjectInput(input)
   if (error.value) return
-  visible.value = false
-  emit('save', input)
+  saving.value = true
+  accentOpen.value = false
+  try {
+    await props.persist(input)
+    visible.value = false
+  } catch {
+    error.value = '保存失败，输入已保留，请重试'
+  } finally { saving.value = false }
 }
 </script>
 
@@ -70,6 +75,9 @@ function save() {
   <ElDialog
     v-model="visible"
     width="580px"
+    :show-close="!saving"
+    :close-on-click-modal="!saving"
+    :close-on-press-escape="!saving"
     @open="onOpen"
   >
     <!-- 标题区两行；不传 title prop 时 EP 才把 aria-labelledby 指到 titleId，故标题自己挂 id -->
@@ -88,7 +96,10 @@ function save() {
       </div>
     </template>
     <!-- 顶部色条取当前主题色：与项目卡顶部色条同源，选色即时可见（accent 是装饰令牌，不做文字色） -->
-    <div class="proj-form">
+    <div
+      class="proj-form"
+      :inert="saving"
+    >
       <div
         class="pe-rail"
         :style="{ background: `var(--accent-${form.accent}, var(--accent-violet))` }"
@@ -224,12 +235,16 @@ function save() {
       </p>
     </div>
     <template #footer>
-      <ElButton @click="visible = false">
+      <ElButton
+        :disabled="saving"
+        @click="visible = false"
+      >
         取消
       </ElButton>
       <ElButton
         type="primary"
         class="pe-save"
+        :loading="saving"
         @click="save"
       >
         保存项目

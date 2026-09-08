@@ -35,8 +35,11 @@ export function localDocIds(): string[] {
   return localDocs().map((d) => d.id)
 }
 
+let docsCache: LocalDoc[] | undefined
+
 export function localDocs(): LocalDoc[] {
-  return Object.entries(mdModules)
+  // 内置内容在本次模块生命周期内固定，运行时编辑由 store 的覆盖行处理。
+  return docsCache ??= Object.entries(mdModules)
     .map(([path, raw]) => {
       const { attrs, body } = parseFrontmatter(raw)
       const category = (LIBRARY_CATEGORIES as readonly string[]).includes(String(attrs.category))
@@ -64,8 +67,10 @@ function titleOf(html: string, fallback: string): string {
   return match?.[1]?.trim() || fallback
 }
 
+let demosCache: LocalDemo[] | undefined
+
 export function localDemos(): LocalDemo[] {
-  return Object.entries(htmlModules)
+  return demosCache ??= Object.entries(htmlModules)
     .map(([path, html]) => {
       const id = idFromPath(path)
       return {

@@ -186,7 +186,7 @@ async function removeDemo(demo: MergedDemo) {
     <ProjectEditor
       v-model="editorOpen"
       :initial="editorInitial"
-      @save="onSaveProject"
+      :persist="onSaveProject"
     />
 
     <DemoUploadDialog

@@ -410,9 +410,11 @@ test.describe('求职工作台主流程', () => {
 
     // 从分类管理弹窗重命名。
     await page.getByRole('button', { name: '管理分类' }).click()
-    await page.getByRole('button', { name: '重命名分类 八股面经', exact: true }).click()
-    await page.locator('.el-message-box__input input').fill('基础知识')
-    await page.locator('.el-message-box').getByRole('button', { name: '保存' }).click()
+    await page.getByRole('button', { name: '编辑分类 八股面经', exact: true }).click()
+    const categoryEditor = page.getByRole('dialog', { name: '编辑分类', exact: true })
+    await categoryEditor.locator('#new-category-name').fill('基础知识')
+    await categoryEditor.getByRole('button', { name: '保存', exact: true }).click()
+    await expect(categoryEditor).toBeHidden()
     await expect(page.locator('.cat-row', { hasText: '基础知识' })).toBeVisible()
     await expect(page.locator('.cat-row', { hasText: '八股面经' })).toHaveCount(0)
     await page.getByRole('button', { name: '完成', exact: true }).click()

@@ -150,9 +150,8 @@ function onPointerUp(event: PointerEvent) {
   else if (intent === -1) prev()
 }
 
-onMounted(async () => {
-  await Promise.all([demoStore.load(), projectStore.load()])
-  // 初始定位须等 load 完成：点击的卡片/演示行可能是库里的自建项目，加载前不在 visible 清单中
+onMounted(() => {
+  // 父页面已完成加载，新增/编辑也会同步 store；打开演示无需再次读取数据库。
   hIdx.value = clampIndex(props.startIndex ?? 0, pageCount.value)
   vIdx.value = clampIndex(props.startVertical ?? 0, layers.value.length)
   document.addEventListener('keydown', onKeydown)

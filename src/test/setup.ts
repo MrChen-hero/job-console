@@ -23,7 +23,7 @@ config.global.stubs = {
   },
 }
 
-// v-loading 指令由 Element Plus 插件注册；单测常按需挂载组件，给空实现兜底。
+// v-loading 指令由入口单独注册；单测常按需挂载组件，给空实现兜底。
 config.global.directives = {
   loading: {},
 }

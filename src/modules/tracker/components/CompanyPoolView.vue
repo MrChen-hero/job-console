@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElButton, ElInput, ElMessageBox, ElOption, ElSelect } from 'element-plus'
+import { ElButton, ElDialog, ElInput, ElMessageBox, ElOption, ElSelect } from 'element-plus'
 import type { CompanyPoolEntry } from '../../../storage/types'
 import { TRACKS } from '../../../storage/types'
 import { useTrackerStore } from '../store'

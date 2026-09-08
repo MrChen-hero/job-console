@@ -8,7 +8,7 @@
 | D-2 | `scripts/ui-shots.mjs` 无人引用 | 已收口（取消跟踪） |
 | D-3 | `design-demo/design-cool-slate/*.png` 未被任何页面引用 | 已收口（取消跟踪） |
 | D-4 | `docs/superpowers/logs/` 是否长期保留 | 已收口（取消跟踪） |
-| D-5 | 内置演示页走 eager glob，体积直接进主 chunk | 待做（触发条件明确） |
+| D-5 | 内置演示页走 eager glob，体积进入脚本产物 | 待做（触发条件明确） |
 | D-6 | 演示页无法跟随主站亮/暗主题 | 已知限制 |
 
 **关于「取消跟踪」的共同说明**：D-1/D-2/D-3/D-4 的文件都已随仓库推送到远端，取消跟踪只让后续克隆的工作区不再包含它们，**历史里仍在**。D-2/D-3/D-4 是设计截图与执行日志，本身可公开；D-1 的情况见该条末尾。
@@ -41,9 +41,9 @@ Cool Slate 重构期的一次性 UI 截图核对脚本（`node scripts/ui-shots.
 
 **决定（2026-09-03）**：整个 `docs/superpowers/logs/` 取消跟踪，文件留本机。`docs/superpowers/` 下自此只跟踪 plans/（决策）与 specs/（设计）两类，取舍标准统一。
 
-## D-5 内置演示页走 eager glob，体积直接进主 chunk（待做）
+## D-5 内置演示页走 eager glob，体积进入脚本产物（待做）
 
-`src/modules/library/localContent.ts` 用 `import.meta.glob('../../content/demos/*.html', { query: '?raw', eager: true })` 收录内置演示页，HTML 原样内联进 JS 产物——文件多大主 chunk 就大多少，没有懒加载兜底。当前主 chunk 约 618 KB，现有示例 demo 仅 1.8 KB，所以还没到痛点。
+`src/modules/library/localContent.ts` 用 `import.meta.glob('../../content/demos/*.html', { query: '?raw', eager: true })` 收录内置演示页，HTML 原样内联进 JS 产物，尚未按页加载。现有示例 demo 仅 1.8 KB，所以还没到痛点。2026-09-08 已缓存内置材料与演示的解析结果；这减少重复解析，不减少内置内容的下载体积。
 
 **触发条件**：内置演示页累计超过约 200 KB 时，把这个 glob 改成非 eager 并在 `demoStore` 里按需加载。改动会牵动 `localDemos()` 的同步返回签名（现在是同步数组），需要同步改 `demoStore.merged` 与 `deck.ts` 的取数时机——不是一行改动，别在赶别的活时顺手做。
 
@@ -54,6 +54,8 @@ Cool Slate 重构期的一次性 UI 截图核对脚本（`node scripts/ui-shots.
 要同步得给 Deck 加 postMessage 通道并约定协议，属独立一次改动。现状可接受：演示页本就是「复刻某个真实系统的界面」，配色跟随源系统比跟随主站更合理。
 
 ## 已收口
+
+- **2026-09-08** Element Plus 改为显式组件导入、仅注册加载指令，实际使用的样式集中在 `src/styles/element-plus.ts`；入口直接引用/预加载的 JS 从 1,148,391 字节降到 362,124 字节，CSS 从 376,030 字节降到 137,836 字节（不含路由后续请求，不能直接换算为加载速度）。演示窗口复用父页面已加载的数据，内置材料与演示解析结果按模块生命周期缓存。
 
 - **2026-09-03** 清掉四个可再生目录，工作区（除 `node_modules`）从约 59MB 降到 8.6MB：`.ui-shots/` 48MB（Cool Slate 重构期 13 批 UI 截图，需要时用 D-2 的脚本重跑）、`dist/`（`npm run build` 重建）、`playwright-report/` 与 `test-results/`（`npm run test:e2e` 重建）。命令：`rm -r .ui-shots dist playwright-report test-results`。
 - **2026-09-03** `npm run lint` 从 31 个 error 修回 0：`.claude/` 下的技能脚本按 Node 环境写（`process` / `console` / `TextDecoder`），撞上本仓库面向浏览器的 globals 配置。`eslint.config.js` 的 `ignores` 补上 `.claude` 与 `demo-out`——与 `design-demo` 同理，本机工具及其产物不进 lint 范围。教训：往仓库里加任何目录（哪怕不进 git）都要回跑一次 lint，`eslint .` 不看 `.gitignore`。

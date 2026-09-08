@@ -6,8 +6,6 @@ export default defineConfig({
   // and project-repo GitHub Pages URLs.
   base: './',
   plugins: [vue()],
-  // Element Plus 全量注册（个人工作台可接受），主 chunk 约 700kB gzip ~220kB；
-  // Vite 8 (rolldown) 无 chunkSizeWarningLimit，构建告警无害，后续按需引入时回收本注释。
   test: {
     environment: 'jsdom',
     globals: true,

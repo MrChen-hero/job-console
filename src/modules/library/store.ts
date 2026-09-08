@@ -139,26 +139,27 @@ export const useLibraryStore = defineStore('library', {
     },
 
     /**
-     * 重命名分类：
+     * 编辑分类名称与图标（省略 icon 时保留原图标）：
      * - 内置分类（含已改名后的再次改名）：写覆盖行 renamedTo，文档不重写（读取时映射）；
-     *   改回原名时删除覆盖行，回到编译期默认。
+     *   改回原名且无自定义图标时删除覆盖行，回到编译期默认。
      * - 自定义分类：换主键 + 事务内迁移该分类下文档的 category。
      */
-    async renameCategory(from: string, to: string): Promise<boolean> {
+    async renameCategory(from: string, to: string, icon?: string): Promise<boolean> {
       const target = to.trim()
-      if (target === '' || !this.categories.includes(from) || this.categories.includes(target)) return false
+      if (target === '' || !this.categories.includes(from) || (target !== from && this.categories.includes(target))) return false
       const row = this.categoryRows.find((r) => r.builtin && (r.renamedTo ?? r.name) === from)
       if (row || isBuiltinName(from)) {
-        if (row && target === row.name) {
+        const selectedIcon = icon ?? row?.icon
+        if (row && target === row.name && !selectedIcon) {
           await db.libraryCategories.delete(row.name)
         } else {
-          await db.libraryCategories.put({ name: row?.name ?? from, builtin: true, renamedTo: target })
+          await db.libraryCategories.put({ name: row?.name ?? from, builtin: true, renamedTo: target, icon: selectedIcon })
         }
       } else {
         await db.transaction('rw', [db.libraryCategories, db.libraryDocs], async () => {
           await db.libraryCategories.delete(from)
           const existing = this.categoryRows.find((r) => r.name === from)
-          await db.libraryCategories.put({ ...existing, name: target })
+          await db.libraryCategories.put({ ...existing, name: target, icon: icon ?? existing?.icon })
           await db.libraryDocs.where('category').equals(from).modify({ category: target })
         })
       }

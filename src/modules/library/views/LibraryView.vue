@@ -7,7 +7,7 @@ import { useLibraryStore, filterByCategory, type MergedDoc } from '../store'
 import { renderMarkdown } from '../../../shared/markdown/render'
 import AppIcon from '../../../shared/ui/AppIcon.vue'
 import DocEditor from '../components/DocEditor.vue'
-import CategoryCreateDialog from '../components/CategoryCreateDialog.vue'
+import CategoryEditorDialog from '../components/CategoryEditorDialog.vue'
 import { ICONS } from '../../../shared/ui/icons'
 import { markdownPreview } from '../../../shared/markdown/preview'
 import { newId } from '../../../storage/types'
@@ -21,7 +21,10 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const search = ref('')
 const loadError = ref('')
 const categoryManager = ref(false)
-const categoryCreateOpen = ref(false)
+const categoryEditorOpen = ref(false)
+const categoryInitial = ref<{ name: string; icon: string } | null>(null)
+const categoryError = ref('')
+const categoryDeleting = ref('')
 const editor = ref<InstanceType<typeof DocEditor> | null>(null)
 const leaveOpen = ref(false)
 const leaveSaving = ref(false)
@@ -110,28 +113,18 @@ function categoryIcon(name: string): string {
   return CATEGORY_ICONS[row?.name ?? name] ?? 'layers'
 }
 
-async function renameCategory(name: string) {
-  let target: string
-  try {
-    ;({ value: target } = await ElMessageBox.prompt(`将「${name}」重命名为：`, '重命名分类', {
-      confirmButtonText: '保存',
-      cancelButtonText: '取消',
-      inputValue: name,
-      inputPattern: /\S+/,
-      inputErrorMessage: '分类名称不能为空',
-    }))
-  } catch {
-    return
-  }
-  if (await store.renameCategory(name, target)) {
-    if (activeTab.value === name) activeTab.value = target.trim()
-    ElMessage.success('已重命名，该分类下的文档已同步迁移')
-  } else {
-    ElMessage.warning('目标分类名已存在')
-  }
+function openCategoryEditor(name?: string) {
+  categoryInitial.value = name ? { name, icon: categoryIcon(name) } : null
+  categoryError.value = ''
+  categoryEditorOpen.value = true
+}
+
+function onCategorySaved(name: string) {
+  if (categoryInitial.value && activeTab.value === categoryInitial.value.name) activeTab.value = name
 }
 
 async function removeCategory(name: string) {
+  if (categoryDeleting.value) return
   try {
     await ElMessageBox.confirm(`删除分类「${name}」？`, '删除确认', {
       confirmButtonText: '删除',
@@ -141,12 +134,18 @@ async function removeCategory(name: string) {
   } catch {
     return
   }
-  if (await store.removeCategory(name)) {
-    if (activeTab.value === name) activeTab.value = '全部'
-    ElMessage.success(`已删除分类「${name}」`)
-  } else {
-    ElMessage.warning('该分类下还有文档，请先移动或删除它们')
-  }
+  categoryError.value = ''
+  categoryDeleting.value = name
+  try {
+    if (await store.removeCategory(name)) {
+      if (activeTab.value === name) activeTab.value = '全部'
+      ElMessage.success(`已删除分类「${name}」`)
+    } else {
+      categoryError.value = '该分类下还有文档或分类已不存在，请检查后重试'
+    }
+  } catch {
+    categoryError.value = `删除分类「${name}」失败，请重试`
+  } finally { categoryDeleting.value = '' }
 }
 
 function sourceLabel(doc: MergedDoc): string {
@@ -253,11 +252,21 @@ async function onFileChange(event: Event) {
       v-model="categoryManager"
       title="管理分类"
       width="520px"
+      :show-close="!categoryDeleting"
+      :close-on-click-modal="!categoryDeleting"
+      :close-on-press-escape="!categoryDeleting"
     >
       <div class="category-manager-summary">
         <span class="category-total">{{ store.categories.length }} 个分类</span>
         <p>整理材料的归属；删除分类前，请先移走其中的材料。</p>
       </div>
+      <p
+        v-if="categoryError"
+        class="form-alert"
+        role="alert"
+      >
+        {{ categoryError }}
+      </p>
       <div
         class="category-manage-list"
         role="list"
@@ -283,14 +292,16 @@ async function onFileChange(event: Event) {
           <span class="category-actions">
             <button
               class="category-action"
-              :aria-label="`重命名分类 ${category}`"
-              @click="renameCategory(category)"
-            >重命名</button>
+              :aria-label="`编辑分类 ${category}`"
+              :disabled="!!categoryDeleting"
+              @click="openCategoryEditor(category)"
+            >编辑</button>
             <button
               class="category-action is-danger"
               :aria-label="`删除分类 ${category}`"
+              :disabled="!!categoryDeleting"
               @click="removeCategory(category)"
-            >删除</button>
+            >{{ categoryDeleting === category ? '删除中…' : '删除' }}</button>
           </span>
         </div>
         <p
@@ -305,17 +316,25 @@ async function onFileChange(event: Event) {
           <ElButton
             type="primary"
             class="category-create"
-            @click="categoryCreateOpen = true"
+            :disabled="!!categoryDeleting"
+            @click="openCategoryEditor()"
           >
             <span aria-hidden="true">＋ </span>新增分类
           </ElButton>
-          <ElButton @click="categoryManager = false">
+          <ElButton
+            :disabled="!!categoryDeleting"
+            @click="categoryManager = false"
+          >
             完成
           </ElButton>
         </div>
       </template>
     </ElDialog>
-    <CategoryCreateDialog v-model="categoryCreateOpen" />
+    <CategoryEditorDialog
+      v-model="categoryEditorOpen"
+      :initial="categoryInitial"
+      @saved="onCategorySaved"
+    />
     <ElDialog
       :model-value="leaveOpen"
       title="保存文档修改？"
