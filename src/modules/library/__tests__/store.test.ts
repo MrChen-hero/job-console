@@ -1,6 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../../../storage/db'
+import { exportBackup, importBackup, validateBackup } from '../../../storage/backup'
 import { useLibraryStore, filterByCategory } from '../store'
 
 describe('library store（双通道合并）', () => {
@@ -9,6 +10,24 @@ describe('library store（双通道合并）', () => {
     await db.delete()
     await db.open()
     setActivePinia(createPinia())
+  })
+
+  it('分类图标在改名、重新加载、备份导入后保留，兼容没有图标的旧数据', async () => {
+    const store = useLibraryStore()
+    await store.load()
+    await store.addCategory('复盘', 'history')
+    await store.renameCategory('复盘', '我的复盘')
+    await db.libraryCategories.put({ name: '旧分类' })
+    const backup = await exportBackup(db)
+    expect(validateBackup(backup).ok).toBe(true)
+    await db.libraryCategories.clear()
+    await importBackup(db, backup, 'overwrite')
+    await store.load()
+    expect(store.categoryRows.find((r) => r.name === '我的复盘')?.icon).toBe('history')
+    expect(store.categoryRows.find((r) => r.name === '旧分类')?.icon).toBeUndefined()
+    const invalid = structuredClone(backup)
+    invalid.data.libraryCategories[0]!.icon = 123 as never
+    expect(validateBackup(invalid).ok).toBe(false)
   })
 
   it('内置 md 经编译时清单出现，标记 local', async () => {
@@ -150,7 +169,6 @@ describe('library 自定义分类', () => {
     expect(store.docs.find((d) => d.id === 'java-notes')!.category).toBe('计算机基础')
     expect(await store.renameCategory('计算机基础', '八股面经')).toBe(true)
     expect(store.categories).toContain('八股面经')
-    expect(store.hasBuiltinOverrides).toBe(false) // 改回原名即清理覆盖行
     expect(store.docs.find((d) => d.id === 'java-notes')!.category).toBe('八股面经')
   })
 
@@ -167,7 +185,7 @@ describe('library 自定义分类', () => {
     expect(await store.removeCategory('八股面经')).toBe(false)
   })
 
-  it('删除内置分类：文档移走后可删（隐藏覆盖行），恢复默认可找回', async () => {
+  it('删除内置分类：文档移走后可删，重新加载仍不显示', async () => {
     const store = useLibraryStore()
     await store.load()
     // 把内置文档挪到别的分类（编辑产生 runtime 覆盖）
@@ -175,27 +193,20 @@ describe('library 自定义分类', () => {
     await store.upsertDoc({ id: javaNotes.id, category: '高频问题', title: javaNotes.title, body: javaNotes.body, tags: javaNotes.tags })
     expect(await store.removeCategory('八股面经')).toBe(true)
     expect(store.categories).not.toContain('八股面经')
-    expect(store.hasBuiltinOverrides).toBe(true)
-    await store.restoreDefaultCategories()
-    expect(store.categories).toContain('八股面经')
-    expect(store.hasBuiltinOverrides).toBe(false)
-    // 文档本身的编辑是独立的 runtime 覆盖：恢复默认只还原分类清单，不回滚文档
-    expect(store.docs.find((d) => d.id === 'java-notes')!.category).toBe('高频问题')
-    await db.libraryDocs.delete('java-notes') // 撤销文档编辑（等价旧「重置为内置」）
     await store.load()
-    expect(store.docs.find((d) => d.id === 'java-notes')!.category).toBe('八股面经')
+    expect(store.categories).not.toContain('八股面经')
+    expect(store.docs.find((d) => d.id === 'java-notes')!.category).toBe('高频问题')
   })
 
-  it('恢复默认：改名期间归到新名的文档迁回原名', async () => {
+  it('分类改名后，重新加载仍保留名称和归属', async () => {
     const store = useLibraryStore()
     await store.load()
     await store.renameCategory('八股面经', '基础知识')
     // 改名后新建的文档落在新名下（编辑器只见过生效名）
     await store.upsertDoc({ category: '基础知识', title: '新分类文档', body: 'x', tags: [] })
-    await store.restoreDefaultCategories()
-    expect(store.categories).toEqual(['自我介绍', '高频问题', '项目深挖', '八股面经'])
-    expect(store.docs.find((d) => d.title === '新分类文档')!.category).toBe('八股面经')
-    expect(store.hasBuiltinOverrides).toBe(false)
+    await store.load()
+    expect(store.categories).toEqual(['自我介绍', '高频问题', '项目深挖', '基础知识'])
+    expect(store.docs.find((d) => d.title === '新分类文档')!.category).toBe('基础知识')
   })
 
   it('上传 md：自定义分类被识别，未知分类回落高频问题', async () => {

@@ -1,6 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../../../storage/db'
+import { exportBackup, importBackup, validateBackup } from '../../../storage/backup'
 import { demoUrl, useDemoStore } from '../demoStore'
 
 describe('demoStore', () => {
@@ -30,7 +31,7 @@ describe('demoStore', () => {
     expect(store.merged.filter((d) => d.source === 'runtime')).toHaveLength(0)
   })
 
-  it('删除内置 demo：与普通文件一视同仁，走 hidden 墓碑且可随删行恢复', async () => {
+  it('删除内置 demo：重新加载不再出现', async () => {
     const store = useDemoStore()
     await store.load()
     const builtinId = 'campus-market--review-flow'
@@ -42,10 +43,8 @@ describe('demoStore', () => {
     expect(row?.hidden).toBe(true)
     expect(row?.html).toBe('')
     expect(row?.projectId).toBe('campus-market')
-    // 删掉墓碑行即恢复内置（与内置项目 hidden 墓碑同构）
-    await db.runtimeDemos.delete(builtinId)
     await store.load()
-    expect(store.merged.some((d) => d.id === builtinId)).toBe(true)
+    expect(store.merged.some((d) => d.id === builtinId)).toBe(false)
   })
 
   it('链接式演示：url 与要点入库，与上传式并存', async () => {
@@ -76,11 +75,30 @@ describe('demoStore', () => {
     expect(store.merged.filter((d) => d.source === 'runtime')).toHaveLength(1)
   })
 
-  it('编辑内置演示：没有 runtime 行，静默不产生新行', async () => {
+  it('编辑内置演示：同 id 覆盖不重复，改归属后不留旧页，删除不复活', async () => {
     const store = useDemoStore()
     await store.load()
-    await store.updateDemo('campus-market--review-flow', { projectId: 'campus-market', title: '想改内置', html: '<p>x</p>' })
-    expect(await db.runtimeDemos.count()).toBe(0)
+    await store.updateDemo('campus-market--review-flow', { projectId: 'organs-system', title: '我的演示', html: '<p>x</p>', points: ['我的要点'] })
+    await store.load()
+    expect(store.merged).toHaveLength(1)
+    expect(store.byProject('campus-market')).toHaveLength(0)
+    expect(store.byProject('organs-system')[0]).toMatchObject({ title: '我的演示', points: ['我的要点'] })
+    await store.removeDemo('campus-market--review-flow')
+    await store.load()
+    expect(store.merged).toHaveLength(0)
+  })
+
+  it('编辑内置演示后备份往返，保留个人内容且不重复展示', async () => {
+    const store = useDemoStore()
+    await store.load()
+    await store.updateDemo('campus-market--review-flow', { projectId: 'campus-market', title: '个人内容', html: '<p>个人内容</p>', points: ['个人要点'] })
+    const file = await exportBackup(db)
+    expect(validateBackup(file).ok).toBe(true)
+    await db.runtimeDemos.clear()
+    await importBackup(db, file, 'overwrite')
+    await store.load()
+    expect(store.merged).toHaveLength(1)
+    expect(store.merged[0]).toMatchObject({ title: '个人内容', html: '<p>个人内容</p>', points: ['个人要点'] })
   })
 
   it('demoUrl：同内容复用同一 Blob URL', () => {

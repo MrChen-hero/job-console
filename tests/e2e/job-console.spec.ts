@@ -247,7 +247,7 @@ test.describe('求职工作台主流程', () => {
     await expect(face.locator('iframe.df-iframe')).toBeVisible()
   })
 
-  test('演示站：项目卡片增删改（新增 / 删除示例 / 恢复）', async ({ page }) => {
+  test('演示站：项目卡片增删改（示例与自建统一操作）', async ({ page }) => {
     await page.goto('/#/showcase')
     // v-loading 淡出动画期间遮罩会拦截点击（窄视口尤甚），等其完全消失
     await expect(page.locator('.el-loading-mask')).toHaveCount(0)
@@ -279,17 +279,16 @@ test.describe('求职工作台主流程', () => {
     await expect(cards).toHaveCount(3)
     await expect(page.locator('.proj', { hasText: '企业人事管理系统' })).toHaveCount(0)
 
-    // 恢复示例项目
-    await page.getByRole('button', { name: '↺ 恢复示例项目' }).click()
-    await page.locator('.el-message-box').getByRole('button', { name: '恢复' }).click()
-    await expect(cards).toHaveCount(4)
+    await expect(page.getByRole('button', { name: /恢复示例项目/ })).toHaveCount(0)
+    await page.reload()
+    await expect(cards).toHaveCount(3)
 
     // 删除自建项目（不入墓碑，直接删行）
     const mine = page.locator('.proj', { hasText: '我的毕设展示站' })
     await mine.hover()
     await mine.getByRole('button', { name: '删除项目 我的毕设展示站' }).click()
     await page.locator('.el-message-box').getByRole('button', { name: '删除' }).click()
-    await expect(cards).toHaveCount(3)
+    await expect(cards).toHaveCount(2)
   })
 
   test('演示站：拖拽 .html 上传交互演示', async ({ page }) => {
@@ -386,8 +385,8 @@ test.describe('求职工作台主流程', () => {
     await page.goto('/#/library')
     await page.getByRole('button', { name: '管理分类' }).click()
     await page.getByRole('button', { name: '新增分类', exact: true }).click()
-    await page.locator('.el-message-box__input input').fill('行为面')
-    await page.locator('.el-message-box').getByRole('button', { name: '保存' }).click()
+    await page.locator('#new-category-name').fill('行为面')
+    await page.getByRole('dialog', { name: '新增分类', exact: true }).getByRole('button', { name: '保存', exact: true }).click()
     await expect(page.locator('.cat-row', { hasText: '行为面' })).toBeVisible()
 
     await page.getByRole('button', { name: '完成', exact: true }).click()
@@ -403,7 +402,7 @@ test.describe('求职工作台主流程', () => {
     await expect(page.locator('.lib-item')).toHaveCount(1)
   })
 
-  test('材料库：内置分类重命名与恢复默认', async ({ page }) => {
+  test('材料库：默认分类重命名后持续保存', async ({ page }) => {
     await page.goto('/#/library')
     // 内置文档 java-notes 在「八股面经」下
     await page.locator('.cat-row', { hasText: '八股面经' }).locator('.chip').click()
@@ -421,14 +420,12 @@ test.describe('求职工作台主流程', () => {
     await page.locator('.cat-row', { hasText: '基础知识' }).locator('.chip').click()
     await expect(page.locator('.lib-item', { hasText: '八股题库' })).toBeVisible()
 
-    // 恢复默认
     await page.getByRole('button', { name: '管理分类' }).click()
-    await page.getByRole('button', { name: '恢复默认分类', exact: true }).click()
-    await page.locator('.el-message-box').getByRole('button', { name: '恢复' }).click()
-    await page.getByRole('button', { name: '完成', exact: true }).click()
-    await expect(page.locator('.cat-row', { hasText: '八股面经' })).toBeVisible()
-    await expect(page.locator('.cat-row', { hasText: '基础知识' })).toHaveCount(0)
-    await page.locator('.cat-row', { hasText: '八股面经' }).locator('.chip').click()
+    await expect(page.getByRole('button', { name: '恢复默认分类', exact: true })).toHaveCount(0)
+    await page.reload()
+    await expect(page.locator('.cat-row', { hasText: '基础知识' })).toBeVisible()
+    await expect(page.locator('.cat-row', { hasText: '八股面经' })).toHaveCount(0)
+    await page.locator('.cat-row', { hasText: '基础知识' }).locator('.chip').click()
     await expect(page.locator('.lib-item', { hasText: '八股题库' })).toBeVisible()
   })
 
@@ -512,9 +509,14 @@ test.describe('求职工作台主流程', () => {
 
     const backupPath = await exportBackupFile(page)
 
-    // 把内置内容全恢复回来，再覆盖导入：墓碑随备份回来才算往返成功
-    await page.getByRole('button', { name: '↺ 恢复示例项目' }).click()
-    await page.locator('.el-message-box').getByRole('button', { name: '恢复' }).click()
+    // 模拟未曾删除内容的新环境，再导入备份验证删除标记。
+    await page.evaluate(async () => {
+      const modulePath = '/src/storage/db.ts'
+      const { db } = await import(/* @vite-ignore */ modulePath)
+      await db.runtimeProjects.clear()
+      await db.runtimeDemos.clear()
+    })
+    await page.reload()
     await expect(page.locator('.proj', { hasText: '企业人事管理系统' })).toBeVisible()
 
     await openNav(page)

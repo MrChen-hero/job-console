@@ -14,7 +14,7 @@ export interface ShowcaseProject {
   stack: string[]
   /**
    * 封面要点：Deck 信息区的回落内容——该演示页自己填了 points（RuntimeDemo.points）时用它的，
-   * 没填才用这里。项目表单不编辑这一项，只跟随本配置或历史数据。
+   * 没填才用这里。项目表单可编辑默认要点，首次编辑前使用本配置。
    */
   demo: ShowcaseDemoPage
 }

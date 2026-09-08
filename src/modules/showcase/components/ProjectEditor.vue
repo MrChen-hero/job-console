@@ -22,6 +22,7 @@ const form = reactive({
   accent: 'violet' as MergedProject['accent'],
   summary: '',
   stack: '',
+  defaultPoints: '',
 })
 const error = reactive({ value: '' })
 const accentOpen = ref(false)
@@ -44,6 +45,7 @@ function onOpen() {
   form.accent = props.initial?.accent ?? 'violet'
   form.summary = props.initial?.summary ?? ''
   form.stack = props.initial?.stack.join(', ') ?? ''
+  form.defaultPoints = props.initial?.demo.points.join('\n') ?? ''
   error.value = ''
 }
 
@@ -54,6 +56,7 @@ function save() {
     accent: form.accent,
     summary: form.summary,
     stack: stackList.value,
+    defaultPoints: form.defaultPoints.split('\n').map((s) => s.trim()).filter(Boolean),
   }
   error.value = validateProjectInput(input)
   if (error.value) return
@@ -80,7 +83,7 @@ function save() {
           {{ initial ? '编辑项目' : '新增项目' }}
         </h2>
         <p class="pe-lede">
-          Deck 里横向翻页的一张项目卡。演示页与其要点在「上传交互演示」里按页单独填。
+          完善项目介绍与默认演示要点，各演示页也可以单独填写要点。
         </p>
       </div>
     </template>
@@ -200,6 +203,16 @@ function save() {
           :rows="3"
           data-field="summary"
           placeholder="一句话讲清项目做了什么、用了什么、结果如何"
+        />
+      </div>
+      <div class="pe-field">
+        <label for="pe-default-points">默认演示要点<span class="pe-tip">每行一条，可清空</span></label>
+        <ElInput
+          id="pe-default-points"
+          v-model="form.defaultPoints"
+          type="textarea"
+          :rows="3"
+          placeholder="演示页未单独填写要点时显示这些内容"
         />
       </div>
       <p

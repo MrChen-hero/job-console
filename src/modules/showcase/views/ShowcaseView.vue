@@ -84,7 +84,7 @@ function openDemoCreate() {
   uploadOpen.value = true
 }
 
-/** 编辑演示：只对 runtime 行开放——内置演示的 html 是编译期产物，改不了 */
+/** 所有演示共用编辑入口。 */
 function openDemoEdit(demo: MergedDemo) {
   uploadInitial.value = demo
   uploadOpen.value = true
@@ -106,12 +106,8 @@ async function onSaveProject(input: ProjectInput) {
 }
 
 async function onRemoveProject(project: MergedProject) {
-  const isBuiltin = project.source === 'local' || project.overridden
-  const tip = isBuiltin
-    ? `删除示例项目「${project.title}」？可随时点「恢复示例项目」找回。`
-    : `删除项目「${project.title}」？其上传的演示页会保留，但项目恢复前不可见。`
   try {
-    await ElMessageBox.confirm(tip, '删除确认', {
+    await ElMessageBox.confirm(`删除项目「${project.title}」？关联演示页将不再显示。`, '删除确认', {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
       type: 'warning',
@@ -121,19 +117,6 @@ async function onRemoveProject(project: MergedProject) {
   }
   await projectStore.removeProject(project.id)
   ElMessage.success('已删除')
-}
-
-async function onResetBuiltins() {
-  try {
-    await ElMessageBox.confirm('恢复全部内置示例项目？你对示例项目的编辑与删除会被撤销。', '恢复确认', {
-      confirmButtonText: '恢复',
-      cancelButtonText: '取消',
-    })
-  } catch {
-    return
-  }
-  await projectStore.resetBuiltins()
-  ElMessage.success('已恢复全部示例项目')
 }
 
 async function removeDemo(demo: MergedDemo) {
@@ -197,15 +180,6 @@ async function removeDemo(demo: MergedDemo) {
         >
           ＋ 新增项目
         </ElButton>
-        <ElButton
-          v-if="projectStore.hasBuiltinChanges"
-          size="large"
-          text
-          class="proj-reset"
-          @click="onResetBuiltins"
-        >
-          ↺ 恢复示例项目
-        </ElButton>
       </div>
     </div>
 
@@ -253,7 +227,6 @@ async function removeDemo(demo: MergedDemo) {
             @click="openDemoDeck(demo)"
           >查看</ElButton>
           <ElButton
-            v-if="demo.source === 'runtime'"
             size="small"
             text
             class="demo-edit"
@@ -274,7 +247,7 @@ async function removeDemo(demo: MergedDemo) {
       v-if="projectStore.visible.length === 0"
       class="proj-empty"
     >
-      还没有可展示的项目。点「＋ 新增项目」创建一个，或「↺ 恢复示例项目」找回内置示例。
+      还没有可展示的项目。点「＋ 新增项目」创建一个。
     </div>
 
     <div class="proj-grid">
@@ -290,33 +263,33 @@ async function removeDemo(demo: MergedDemo) {
         @keydown.space.self.prevent="openDeck(i)"
       >
         <div class="proj-top">
-          <b class="proj-name">{{ p.title }}</b>
-          <span class="proj-top-right">
+          <span class="proj-heading">
+            <b class="proj-name">{{ p.title }}</b>
             <span
               class="src-tag"
               :class="p.source"
             >{{ p.source === 'local' ? '示例' : '我的' }}</span>
-            <span class="proj-acts">
-              <ElButton
-                size="small"
-                text
-                class="proj-edit"
-                :aria-label="`编辑项目 ${p.title}`"
-                @click.stop="openEdit(p)"
-              >
-                编辑
-              </ElButton>
-              <ElButton
-                size="small"
-                text
-                type="danger"
-                class="proj-remove"
-                :aria-label="`删除项目 ${p.title}`"
-                @click.stop="onRemoveProject(p)"
-              >
-                删除
-              </ElButton>
-            </span>
+          </span>
+          <span class="proj-acts">
+            <ElButton
+              size="small"
+              text
+              class="proj-edit"
+              :aria-label="`编辑项目 ${p.title}`"
+              @click.stop="openEdit(p)"
+            >
+              编辑
+            </ElButton>
+            <ElButton
+              size="small"
+              text
+              type="danger"
+              class="proj-remove"
+              :aria-label="`删除项目 ${p.title}`"
+              @click.stop="onRemoveProject(p)"
+            >
+              删除
+            </ElButton>
           </span>
         </div>
         <p class="proj-desc">
@@ -452,15 +425,20 @@ async function removeDemo(demo: MergedDemo) {
   font-size: 13px;
   text-align: center;
 }
-/* 卡片右上：来源标签常驻；编辑/删除悬停浮现（触屏无 hover，常驻可点） */
-.proj-top-right {
+/* 来源标签紧跟标题，编辑/删除独立靠右。 */
+.proj-heading {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex: 0 0 auto;
+  gap: 8px;
+  min-width: 0;
+}
+.proj-heading .src-tag {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .proj-acts {
   display: inline-flex;
+  flex-shrink: 0;
 }
 /* 悬停类设备：默认隐藏，卡片 hover / 焦点进入时浮现 */
 @media (hover: hover) {
@@ -549,6 +527,8 @@ async function removeDemo(demo: MergedDemo) {
   gap: 12px;
 }
 .proj-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 15px;
   font-weight: var(--fw-bold);
   letter-spacing: -.02em;

@@ -145,7 +145,7 @@ export interface CompanyPoolEntry {
 }
 /**
  * 材料库分类：内置默认集（LIBRARY_CATEGORIES，编译时固定）∪ 运行时自定义（libraryCategories 表）。
- * category 在文档上存字符串；内置分类不可删改，自定义分类支持增删改。
+ * category 在文档上存字符串；全部分类均支持增删改。
  */
 export const LIBRARY_CATEGORIES = ['自我介绍', '高频问题', '项目深挖', '八股面经'] as const
 export type LibraryCategory = string
@@ -154,10 +154,12 @@ export type LibraryCategory = string
  * - 自定义分类：{ name }，重命名 = 换主键并迁移文档的 category 字段；
  * - 内置分类的覆盖行：{ name: 原始内置名, builtin: true, renamedTo?: 新名, hidden?: true }。
  *   内置 md 的 frontmatter 是编译期产物，运行时改不动——改名/删除以覆盖行表达，
- *   文档归类在读取时经映射生效（等价于改写 frontmatter，且可整体恢复默认）。
+ *   文档归类在读取时经映射生效（等价于改写 frontmatter）。
  */
 export interface LibraryCategoryRow {
   name: string
+  /** 分类图标名称；旧数据未设置时使用默认图标。 */
+  icon?: string
   builtin?: true
   renamedTo?: string
   hidden?: true
@@ -220,8 +222,7 @@ export interface RuntimeProject {
   stack: string[]
   /**
    * 项目封面要点：Deck 信息区在「该演示页没有自带要点」时的回落内容。
-   * 不由项目表单编辑（演示要点已归到每个演示页自己身上，见 RuntimeDemo.points），
-   * 只跟随内置配置或历史数据；编辑项目时原样保留。
+   * 可在项目表单中编辑或清空；演示页自己的要点优先。
    */
   demo: { title: string; points: string[] }
   /** 仅对内置 id 有意义：true = 隐藏（删除）该内置项目 */

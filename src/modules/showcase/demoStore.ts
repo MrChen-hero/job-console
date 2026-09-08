@@ -55,14 +55,14 @@ export const useDemoStore = defineStore('demo', {
 
   getters: {
     /**
-     * 合并清单：内置 demo 过滤隐藏墓碑 ∪ runtime demo（过滤墓碑行）。
+     * 同 id 的 runtime 内容覆盖内置演示，隐藏标记同时屏蔽原内容。
      * 内置 demo 的删除与 library 内置文档同构：源文件是编译期产物删不掉，
      * 以 runtimeDemos 表中同 id 的 hidden:true 行（html 置空）作墓碑表达。
      */
     merged(state): MergedDemo[] {
-      const hiddenIds = new Set(state.runtimeDemos.filter((d) => d.hidden).map((d) => d.id))
+      const runtimeIds = new Set(state.runtimeDemos.map((d) => d.id))
       const local = localDemos()
-        .filter((d) => !hiddenIds.has(d.id))
+        .filter((d) => !runtimeIds.has(d.id))
         .map((d) => ({ source: 'local' as const, ...d }))
       const runtime = state.runtimeDemos
         .filter((d) => !d.hidden)
@@ -91,22 +91,22 @@ export const useDemoStore = defineStore('demo', {
     },
 
     /**
-     * 编辑演示页（仅 runtime 行）：标题/要点/来源可改。
-     * 内置演示的 html 是编译期产物，不提供编辑入口，故查不到行时直接返回。
-     * 行优先从 state 取，取不到再落库查一次——别让「store 还没 load」把一次编辑静默吞掉。
+     * 内置与自建演示统一编辑；内置首次编辑写同 id 覆盖行。
      */
     async updateDemo(id: string, input: DemoInput): Promise<void> {
       const existing = this.runtimeDemos.find((d) => d.id === id) ?? (await db.runtimeDemos.get(id))
-      if (!existing) return
+      const builtin = localDemos().find((d) => d.id === id)
+      if ((!existing && !builtin) || existing?.hidden) throw new Error('该演示页已不存在')
       // 换掉 html 时把旧内容的 Blob URL 回收，否则旧 URL 会一直挂在缓存里
-      if (existing.html && existing.html !== input.html) revokeHtml(existing.html)
       await db.runtimeDemos.put(plain({
         ...existing,
         ...input,
         id,
-        createdAt: existing.createdAt,
+        createdAt: existing?.createdAt ?? nowIso(),
         updatedAt: nowIso(),
       }))
+      const oldHtml = existing?.html ?? builtin?.html
+      if (oldHtml && oldHtml !== input.html) revokeHtml(oldHtml)
       await this.load()
     },
 
@@ -116,12 +116,8 @@ export const useDemoStore = defineStore('demo', {
      */
     async removeDemo(id: string) {
       const row = this.runtimeDemos.find((d) => d.id === id)
-      if (row) {
-        revokeHtml(row.html)
-        await db.runtimeDemos.delete(id)
-      } else {
-        const source = localDemos().find((d) => d.id === id)
-        if (!source) return
+      const source = localDemos().find((d) => d.id === id)
+      if (source) {
         await db.runtimeDemos.put(
           plain({
             id: source.id,
@@ -133,7 +129,10 @@ export const useDemoStore = defineStore('demo', {
             hidden: true,
           }),
         )
+      } else {
+        await db.runtimeDemos.delete(id)
       }
+      if (row?.html) revokeHtml(row.html)
       await this.load()
     },
   },

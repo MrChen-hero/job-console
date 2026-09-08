@@ -53,9 +53,10 @@
 
 ### 内容双通道（材料库/演示）
 - 编译时：`src/content/library/*.md`（frontmatter: title/category/tags）、`src/content/demos/<projectId>--<name>.html`（前缀决定归属项目）；由 `import.meta.glob(..., { query: '?raw', eager: true })` 收集。
-- 运行时：上传/编辑入 IndexedDB（libraryDocs 带 `source: 'runtime'`、runtimeDemos 表）；同 id runtime 覆盖内置展示。删除内置文档走 deletedDocs 墓碑表（内置 md 源文件删不掉），删除内置演示页走 runtimeDemos 的 hidden 墓碑行（html 置空，删行即恢复），均无「重置为内置」功能。
-- 材料库分类：全部可增删改。自定义分类是 libraryCategories 表的普通行（name 即主键，改名换主键并迁移文档）；内置 4 类的改名/删除是同表的覆盖行（`builtin: true`，`renamedTo`/`hidden`），内置 md 的 frontmatter 是编译期产物改不动——文档归类在 store 读取时经映射生效，`restoreDefaultCategories` 整体还原。删除任何分类都要求分类下无文档。
-- 演示站项目：runtimeProjects 表，同 id 行覆盖内置项目（hidden:true 为删除墓碑），自建项目直接删行；合并视图在 showcase 模块 projectStore。项目的 `demo: {title, points}` 只作**封面回落**（演示页没自带要点时才用），不在项目表单里编辑——`updateProject` 按「已有行 → 内置原值」原样带过去，别让改标题清空内置项目的封面要点。
+- 运行时：上传/编辑入 IndexedDB（libraryDocs 带 `source: 'runtime'`、runtimeDemos 表）；同 id runtime 覆盖内置展示。删除内置文档走 deletedDocs 墓碑表（内置 md 源文件删不掉），删除内置演示页走 runtimeDemos 的 hidden 墓碑行（html 置空，删行即恢复），均无「重置为内置」功能。内置演示首次编辑写 runtimeDemos 同 id 覆盖行，合并时仅显示一份；删除编辑过的内置演示仍写 hidden 标记，避免原内容重新出现。
+- 材料库分类：全部可增删改。自定义分类是 libraryCategories 表的普通行（name 即主键，改名换主键并迁移文档）；内置 4 类的改名/删除是同表的覆盖行（`builtin: true`，`renamedTo`/`hidden`），内置 md 的 frontmatter 是编译期产物改不动——文档归类在 store 读取时经映射生效，不提供恢复默认分类入口。删除任何分类都要求分类下无文档。
+- 新增分类可选择现有 AppIcon 图标，保存在 libraryCategories.icon（可选字段），改名保留；分类列表与管理弹窗使用同一图标。旧数据无 icon 时显示默认图标，备份/快照原样保留该字段；不增加索引，不升级备份版本。
+- 演示站项目：runtimeProjects 表，同 id 行覆盖内置项目（hidden:true 为删除墓碑），自建项目直接删行；合并视图在 showcase 模块 projectStore。项目的 `demo: {title, points}` 只作**封面回落**（演示页没自带要点时才用），项目表单可编辑或清空默认要点，保存时要点标题随项目名称更新；旧调用不传 defaultPoints 时保留原值。项目无恢复示例入口，来源标签不限制操作。
 - 交互演示两种来源（RuntimeDemo 二选一，`url` 有值即链接式）：**上传式** html 走 Blob URL + `<iframe sandbox="allow-scripts">`（Blob 继承本站源，绝不能给 allow-same-origin）；**链接式** url 直接进 iframe src，sandbox 放开 `allow-same-origin allow-forms allow-popups`（外部源的同源特权只作用于它自己），并额外给一个「新标签打开」入口兜对方站点的 X-Frame-Options。只收 http/https，伪协议在 `DemoUploadDialog` 就拒掉。
 - 演示要点归**每个演示页**自己（`RuntimeDemo.points`，在「上传交互演示」弹窗里按页填），Deck 侧栏优先取它，为空才回落到项目的 `demo.points`；内置演示（LocalDemo）没有 points，恒走回落。
 - 材料正文、编辑预览与演示要点分别经 `renderMarkdown` / `sanitizeHtml`（DOMPurify）清理后再 `v-html`。不能假设上传/导入内容可信；交互 HTML 原文仅在沙箱 iframe 中执行。演示链接的表单、导入、展示共用 `isHttpUrl`；同站链接不放开 `allow-same-origin`，避免与 `allow-scripts` 组合取得主站权限。
@@ -64,6 +65,8 @@
 
 ### UI
 - 工作台待办按日期升序全部展示，以日期块颜色区分已逾期、今天与后续，不显示分组标题；列表最高 360px，溢出滚动，悬停或键盘焦点进入时显示滚动条。条目通过 `/tracker?applicationId=...` 进入投递详情，数据加载后打开抽屉。
+- 有下一步但无日期的待办以「未排期」置底。`TodoList` 的完成/编辑经 tracker store 落库；完成只清除 nextStep/nextActionAt，不改阶段，10 秒撤销仅存当前组件内存，离开或刷新即失效，不覆盖新动作。日期色与里程碑倒计时共用 `useLocalDate`，本地午夜、focus 与 visibilitychange 时刷新。
+- 详情和看板的结束阶段操作共用 `useStageChange`：确认清除待办、取消按钮保留待办、关闭提示取消阶段变更；清除与阶段更新在同一次写入中完成。Offer 保留待办，不弹提示。
 - 投递表格与手机卡片复用 filtered/sorted/paged 数据，≤720px 显示卡片；筛选可折叠，数据数量下降时校正当前页码。
 - 材料库搜索与分类共同约束选中文档，分类管理为独立弹窗；DocEditor 通过异步 persist 回调确认保存成功，失败保留输入。离开保护弹窗必须 append-to-body，避免手机导航打开时被主内容 inert 屏蔽。
 - 简历 ≤1180px 切换编辑/预览，以 CSS 隐藏保留输入；缩放同时设置占位宽高，观察器下一帧更新，打印解除缩放与占位限制。

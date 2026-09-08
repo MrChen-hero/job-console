@@ -70,12 +70,12 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
   })
 
-  /** 待办清单：有下一步日期的投递，按日期升序 */
+  /** 待办清单：日期升序，未排期放在末尾。 */
   const todos = computed(() =>
     tracker.applications
-      .filter((a) => a.nextStep && a.nextActionAt)
-      .map((a) => ({ id: a.id, date: a.nextActionAt!, label: a.nextStep!, sub: `${a.company} · ${a.position}`, status: a.status }))
-      .sort((a, b) => a.date.localeCompare(b.date)),
+      .filter((a) => a.nextStep?.trim())
+      .map((a) => ({ id: a.id, date: a.nextActionAt || '', label: a.nextStep!, sub: `${a.company} · ${a.position}`, status: a.status }))
+      .sort((a, b) => (a.date || '9999-99-99').localeCompare(b.date || '9999-99-99')),
   )
 
   /** 终止态标注：无消息超 1 个月 */

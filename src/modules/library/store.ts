@@ -86,10 +86,6 @@ export const useLibraryStore = defineStore('library', {
       return state.categoryRows.filter((r) => !r.builtin).map((r) => r.name).sort(zh)
     },
 
-    /** 内置分类是否存在改名/隐藏覆盖（决定是否显示「恢复默认分类」） */
-    hasBuiltinOverrides(state): boolean {
-      return state.categoryRows.some((r) => r.builtin)
-    },
   },
 
   actions: {
@@ -134,10 +130,10 @@ export const useLibraryStore = defineStore('library', {
     /* ---------- 分类管理（内置与自定义统一入口） ---------- */
 
     /** 新增分类；空名或与现有生效分类重名返回 false */
-    async addCategory(name: string): Promise<boolean> {
+    async addCategory(name: string, icon = 'layers'): Promise<boolean> {
       const trimmed = name.trim()
       if (trimmed === '' || this.categories.includes(trimmed)) return false
-      await db.libraryCategories.put({ name: trimmed })
+      await db.libraryCategories.put({ name: trimmed, icon })
       await this.load()
       return true
     },
@@ -161,7 +157,8 @@ export const useLibraryStore = defineStore('library', {
       } else {
         await db.transaction('rw', [db.libraryCategories, db.libraryDocs], async () => {
           await db.libraryCategories.delete(from)
-          await db.libraryCategories.put({ name: target })
+          const existing = this.categoryRows.find((r) => r.name === from)
+          await db.libraryCategories.put({ ...existing, name: target })
           await db.libraryDocs.where('category').equals(from).modify({ category: target })
         })
       }
@@ -169,7 +166,7 @@ export const useLibraryStore = defineStore('library', {
       return true
     },
 
-    /** 删除分类：分类下仍有文档时拒绝（含内置文档）；内置分类写隐藏覆盖行，可恢复 */
+    /** 删除分类：分类下仍有文档时拒绝（含内置文档）；内置分类写隐藏覆盖行 */
     async removeCategory(name: string): Promise<boolean> {
       if (!this.categories.includes(name)) return false
       if (this.docs.some((d) => d.category === name)) return false
@@ -184,19 +181,6 @@ export const useLibraryStore = defineStore('library', {
       return true
     },
 
-    /** 恢复默认分类：清掉内置覆盖行；改名期间归到新名的文档迁回原名 */
-    async restoreDefaultCategories(): Promise<void> {
-      const rows = this.categoryRows.filter((r) => r.builtin)
-      await db.transaction('rw', [db.libraryCategories, db.libraryDocs], async () => {
-        for (const r of rows) {
-          if (r.renamedTo) {
-            await db.libraryDocs.where('category').equals(r.renamedTo).modify({ category: r.name })
-          }
-          await db.libraryCategories.delete(r.name)
-        }
-      })
-      await this.load()
-    },
 
     /** 上传 .md 文本：frontmatter 解析，成功返回文档预览（不落库）。分类名经映射后仍未知则回落「高频问题」 */
     parseUploaded(raw: string, fallbackTitle: string): { title: string; category: LibraryCategory; tags: string[]; body: string } {

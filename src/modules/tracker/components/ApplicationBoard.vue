@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import { useTrackerStore } from '../store'
+import { useStageChange } from '../useStageChange'
 import { BOARD_COLUMNS, columnOf } from '../constants'
 import type { BoardColumn } from '../constants'
 
 const store = useTrackerStore()
+const changeStage = useStageChange()
+const saving = ref(false)
 
 const emit = defineEmits<{ open: [id: string] }>()
 
@@ -44,16 +48,19 @@ function onDragStart(event: DragEvent, id: string) {
   if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
 }
 
-function onDrop(event: DragEvent, col: (typeof BOARD_COLUMNS)[number]) {
+async function onDrop(event: DragEvent, col: (typeof BOARD_COLUMNS)[number]) {
   event.preventDefault()
   const id = dragId.value || event.dataTransfer?.getData('text/plain') || ''
   dragId.value = ''
-  if (!id) return
+  if (!id || saving.value) return
   const app = store.find(id)
   if (!app) return
   const target = col === '挂 / 无消息' ? '挂' : col
   if (app.status === target) return
-  void store.changeStage(id, target)
+  saving.value = true
+  try { await changeStage(id, target) }
+  catch { ElMessage.error('阶段更新失败，请重试') }
+  finally { saving.value = false }
 }
 </script>
 

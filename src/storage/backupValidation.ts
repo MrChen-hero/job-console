@@ -119,7 +119,7 @@ export function validateBackupDetails(data: Row, issues: ConfigIssue[]): void {
     if (row.done !== undefined) oneOf(row.done, [0, 1], `${path}.done`)
   })
   rows(data.libraryCategories, '$.data.libraryCategories', (row, path) => {
-    strings(row, path, [], ['renamedTo'])
+    strings(row, path, [], ['renamedTo', 'icon'])
     for (const key of ['builtin', 'hidden']) if (row[key] !== undefined) oneOf(row[key], [true], `${path}.${key}`)
   }, 'name')
   rows(data.deletedDocs, '$.data.deletedDocs', () => {})

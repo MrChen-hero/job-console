@@ -28,7 +28,6 @@ describe('showcase projectStore', () => {
     await store.load()
     expect(store.visible).toHaveLength(3)
     expect(store.visible.every((p) => p.source === 'local')).toBe(true)
-    expect(store.hasBuiltinChanges).toBe(false)
   })
 
   it('新建项目：进入清单且标记我的', async () => {
@@ -44,7 +43,7 @@ describe('showcase projectStore', () => {
     expect(mine.demo.title).toBe('我的新项目 · 演示页')
   })
 
-  it('编辑项目：封面要点不在表单里，按已有行→内置原值原样保留', async () => {
+  it('编辑项目：未传默认要点时保留原值', async () => {
     const store = useProjectStore()
     await store.load()
     // 内置项目：改标题不该清掉它配置里的封面要点
@@ -58,7 +57,18 @@ describe('showcase projectStore', () => {
     expect(store.find(row.id)!.demo.title).toBe('我的新项目 · 演示页')
   })
 
-  it('编辑内置项目：写覆盖行，可重置', async () => {
+  it('默认要点可改为个人内容或清空，标题随项目名称更新', async () => {
+    const store = useProjectStore()
+    await store.load()
+    const id = store.visible[0]!.id
+    await store.updateProject(id, input({ defaultPoints: ['我的成果'] }))
+    expect(store.find(id)!.demo).toEqual({ title: '我的新项目 · 演示页', points: ['我的成果'] })
+    await store.updateProject(id, input({ defaultPoints: [] }))
+    await store.load()
+    expect(store.find(id)!.demo.points).toEqual([])
+  })
+
+  it('编辑内置项目：写覆盖行，重新加载保留修改', async () => {
     const store = useProjectStore()
     await store.load()
     const builtinId = store.visible[0]!.id
@@ -67,23 +77,20 @@ describe('showcase projectStore', () => {
     expect(merged.source).toBe('runtime')
     expect(merged.overridden).toBe(true)
     expect(merged.title).toBe('改名后的示例')
-    expect(store.hasBuiltinChanges).toBe(true)
-    await store.resetBuiltins()
-    expect(store.find(builtinId)!.source).toBe('local')
-    expect(store.find(builtinId)!.title).toBe('企业人事管理系统')
-    expect(store.hasBuiltinChanges).toBe(false)
+    await store.load()
+    expect(store.find(builtinId)!.source).toBe('runtime')
+    expect(store.find(builtinId)!.title).toBe('改名后的示例')
   })
 
-  it('删除内置项目：隐藏墓碑，visible 滤除，恢复可找回', async () => {
+  it('删除内置项目：重新加载仍不显示', async () => {
     const store = useProjectStore()
     await store.load()
     const builtinId = store.visible[0]!.id
     await store.removeProject(builtinId)
     expect(store.visible).toHaveLength(2)
     expect(store.visible.some((p) => p.id === builtinId)).toBe(false)
-    expect(store.hasBuiltinChanges).toBe(true)
-    await store.resetBuiltins()
-    expect(store.visible).toHaveLength(3)
+    await store.load()
+    expect(store.visible).toHaveLength(2)
   })
 
   it('删除自建项目：直接删行；挂在项目上的演示页不动', async () => {

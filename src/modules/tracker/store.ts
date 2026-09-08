@@ -57,6 +57,12 @@ export interface NewApplicationInput {
   nextActionAt?: string
 }
 
+export interface CompletedNextAction {
+  id: string
+  nextStep: string
+  nextActionAt?: string
+}
+
 export const useTrackerStore = defineStore('tracker', {
   state: () => ({
     applications: [] as Application[],
@@ -122,12 +128,43 @@ export const useTrackerStore = defineStore('tracker', {
     },
 
     /** 状态机唯一写路径：不变量 status === stageHistory 末项 stage */
-    async changeStage(id: string, stage: Stage, date?: string, note?: string) {
+    async changeStage(id: string, stage: Stage, date?: string, note?: string, clearNextAction = false) {
       const app = this.draft(id)
       if (!app) return
       app.stageHistory.push({ stage, date: date ?? today(), note })
       app.status = stage
+      if (clearNextAction && (stage === '挂' || stage === '无消息')) {
+        delete app.nextStep
+        delete app.nextActionAt
+      }
       await this.persistApplication(app)
+    },
+
+    async saveNextAction(id: string, nextStep: string, nextActionAt?: string) {
+      if (!nextStep.trim()) throw new Error('请填写下一步动作')
+      if (nextActionAt && !isValidIsoDate(nextActionAt)) throw new Error('请选择有效日期')
+      const app = this.draft(id)
+      if (!app) throw new Error('投递记录已不存在')
+      app.nextStep = nextStep.trim()
+      app.nextActionAt = nextActionAt || undefined
+      await this.persistApplication(app)
+    },
+
+    async completeNextAction(id: string): Promise<CompletedNextAction> {
+      const app = this.draft(id)
+      if (!app?.nextStep) throw new Error('该待办已不存在')
+      const completed = { id, nextStep: app.nextStep, nextActionAt: app.nextActionAt }
+      delete app.nextStep
+      delete app.nextActionAt
+      await this.persistApplication(app)
+      return completed
+    },
+
+    async restoreNextAction(completed: CompletedNextAction) {
+      const app = this.find(completed.id)
+      if (!app) throw new Error('投递记录已不存在')
+      if (app.nextStep || app.nextActionAt) throw new Error('该投递已有新的下一步动作，未覆盖')
+      await this.saveNextAction(completed.id, completed.nextStep, completed.nextActionAt)
     },
 
     async advance(id: string) {

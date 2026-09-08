@@ -7,7 +7,7 @@ import { useDemoStore, type MergedDemo } from '../demoStore'
 import { useProjectStore } from '../projectStore'
 
 const props = defineProps<{
-  /** 编辑目标（仅 runtime 演示可编辑）；为 null 时是新建 */
+  /** 编辑目标；为 null 时是新建 */
   initial?: MergedDemo | null
 }>()
 
@@ -26,6 +26,7 @@ const form = reactive({
 })
 const source = ref<Source>('file')
 const error = ref('')
+const saving = ref(false)
 const fileName = ref('')
 const dragging = ref(false)
 const pendingHtml = ref('')
@@ -120,6 +121,8 @@ function onOpenPanel() {
     form.points = (init.points ?? []).join('\n')
     pendingHtml.value = init.url ? '' : init.html
     source.value = init.url ? 'link' : 'file'
+  } else if (init) {
+    pendingHtml.value = init.html
   }
 }
 
@@ -131,6 +134,7 @@ function urlError(raw: string): string {
 }
 
 async function save() {
+  if (saving.value) return
   const url = form.url.trim()
   if (source.value === 'link') {
     error.value = urlError(url)
@@ -156,13 +160,15 @@ async function save() {
     url: isLink ? url : undefined,
     points: pointList.value,
   }
-  if (props.initial && props.initial.source === 'runtime') {
-    await store.updateDemo(props.initial.id, input)
-  } else {
-    await store.addDemo(input)
-  }
-  open.value = false
-  reset()
+  saving.value = true
+  try {
+    if (props.initial) await store.updateDemo(props.initial.id, input)
+    else await store.addDemo(input)
+    open.value = false
+    reset()
+  } catch {
+    error.value = '保存失败，输入已保留，请重试'
+  } finally { saving.value = false }
 }
 
 function reset() {
@@ -182,6 +188,9 @@ function reset() {
   <ElDialog
     v-model="open"
     width="520px"
+    :show-close="!saving"
+    :close-on-click-modal="!saving"
+    :close-on-press-escape="!saving"
     @open="onOpenPanel"
   >
     <!-- 说明文字进标题区：正文只剩「来源面板 + 字段」，主次一眼分明。
@@ -333,12 +342,16 @@ function reset() {
       </p>
     </div>
     <template #footer>
-      <ElButton @click="open = false">
+      <ElButton
+        :disabled="saving"
+        @click="open = false"
+      >
         取消
       </ElButton>
       <ElButton
         type="primary"
         class="du-save"
+        :loading="saving"
         @click="save"
       >
         保存演示

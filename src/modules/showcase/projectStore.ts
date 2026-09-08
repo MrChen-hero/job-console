@@ -27,6 +27,7 @@ export interface ProjectInput {
   accent: ProjectAccent
   summary: string
   stack: string[]
+  defaultPoints?: string[]
 }
 
 const ACCENTS: ProjectAccent[] = ACCENT_OPTIONS.map((a) => a.id)
@@ -55,7 +56,7 @@ export const useProjectStore = defineStore('showcase-projects', {
   getters: {
     /**
      * 合并清单：内置项目（被 runtime 同 id 覆盖时标 overridden）∪ 自建 runtime 项目。
-     * 覆盖行带 hidden:true 时项目仍在清单中（visible 会滤掉），供「恢复示例」判断。
+     * 覆盖行带 hidden:true 时由 visible 过滤。
      */
     merged(state): MergedProject[] {
       const rowById = new Map(state.runtimeProjects.map((p) => [p.id, p]))
@@ -76,11 +77,6 @@ export const useProjectStore = defineStore('showcase-projects', {
       return this.merged.filter((p) => !p.hidden)
     },
 
-    /** 内置项目是否存在被编辑或被隐藏的行（决定是否显示「恢复示例项目」） */
-    hasBuiltinChanges(): boolean {
-      const rowById = new Map(this.runtimeProjects.map((p) => [p.id, p]))
-      return SHOWCASE_PROJECTS.some((p) => rowById.has(p.id))
-    },
   },
 
   actions: {
@@ -103,8 +99,8 @@ export const useProjectStore = defineStore('showcase-projects', {
         accent: input.accent,
         summary: input.summary.trim(),
         stack: input.stack,
-        // 封面要点由各演示页自己带（RuntimeDemo.points），项目只留一个空壳标题
-        demo: { title: `${input.title.trim()} · 演示页`, points: [] },
+        // 每页自己的要点优先，未填写时使用项目默认要点。
+        demo: { title: `${input.title.trim()} · 演示页`, points: input.defaultPoints ?? [] },
         createdAt: now,
         updatedAt: now,
       }
@@ -114,10 +110,9 @@ export const useProjectStore = defineStore('showcase-projects', {
     },
 
     /**
-     * 编辑项目：自建项目改本行；内置项目写同 id 覆盖行（可经 resetBuiltins 恢复）。
+     * 编辑项目：自建项目改本行；内置项目写同 id 覆盖行。
      * hidden 状态在覆盖行上保留——编辑一个被隐藏的内置项目不应让它复活。
-     * demo（封面要点）不在表单里，按「已有行 → 内置原值 → 空壳」的顺序原样带过去，
-     * 否则改一次内置项目标题就会把它的封面要点清空。
+     * 表单可编辑或清空默认要点；未传该字段的旧调用保留原值。
      */
     async updateProject(id: string, input: ProjectInput): Promise<void> {
       const existing = this.runtimeProjects.find((p) => p.id === id)
@@ -129,7 +124,9 @@ export const useProjectStore = defineStore('showcase-projects', {
         accent: input.accent,
         summary: input.summary.trim(),
         stack: input.stack,
-        demo: existing?.demo ?? builtin?.demo ?? { title: `${input.title.trim()} · 演示页`, points: [] },
+        demo: input.defaultPoints !== undefined
+          ? { title: `${input.title.trim()} · 演示页`, points: input.defaultPoints }
+          : existing?.demo ?? builtin?.demo ?? { title: `${input.title.trim()} · 演示页`, points: [] },
         hidden: existing?.hidden,
         createdAt: existing?.createdAt ?? nowIso(),
         updatedAt: nowIso(),
@@ -139,8 +136,8 @@ export const useProjectStore = defineStore('showcase-projects', {
     },
 
     /**
-     * 删除项目：自建项目删行；内置项目写 hidden 墓碑（示例数据可删可恢复）。
-     * 挂在项目上的演示页不动——项目恢复时演示页随之回来。
+     * 删除项目：自建项目删行；内置项目写 hidden 删除标记。
+     * 关联演示页保留在库中，但不在页面展示。
      */
     async removeProject(id: string): Promise<void> {
       const isBuiltin = SHOWCASE_PROJECTS.some((p) => p.id === id)
@@ -154,11 +151,5 @@ export const useProjectStore = defineStore('showcase-projects', {
       await this.load()
     },
 
-    /** 恢复全部内置示例项目：删除所有与内置 id 同名的行（覆盖与墓碑一并清除） */
-    async resetBuiltins(): Promise<void> {
-      const builtinIds = SHOWCASE_PROJECTS.map((p) => p.id)
-      await db.runtimeProjects.bulkDelete(builtinIds)
-      await this.load()
-    },
   },
 })

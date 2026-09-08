@@ -7,6 +7,8 @@ import { useLibraryStore, filterByCategory, type MergedDoc } from '../store'
 import { renderMarkdown } from '../../../shared/markdown/render'
 import AppIcon from '../../../shared/ui/AppIcon.vue'
 import DocEditor from '../components/DocEditor.vue'
+import CategoryCreateDialog from '../components/CategoryCreateDialog.vue'
+import { ICONS } from '../../../shared/ui/icons'
 import { markdownPreview } from '../../../shared/markdown/preview'
 import { newId } from '../../../storage/types'
 
@@ -19,6 +21,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const search = ref('')
 const loadError = ref('')
 const categoryManager = ref(false)
+const categoryCreateOpen = ref(false)
 const editor = ref<InstanceType<typeof DocEditor> | null>(null)
 const leaveOpen = ref(false)
 const leaveSaving = ref(false)
@@ -101,24 +104,10 @@ function catCount(tab: string): number {
   return tab === '全部' ? store.docs.length : filterByCategory(store.docs, tab).length
 }
 
-async function addCategory() {
-  let name: string
-  try {
-    ;({ value: name } = await ElMessageBox.prompt('分类名称将用于文档归属，保存后可在文档编辑中选用。', '新增分类', {
-      confirmButtonText: '保存',
-      cancelButtonText: '取消',
-      inputPlaceholder: '如：行为面 / 复盘',
-      inputPattern: /\S+/,
-      inputErrorMessage: '分类名称不能为空',
-    }))
-  } catch {
-    return
-  }
-  if (await store.addCategory(name)) {
-    ElMessage.success(`已新增分类「${name.trim()}」`)
-  } else {
-    ElMessage.warning('该分类已存在')
-  }
+function categoryIcon(name: string): string {
+  const row = store.categoryRows.find((r) => !r.hidden && (r.renamedTo ?? r.name) === name)
+  if (row?.icon && ICONS[row.icon]) return row.icon
+  return CATEGORY_ICONS[row?.name ?? name] ?? 'layers'
 }
 
 async function renameCategory(name: string) {
@@ -140,20 +129,6 @@ async function renameCategory(name: string) {
   } else {
     ElMessage.warning('目标分类名已存在')
   }
-}
-
-async function restoreDefaults() {
-  try {
-    await ElMessageBox.confirm('恢复默认分类？内置分类的改名与删除会被撤销，自定义分类不受影响。', '恢复确认', {
-      confirmButtonText: '恢复',
-      cancelButtonText: '取消',
-    })
-  } catch {
-    return
-  }
-  await store.restoreDefaultCategories()
-  activeTab.value = '全部'
-  ElMessage.success('已恢复默认分类')
 }
 
 async function removeCategory(name: string) {
@@ -277,47 +252,70 @@ async function onFileChange(event: Event) {
     <ElDialog
       v-model="categoryManager"
       title="管理分类"
-      width="480px"
+      width="520px"
     >
+      <div class="category-manager-summary">
+        <span class="category-total">{{ store.categories.length }} 个分类</span>
+        <p>整理材料的归属；删除分类前，请先移走其中的材料。</p>
+      </div>
       <div
-        v-for="category in store.categories"
-        :key="category"
-        class="category-manage-row"
+        class="category-manage-list"
+        role="list"
+        aria-label="材料分类"
       >
-        <span>{{ category }} <small>（{{ catCount(category) }}）</small></span>
-        <button
-          class="cat-act"
-          :aria-label="`重命名分类 ${category}`"
-          @click="renameCategory(category)"
+        <div
+          v-for="category in store.categories"
+          :key="category"
+          class="category-manage-row"
+          role="listitem"
         >
-          重命名
-        </button>
-        <button
-          class="cat-act"
-          :aria-label="`删除分类 ${category}`"
-          @click="removeCategory(category)"
+          <span class="category-info">
+            <span
+              class="category-icon"
+              aria-hidden="true"
+            ><AppIcon
+              :name="categoryIcon(category)"
+              :data-icon="categoryIcon(category)"
+              :size="18"
+            /></span>
+            <span class="category-copy"><b>{{ category }}</b><small>{{ catCount(category) }} 篇材料</small></span>
+          </span>
+          <span class="category-actions">
+            <button
+              class="category-action"
+              :aria-label="`重命名分类 ${category}`"
+              @click="renameCategory(category)"
+            >重命名</button>
+            <button
+              class="category-action is-danger"
+              :aria-label="`删除分类 ${category}`"
+              @click="removeCategory(category)"
+            >删除</button>
+          </span>
+        </div>
+        <p
+          v-if="!store.categories.length"
+          class="category-empty"
         >
-          删除
-        </button>
+          还没有分类，新增一个来整理材料。
+        </p>
       </div>
       <template #footer>
-        <ElButton
-          class="cat-add"
-          @click="addCategory"
-        >
-          新增分类
-        </ElButton>
-        <ElButton
-          v-if="store.hasBuiltinOverrides"
-          @click="restoreDefaults"
-        >
-          恢复默认分类
-        </ElButton>
-        <ElButton @click="categoryManager = false">
-          完成
-        </ElButton>
+        <div class="category-footer">
+          <ElButton
+            type="primary"
+            class="category-create"
+            @click="categoryCreateOpen = true"
+          >
+            <span aria-hidden="true">＋ </span>新增分类
+          </ElButton>
+          <ElButton @click="categoryManager = false">
+            完成
+          </ElButton>
+        </div>
       </template>
     </ElDialog>
+    <CategoryCreateDialog v-model="categoryCreateOpen" />
     <ElDialog
       :model-value="leaveOpen"
       title="保存文档修改？"
@@ -376,7 +374,8 @@ async function onFileChange(event: Event) {
             @click="selectCategory(tab)"
           >
             <AppIcon
-              :name="CATEGORY_ICONS[tab] ?? 'layers'"
+              :name="categoryIcon(tab)"
+              :data-icon="categoryIcon(tab)"
               :size="15"
             />
             <span>{{ tab }}</span>
@@ -481,9 +480,32 @@ async function onFileChange(event: Event) {
 .library-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
 .library-toolbar .el-button { margin: 0; min-height: 40px; }
 .library-search { flex: 1; min-width: 180px; padding: 9px 12px; border: 1px solid var(--control); border-radius: var(--r-sm); background: var(--card); }
-.category-manage-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
-.category-manage-row > span { flex: 1; overflow-wrap: anywhere; }
-.category-manage-row .cat-act { width: auto; min-width: 60px; min-height: 40px; font-size: 13px; }
+
+.category-manager-summary { display: grid; gap: 10px; margin: 0 0 18px; }
+.category-total { justify-self: start; padding: 4px 9px; border-radius: var(--r-sm); color: var(--primary-text); background: var(--primary-soft); font-size: 12px; font-weight: var(--fw-semibold); }
+.category-manager-summary p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.category-manage-list { display: grid; gap: 8px; max-height: min(420px, 50vh); overflow-y: auto; }
+.category-manage-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--r); background: var(--card2); }
+.category-info { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.category-icon { display: grid; place-items: center; flex: 0 0 36px; height: 36px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--card); color: var(--text2); }
+.category-copy { min-width: 0; }
+.category-copy b { display: block; font-size: 13px; font-weight: var(--fw-semibold); color: var(--text); overflow-wrap: anywhere; }
+.category-copy small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+.category-actions { display: flex; flex-shrink: 0; gap: 6px; }
+.category-action { padding: 0 9px; min-height: 36px; border: 1px solid var(--primary-border); border-radius: var(--r-sm); color: var(--primary-text); background: var(--primary-soft); font-size: 12px; white-space: nowrap; }
+.category-action:hover { border-color: var(--primary); }
+.category-action.is-danger { border-color: var(--danger-border); color: var(--danger); background: var(--danger-soft); }
+.category-action.is-danger:hover { border-color: var(--danger); }
+.category-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.category-footer .el-button { margin: 0; min-height: 40px; }
+.category-empty { text-align: center; padding: 24px 12px; color: var(--muted); }
+@media (max-width: 480px) {
+  .category-manage-row { padding: 10px; gap: 8px; }
+  .category-icon { flex-basis: 28px; height: 28px; }
+  .category-info { gap: 8px; }
+  .category-action { min-height: 44px; }
+}
+
 .library-view {
   min-width: 0;
 }

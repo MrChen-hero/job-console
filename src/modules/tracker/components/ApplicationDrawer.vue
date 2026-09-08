@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { ElButton, ElDialog, ElDrawer, ElInput, ElMessageBox } from 'element-plus'
 import { useTrackerStore } from '../store'
+import { useStageChange } from '../useStageChange'
 import { STAGE_BADGE, STAGE_DONE } from '../constants'
 import type { InterviewRecord } from '../../../storage/types'
 import '../badges.css'
@@ -10,6 +11,7 @@ const props = defineProps<{ id: string }>()
 const emit = defineEmits<{ 'update:id': [value: string]; edit: [id: string] }>()
 
 const store = useTrackerStore()
+const changeStage = useStageChange()
 const app = computed(() => store.find(props.id))
 const visible = computed({
   get: () => props.id !== '',
@@ -284,7 +286,7 @@ async function removeCurrent() {
           v-if="!isTerminal"
           class="drop-btn"
           :disabled="saving"
-          @click="runAction(() => store.markDropped(id))"
+          @click="runAction(() => changeStage(id, '挂'))"
         >
           标记挂
         </ElButton>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { ElButton, ElDatePicker, ElInput, ElMessage, ElMessageBox } from 'element-plus'
 import { db } from '../../../storage/db'
 import { exportBackup } from '../../../storage/backup'
@@ -10,22 +10,15 @@ import { useTrackerStore } from '../../tracker/store'
 import AppIcon from '../../../shared/ui/AppIcon.vue'
 import Sparkline from '../../../shared/ui/Sparkline.vue'
 import SectionCard from '../../../shared/ui/SectionCard.vue'
-import StatusBadge from '../../tracker/components/StatusBadge.vue'
+import TodoList from '../components/TodoList.vue'
+import { useLocalDate } from '../../../shared/useLocalDate'
 
 const dashboard = useDashboardStore()
 const tracker = useTrackerStore()
 const router = useRouter()
 const preparing = ref(true)
 const loadError = ref('')
-const todos = computed(() => {
-  const today = localToday()
-  return dashboard.todos.map((todo) => ({
-    ...todo,
-    tone: todo.date < today ? 'overdue' : todo.date === today ? 'today' : 'later',
-    dateLabel: todo.date < today ? '已逾期' : todo.date === today ? '今天' : '后续',
-    dateText: todo.date.slice(0, 4) === today.slice(0, 4) ? todo.date.slice(5) : todo.date,
-  }))
-})
+const today = useLocalDate()
 
 async function load() {
   preparing.value = true
@@ -97,13 +90,6 @@ const MS_PER_DAY = 86400000
 /** 几天内算「临近」，用强调色提示 */
 const MS_SOON_DAYS = 3
 
-/** 本地日期；不用 store 的 today()——它取 UTC，东八区清晨会算成前一天 */
-function localToday(): string {
-  const d = new Date()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
-
 type MsTone = 'overdue' | 'soon' | 'next' | 'future' | 'done'
 interface MsItem {
   id: string
@@ -121,8 +107,8 @@ interface MsItem {
  * 不至于被未来的条目盖住。第一个「暂不紧急」的项标为 next，给蓝环做视线落点。
  */
 const msItems = computed<MsItem[]>(() => {
-  const today = localToday()
-  const year = today.slice(0, 4)
+  const currentDate = today.value
+  const year = currentDate.slice(0, 4)
   const pending: MsItem[] = []
   const finished: MsItem[] = []
 
@@ -144,7 +130,7 @@ const msItems = computed<MsItem[]>(() => {
     }
     // 两端都按本地 00:00 解析，差值即自然日差；境内无夏令时，不必考虑 DST
     const diff = Math.round(
-      (Date.parse(`${m.date}T00:00:00`) - Date.parse(`${today}T00:00:00`)) / MS_PER_DAY,
+      (Date.parse(`${m.date}T00:00:00`) - Date.parse(`${currentDate}T00:00:00`)) / MS_PER_DAY,
     )
     if (!Number.isFinite(diff)) {
       item.countdown = '日期无效'
@@ -331,37 +317,7 @@ function onQuick(item: (typeof QUICK)[number]) {
         sub="下一步动作"
         class="todo-card"
       >
-        <div
-          class="todo-list"
-          role="region"
-          aria-label="待办清单，按日期从早到晚排列"
-          :tabindex="todos.length ? 0 : undefined"
-        >
-          <RouterLink
-            v-for="todo in todos"
-            :key="todo.id"
-            :to="{ path: '/tracker', query: { applicationId: todo.id } }"
-            :aria-label="`${todo.dateLabel}，${todo.date}，${todo.label}，${todo.sub}，查看投递详情`"
-            class="todo"
-          >
-            <span
-              class="pill mono todo-date"
-              :class="todo.tone"
-              :title="`${todo.dateLabel} · ${todo.date}`"
-            >{{ todo.dateText }}</span>
-            <span class="todo-text">
-              {{ todo.label }}
-              <span class="todo-sub">{{ todo.sub }}</span>
-            </span>
-            <StatusBadge :stage="todo.status" />
-          </RouterLink>
-          <p
-            v-if="dashboard.todos.length === 0"
-            class="card-empty"
-          >
-            暂无带日期的待办；在投递详情里填写「下一步」后会出现在这里。
-          </p>
-        </div>
+        <TodoList :today="today" />
       </SectionCard>
     </div>
 
@@ -578,76 +534,6 @@ function onQuick(item: (typeof QUICK)[number]) {
   font-size: 12px;
   color: var(--danger);
 }
-.todo-list {
-  display: grid;
-  gap: 9px;
-  max-height: 360px;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-  padding: 15px 19px 18px;
-}
-.todo-list:hover,
-.todo-list:focus-within {
-  scrollbar-color: var(--border2) transparent;
-}
-.todo-list:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: -3px;
-}
-.todo-list::-webkit-scrollbar {
-  width: 6px;
-}
-.todo-list::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: var(--r-sm);
-}
-.todo-list:hover::-webkit-scrollbar-thumb,
-.todo-list:focus-within::-webkit-scrollbar-thumb {
-  background: var(--border2);
-}
-.todo-date.overdue {
-  color: var(--danger);
-  background: var(--danger-soft);
-  border-color: var(--danger-border);
-}
-.todo-date.today {
-  color: var(--primary-text);
-  background: var(--primary-soft);
-  border-color: var(--primary-border);
-}
-.todo {
-  display: grid;
-  min-height: 48px;
-  padding: 4px 0;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  color: var(--text);
-  text-decoration: none;
-  border-radius: var(--r-sm);
-}
-.todo:hover,
-.todo:focus-visible {
-  background: var(--primary-soft);
-  color: var(--primary-text);
-}
-.todo:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 3px;
-}
-.todo-text {
-  font-size: 13px;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.todo-sub {
-  display: block;
-  margin-top: 2px;
-  font-size: 11.5px;
-  color: var(--muted);
-}
 .pill {
   display: inline-flex;
   align-items: center;
@@ -840,7 +726,7 @@ function onQuick(item: (typeof QUICK)[number]) {
   .kpi { padding: 12px; }
   .kpi-value { font-size: 28px; }
   .kpi-spark { display: none; }
-  .todo { gap: 8px; }
+
   /* 磁贴保持 2 列：3 列在窄屏会把图标与文案挤成两行 */
   .act-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
