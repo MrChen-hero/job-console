@@ -16,13 +16,18 @@ const deckVStart = ref(0)
 const uploadOpen = ref(false)
 const uploadInitial = ref<MergedDemo | null>(null)
 const preparing = ref(true)
+const loadError = ref('')
 const editorOpen = ref(false)
 const editorInitial = ref<MergedProject | null>(null)
 
-onMounted(async () => {
-  await Promise.all([demoStore.load(), projectStore.load()])
-  preparing.value = false
-})
+async function load() {
+  preparing.value = true
+  loadError.value = ''
+  try { await Promise.all([demoStore.load(), projectStore.load()]) }
+  catch { loadError.value = '项目演示加载失败，请重试。' }
+  finally { preparing.value = false }
+}
+onMounted(load)
 
 /** 演示页清单只列可见项目下的；隐藏项目的演示页保留在库中但不出列 */
 const visibleDemos = computed(() =>
@@ -152,6 +157,15 @@ async function removeDemo(demo: MergedDemo) {
     v-loading="preparing"
     class="showcase-view"
   >
+    <div
+      v-if="loadError"
+      class="form-alert"
+      role="alert"
+    >
+      {{ loadError }}<ElButton @click="load">
+        重新加载
+      </ElButton>
+    </div>
     <div class="showcase-hero">
       <h1 class="hero-title">
         把项目讲成一个可以翻页的故事

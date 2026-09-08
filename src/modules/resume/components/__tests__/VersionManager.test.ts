@@ -47,7 +47,7 @@ describe('VersionManager', () => {
     expect(cards).toHaveLength(2)
     const v1Card = cards.find((c) => c.text().includes('V1'))!
     await v1Card.trigger('click')
-    expect(store.activeVersionId).toBe(store.versions.find((v) => v.name === 'V1')!.id)
+    await vi.waitFor(() => expect(store.activeVersionId).toBe(store.versions.find((v) => v.name === 'V1')!.id))
   })
 
   it('重命名生效', async () => {

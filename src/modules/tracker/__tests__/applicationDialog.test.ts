@@ -8,7 +8,7 @@ async function openDialog() {
   setActivePinia(createPinia())
   const wrapper = mount(ApplicationDialog, {
     attachTo: document.body,
-    props: { modelValue: true },
+    props: { modelValue: true, persist: async () => {} },
   })
   await flushPromises()
   return wrapper

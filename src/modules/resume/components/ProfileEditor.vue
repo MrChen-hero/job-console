@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { ElButton, ElCheckbox, ElInput, ElMessageBox } from 'element-plus'
+import { ElButton, ElCheckbox, ElInput, ElMessage, ElMessageBox } from 'element-plus'
 import { useResumeStore, type EntrySection } from '../store'
 import {
   BASIC_FIELDS,
@@ -24,6 +24,7 @@ const TABS: Array<{ key: SectionKey; label: string }> = [
 /* 手风琴单开：null = 全收起 */
 const openGroup = ref<SectionKey | null>('basic')
 const dialogVisible = ref(false)
+const entryEditor = ref<InstanceType<typeof EntryDialog> | null>(null)
 const dialogTitle = ref('')
 const dialogFields = ref<FieldDef[]>([])
 const dialogInitial = ref<Record<string, unknown> | null>(null)
@@ -37,8 +38,9 @@ const basicOriginal = ref('')
 const selfOriginal = ref('')
 const saving = ref(false)
 const saveError = ref('')
-const dirty = computed(() => JSON.stringify(basicForm) !== basicOriginal.value || selfEvalText.value !== selfOriginal.value)
-watch([dirty, saving, saveError], () => emit('save-state', saving.value ? '正在保存…' : saveError.value ? '保存失败，修改已保留' : dirty.value ? '有未保存修改' : '已保存到本机'), { immediate: true })
+const dirty = computed(() => JSON.stringify(basicForm) !== basicOriginal.value || selfEvalText.value !== selfOriginal.value || Boolean(entryEditor.value?.dirty))
+const busy = computed(() => saving.value || Boolean(entryEditor.value?.saving))
+watch([dirty, busy, saveError], () => emit('save-state', busy.value ? '正在保存…' : saveError.value ? '保存失败，修改已保留' : dirty.value ? '有未保存修改' : '已保存到本机'), { immediate: true })
 
 const currentSection = computed(() => SECTION_DEFS.find((s) => s.key === openGroup.value))
 
@@ -86,7 +88,7 @@ function persistOrder(keys: SectionKey[]) {
       return section ? { ...section, order: i } : null
     })
     .filter((s): s is NonNullable<typeof s> => s !== null)
-  void store.updateSections(version.id, reordered)
+  void store.updateSections(version.id, reordered).catch(() => ElMessage.error('排序保存失败，请重试'))
 }
 
 /** 换位。目标落在首位一律拒绝，basic 自身也不可移动。 */
@@ -142,7 +144,7 @@ function toggleExcluded(key: SectionKey, entryId: string, visible: boolean) {
   if (visible) excluded.delete(entryId)
   else excluded.add(entryId)
   section.excludedIds = [...excluded]
-  void store.updateSections(version.id, sections)
+  void store.updateSections(version.id, sections).catch(() => ElMessage.error('显示设置保存失败，请重试'))
 }
 
 const entries = computed<Array<Record<string, unknown>>>(() => {
@@ -152,24 +154,21 @@ const entries = computed<Array<Record<string, unknown>>>(() => {
   return (store.profile[key] as unknown) as Array<Record<string, unknown>>
 })
 
-watch(
-  () => store.profile?.id,
-  () => {
-    if (store.profile) {
-      for (const f of BASIC_FIELDS) {
-        const raw = store.profile.basic[f.key as keyof typeof store.profile.basic]
-        basicForm[f.key] = raw != null ? String(raw) : ''
-      }
+function discard() {
+  dialogVisible.value = false
+  if (store.profile) {
+    for (const f of BASIC_FIELDS) {
+      const raw = store.profile.basic[f.key as keyof typeof store.profile.basic]
+      basicForm[f.key] = raw != null ? String(raw) : ''
     }
-    if (store.profile) {
-      selfEvalText.value = store.profile.selfEvaluation.join('\n')
-    }
-    basicOriginal.value = JSON.stringify(basicForm)
-    selfOriginal.value = selfEvalText.value
-    saveError.value = ''
-  },
-  { immediate: true },
-)
+    selfEvalText.value = store.profile.selfEvaluation.join('\n')
+  }
+  basicOriginal.value = JSON.stringify(basicForm)
+  selfOriginal.value = selfEvalText.value
+  saveError.value = ''
+  basicError.value = ''
+}
+watch(() => store.profile?.id, discard, { immediate: true })
 
 function openCreate() {
   const def = currentSection.value
@@ -211,14 +210,15 @@ async function onRemove(index: number) {
   } catch {
     return
   }
-  await store.removeEntry(def.key as EntrySection, String(entry.id))
+  try { await store.removeEntry(def.key as EntrySection, String(entry.id)) }
+  catch { ElMessage.error('删除失败，请重试') }
 }
 
 function onMove(index: number, dir: -1 | 1) {
   const def = currentSection.value
   if (!def) return
   const entry = entries.value[index]!
-  void store.moveEntry(def.key as EntrySection, String(entry.id), dir)
+  void store.moveEntry(def.key as EntrySection, String(entry.id), dir).catch(() => ElMessage.error('排序保存失败，请重试'))
 }
 
 async function saveBasic() {
@@ -235,9 +235,10 @@ async function saveBasic() {
   basicError.value = ''
   saving.value = true
   saveError.value = ''
+  const original = JSON.stringify(basicForm)
   try {
     await store.updateBasic(record as never)
-    basicOriginal.value = JSON.stringify(basicForm)
+    basicOriginal.value = original
   } catch { saveError.value = '保存失败，请重试'; basicError.value = saveError.value }
   finally { saving.value = false }
 }
@@ -247,16 +248,58 @@ async function saveSelfEvaluation() {
   const items = selfEvalText.value.split('\n').map((s) => s.trim()).filter(Boolean)
   saving.value = true
   saveError.value = ''
+  const original = selfEvalText.value
   try {
     await store.setSelfEvaluation(items)
-    selfOriginal.value = selfEvalText.value
+    selfOriginal.value = original
   } catch { saveError.value = '保存失败，请重试' }
   finally { saving.value = false }
 }
+
+async function save(): Promise<boolean> {
+  if (busy.value) return false
+  const basic: Record<string, string> = {}
+  for (const f of BASIC_FIELDS) {
+    basic[f.key] = (basicForm[f.key] ?? '').trim()
+    if (f.required && !basic[f.key]) {
+      basicError.value = `请填写「${f.label}」`
+      openGroup.value = 'basic'
+      return false
+    }
+  }
+  const originalBasic = JSON.stringify(basicForm)
+  const originalSelf = selfEvalText.value
+  saving.value = true
+  saveError.value = ''
+  basicError.value = ''
+  try {
+    if (entryEditor.value?.dirty && !await entryEditor.value.save()) return false
+    await store.saveText(basic as { name: string }, originalSelf.split('\n').map((s) => s.trim()).filter(Boolean))
+    basicOriginal.value = originalBasic
+    selfOriginal.value = originalSelf
+    return true
+  } catch {
+    saveError.value = '保存失败，请重试'
+    ElMessage.error(saveError.value)
+    return false
+  } finally { saving.value = false }
+}
+
+defineExpose({ dirty, saving: busy, save, discard })
 </script>
 
 <template>
-  <div class="profile-editor">
+  <div
+    class="profile-editor"
+    :inert="saving"
+  >
+    <p
+      v-if="saveError"
+      class="form-alert"
+      role="alert"
+    >
+      {{ saveError }}
+    </p>
     <div
       v-if="active"
       class="pool-toolbar"
@@ -494,11 +537,12 @@ async function saveSelfEvaluation() {
     </div>
 
     <EntryDialog
+      ref="entryEditor"
       v-model="dialogVisible"
       :title="dialogTitle"
       :fields="dialogFields"
       :initial="dialogInitial"
-      @save="onDialogSave"
+      :persist="onDialogSave"
     />
   </div>
 </template>

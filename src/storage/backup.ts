@@ -2,6 +2,7 @@ import type { Table } from 'dexie'
 import type { JobConsoleDb } from './db'
 import { createSnapshot } from './snapshots'
 import { LEGACY_TRACKS } from './types'
+import { validateBackupDetails } from './backupValidation'
 import type {
   Application,
   CompanyPoolEntry,
@@ -206,6 +207,7 @@ export function validateBackup(
       requireString(rec, 'title', path, issues)
     })
   }
+  validateBackupDetails(data, issues)
   if (issues.length) return { ok: false, issues }
   return { ok: true, file: raw as unknown as BackupFile }
 }
@@ -238,6 +240,8 @@ function withMigratedTracks(data: BackupData): BackupData {
  * overwrite：清空数据表后整体灌入；snapshots 表不被清空，仅追加一条导入前自动快照。
  */
 export async function importBackup(db: JobConsoleDb, file: BackupFile, mode: ImportMode): Promise<void> {
+  const result = validateBackup(file)
+  if (!result.ok) throw new Error(result.issues.map((issue) => `${issue.path}：${issue.message}`).join('\n'))
   const data = withMigratedTracks(file.data)
   const tables = [
     db.profile,

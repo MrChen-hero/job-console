@@ -4,6 +4,8 @@ import { ElButton } from 'element-plus'
 import { demoUrl, useDemoStore } from '../demoStore'
 import { useProjectStore, type MergedProject } from '../projectStore'
 import { clampIndex, deckLayers, swipeIntent, type DeckLayer } from '../deck'
+import { sanitizeHtml } from '../../../shared/markdown/render'
+import { isHttpUrl } from '../../../shared/safeUrl'
 
 const emit = defineEmits<{ close: [] }>()
 
@@ -49,11 +51,14 @@ function coverLabel(p: MergedProject): string {
  * 放开才能让自部署演示正常用自己的存储与接口。
  */
 function demoSrc(layer: Extract<DeckLayer, { kind: 'demo' }>): string {
-  return layer.url ? layer.url : demoUrl(layer.html)
+  return layer.url ? (isHttpUrl(layer.url) ? layer.url : 'about:blank') : demoUrl(layer.html)
 }
 
 function demoSandbox(layer: Extract<DeckLayer, { kind: 'demo' }>): string {
-  return layer.url ? 'allow-scripts allow-same-origin allow-forms allow-popups' : 'allow-scripts'
+  // 同站地址不能获得 scripts + same-origin 的组合权限。
+  return isHttpUrl(layer.url) && new URL(layer.url).origin !== window.location.origin
+    ? 'allow-scripts allow-same-origin allow-forms allow-popups'
+    : 'allow-scripts'
 }
 
 /**
@@ -237,7 +242,14 @@ const accentSoft: Record<string, string> = {
                 :class="layer.kind === 'demo' ? 'is-demo' : 'is-cover'"
               >
                 <template v-if="layer.kind === 'demo'">
+                  <p
+                    v-if="layer.url && !isHttpUrl(layer.url)"
+                    role="alert"
+                  >
+                    演示链接无效，请编辑为完整的 http / https 地址。
+                  </p>
                   <iframe
+                    v-else
                     class="df-iframe"
                     :src="demoSrc(layer)"
                     :sandbox="demoSandbox(layer)"
@@ -251,7 +263,7 @@ const accentSoft: Record<string, string> = {
                     <span class="dfm-name">{{ layer.title }}</span>
                     <!-- 链接式演示：对方站点禁止嵌入（X-Frame-Options / CSP）时，这是唯一能看的路 -->
                     <a
-                      v-if="layer.url"
+                      v-if="isHttpUrl(layer.url)"
                       class="dfm-btn df-open-tab"
                       :href="layer.url"
                       target="_blank"
@@ -315,13 +327,13 @@ const accentSoft: Record<string, string> = {
                   <p class="df-points-title">
                     {{ sideTitle(p, layer) }}
                   </p>
-                  <!-- v-html 安全：内容为本机个人数据或自写 markdown（信任来源，见 src/shared/markdown/render.ts 注释） -->
+                  <!-- 演示要点与材料正文共用 HTML 清理入口。 -->
                   <!-- eslint-disable-next-line vue/no-v-html -->
                   <ul class="df-points">
                     <li
                       v-for="(pt, i) in sidePoints(p, layer)"
                       :key="i"
-                      v-html="pt"
+                      v-html="sanitizeHtml(pt)"
                     />
                   </ul>
                 </div>

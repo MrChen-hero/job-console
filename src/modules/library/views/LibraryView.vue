@@ -17,6 +17,7 @@ const editorOpen = ref(false)
 const editorInitial = ref<MergedDoc | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const search = ref('')
+const loadError = ref('')
 const categoryManager = ref(false)
 const editor = ref<InstanceType<typeof DocEditor> | null>(null)
 const leaveOpen = ref(false)
@@ -56,10 +57,14 @@ onBeforeUnmount(() => {
   resolveLeave?.(false)
 })
 
-onMounted(async () => {
-  await store.load()
-  if (store.docs.length > 0) activeId.value = store.docs[0]!.id
-})
+async function load() {
+  loadError.value = ''
+  try {
+    await store.load()
+    if (store.docs.length > 0) activeId.value = store.docs[0]!.id
+  } catch { loadError.value = '材料加载失败，请重试。' }
+}
+onMounted(load)
 
 const tabs = computed<Array<LibraryCategory | '全部'>>(() => ['全部', ...store.categories])
 const visibleDocs = computed(() => {
@@ -232,6 +237,15 @@ async function onFileChange(event: Event) {
 
 <template>
   <div class="library-view">
+    <div
+      v-if="loadError"
+      class="form-alert"
+      role="alert"
+    >
+      {{ loadError }}<ElButton @click="load">
+        重新加载
+      </ElButton>
+    </div>
     <div class="library-toolbar">
       <input
         v-model="search"
@@ -444,8 +458,7 @@ async function onFileChange(event: Event) {
               </ElButton>
             </div>
           </div>
-          <!-- 正文为本机个人数据（信任来源，见 render.ts 注释） -->
-          <!-- v-html 安全：内容为本机个人数据或自写 markdown（信任来源，见 src/shared/markdown/render.ts 注释） -->
+          <!-- activeHtml 已由 renderMarkdown 清理。 -->
           <!-- eslint-disable-next-line vue/no-v-html -->
           <div
             class="doc-body"

@@ -41,7 +41,7 @@ describe('ProfileEditor', () => {
     await fillInput(wrapper, 'input[data-field="name"]', '王小明')
     await fillInput(wrapper, 'input[data-field="email"]', 'c@example.com')
     await wrapper.find('.basic-save').trigger('click')
-    expect(store.profile?.basic.email).toBe('c@example.com')
+    await vi.waitFor(() => expect(store.profile?.basic.email).toBe('c@example.com'))
   })
 
   it('基本信息必填校验：姓名为空时提示', async () => {
@@ -60,6 +60,7 @@ describe('ProfileEditor', () => {
     await fillInput(wrapper, '.entry-dialog input[data-field="degree"]', '软件工程（本科）')
     await fillInput(wrapper, '.entry-dialog input[data-field="time"]', '2020.09 – 2024.06')
     await wrapper.find('.entry-save').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('.entry-save').classes()).not.toContain('is-loading'))
     expect(store.profile?.education).toHaveLength(1)
     expect(store.profile?.education[0]!.school).toBe('云南大学')
     expect(wrapper.text()).toContain('云南大学')
@@ -73,9 +74,11 @@ describe('ProfileEditor', () => {
     await fillInput(wrapper, '.entry-dialog input[data-field="degree"]', '硕士')
     await fillInput(wrapper, '.entry-dialog input[data-field="time"]', '2024-2027')
     await wrapper.find('.entry-save').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('.entry-save').classes()).not.toContain('is-loading'))
     await wrapper.find('.entry-card .entry-actions button:nth-child(3)').trigger('click')
     await fillInput(wrapper, '.entry-dialog input[data-field="degree"]', '计算机技术（硕士）')
     await wrapper.find('.entry-save').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('.entry-save').classes()).not.toContain('is-loading'))
     expect(store.profile?.education).toHaveLength(1)
     expect(store.profile?.education[0]!.degree).toBe('计算机技术（硕士）')
   })
@@ -89,6 +92,7 @@ describe('ProfileEditor', () => {
     await fillInput(wrapper, '.entry-dialog input[data-field="time"]', '2024.09 – 2025.03')
     await fillInput(wrapper, '.entry-dialog textarea[data-field="bullets"]', '第一条\n第二条')
     await wrapper.find('.entry-save').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('.entry-save').classes()).not.toContain('is-loading'))
     expect(store.profile?.experiences[0]!.bullets).toEqual(['第一条', '第二条'])
   })
 
@@ -97,7 +101,7 @@ describe('ProfileEditor', () => {
     await wrapper.findAll('.tab-btn').find((b) => b.text() === '自我评价')!.trigger('click')
     await fillInput(wrapper, 'textarea[data-field="selfEvaluation"]', '第一句\n第二句\n')
     await wrapper.find('.self-save').trigger('click')
-    expect(store.profile?.selfEvaluation).toEqual(['第一句', '第二句'])
+    await vi.waitFor(() => expect(store.profile?.selfEvaluation).toEqual(['第一句', '第二句']))
   })
 
   /** 组头是可收起的手风琴，重复调用时不能盲点，否则第二次会把本组收起 */
@@ -113,6 +117,7 @@ describe('ProfileEditor', () => {
     await fillInput(wrapper, '.entry-dialog input[data-field="degree"]', '硕士')
     await fillInput(wrapper, '.entry-dialog input[data-field="time"]', '2024-2027')
     await wrapper.find('.entry-save').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('.entry-save').classes()).not.toContain('is-loading'))
   }
 
   it('删除条目：确认后生效', async () => {
@@ -120,7 +125,7 @@ describe('ProfileEditor', () => {
     await addEducation(wrapper, '华东理工大学')
     vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
     await wrapper.find('.entry-delete').trigger('click')
-    expect(store.profile?.education).toHaveLength(0)
+    await vi.waitFor(() => expect(store.profile?.education).toHaveLength(0))
   })
 
   it('删除条目：取消分支不删除', async () => {
@@ -137,7 +142,7 @@ describe('ProfileEditor', () => {
     await addEducation(wrapper, '乙学校')
     const cards = wrapper.findAll('.entry-card')
     await cards[0]!.findAll('button')[1]!.trigger('click') // 下移
-    expect(store.profile!.education.map((e) => e.school)).toEqual(['乙学校', '甲学校'])
+    await vi.waitFor(() => expect(store.profile!.education.map((e) => e.school)).toEqual(['乙学校', '甲学校']))
   })
 
   it('组头是手风琴按钮，带 aria-expanded 与 aria-controls', async () => {
@@ -275,10 +280,10 @@ describe('ProfileEditor', () => {
     expect(checkbox.text()).toContain('甲 · 硕士')
     await checkbox.find('input').setValue(false)
     await flushPromises()
-    expect(store.versions[0]!.sections.find((s) => s.type === 'education')?.excludedIds).toContain('edu-1')
+    await vi.waitFor(() => expect(store.versions[0]!.sections.find((s) => s.type === 'education')?.excludedIds).toContain('edu-1'))
     await checkbox.find('input').setValue(true)
     await flushPromises()
-    expect(store.versions[0]!.sections.find((s) => s.type === 'education')?.excludedIds).toEqual([])
+    await vi.waitFor(() => expect(store.versions[0]!.sections.find((s) => s.type === 'education')?.excludedIds).toEqual([]))
   })
 
   it('编排态与手风琴态互斥切换', async () => {

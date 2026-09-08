@@ -133,7 +133,7 @@ defineExpose({ dirty, save, saving })
         :rows="14"
         data-field="body"
       />
-      <!-- 本机个人数据（信任来源，见 render.ts 注释） -->
+      <!-- preview 经 renderMarkdown 清理后再展示。 -->
       <!-- eslint-disable-next-line vue/no-v-html -->
       <div
         v-else

@@ -16,6 +16,7 @@ const dashboard = useDashboardStore()
 const tracker = useTrackerStore()
 const router = useRouter()
 const preparing = ref(true)
+const loadError = ref('')
 const todos = computed(() => {
   const today = localToday()
   return dashboard.todos.map((todo) => ({
@@ -26,10 +27,14 @@ const todos = computed(() => {
   }))
 })
 
-onMounted(async () => {
-  await dashboard.load()
-  preparing.value = false
-})
+async function load() {
+  preparing.value = true
+  loadError.value = ''
+  try { await dashboard.load() }
+  catch { loadError.value = '工作台数据加载失败，请重试。' }
+  finally { preparing.value = false }
+}
+onMounted(load)
 
 function go(path: string) {
   void router.push(path)
@@ -244,6 +249,15 @@ function onQuick(item: (typeof QUICK)[number]) {
     v-loading="preparing"
     class="dashboard"
   >
+    <div
+      v-if="loadError"
+      class="form-alert"
+      role="alert"
+    >
+      {{ loadError }}<ElButton @click="load">
+        重新加载
+      </ElButton>
+    </div>
     <!-- KPI 行 -->
     <div class="kpi-row">
       <article

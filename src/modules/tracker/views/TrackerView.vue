@@ -35,17 +35,27 @@ const dialogVisible = ref(false)
 const editing = ref<Application | null>(null)
 const presetCompany = ref('')
 const drawerId = ref('')
+const loadError = ref('')
 
 /** 渠道列表来自现有数据动态聚合 */
 const channels = computed(() => [...new Set(store.applications.map((a) => a.channel))].sort((a, b) => a.localeCompare(b, 'zh')))
 
-onMounted(async () => {
+async function load() {
+  loadError.value = ''
   // 支持从工作台磁贴直达看板：/tracker?mode=board
   const wanted = route.query.mode
   if (wanted === 'board' || wanted === 'pool' || wanted === 'table') mode.value = wanted
-  await store.load()
-  openDrawerFromRoute()
-})
+  try {
+    await store.load()
+    openDrawerFromRoute()
+  } catch { loadError.value = '投递数据加载失败，请重试。' }
+}
+onMounted(load)
+
+async function toggleStar(id: string) {
+  try { await store.toggleStar(id) }
+  catch { ElMessage.error('收藏保存失败，请重试') }
+}
 
 /** 等投递加载后再打开，刷新直达链接时也能显示完整详情。 */
 function openDrawerFromRoute() {
@@ -74,15 +84,10 @@ function openEdit(app: Application) {
 }
 
 async function onDialogSave(input: ApplicationFormInput) {
-  try {
-    if (editing.value) {
-      await store.updateApplication(editing.value.id, input)
-    } else {
-      await store.addApplication(input)
-    }
-  } catch {
-    ElMessage.error('保存失败，请重试')
-    return
+  if (editing.value) {
+    await store.updateApplication(editing.value.id, input)
+  } else {
+    await store.addApplication(input)
   }
   ElMessage.success(editing.value ? '已更新投递' : `已记录投递：${input.company}`)
 }
@@ -107,6 +112,15 @@ const STAGES_FOR_FILTER = ['已投递', '笔试', '一面', '二面', 'HR面', '
 
 <template>
   <div class="tracker-view">
+    <div
+      v-if="loadError"
+      class="form-alert"
+      role="alert"
+    >
+      {{ loadError }}<ElButton @click="load">
+        重新加载
+      </ElButton>
+    </div>
     <div class="tracker-toolbar">
       <div
         class="mode-seg"
@@ -245,7 +259,7 @@ const STAGES_FOR_FILTER = ['已投递', '笔试', '一面', '二面', 'HR面', '
       :track-filter="trackFilter"
       :starred-only="starredOnly"
       @open="openDrawer"
-      @toggle-star="store.toggleStar"
+      @toggle-star="toggleStar"
     />
     <ApplicationBoard
       v-else-if="mode === 'board'"
@@ -260,7 +274,7 @@ const STAGES_FOR_FILTER = ['已投递', '笔试', '一面', '二面', 'HR面', '
       v-model="dialogVisible"
       :initial="editing"
       :preset-company="presetCompany"
-      @save="onDialogSave"
+      :persist="onDialogSave"
     />
 
     <ApplicationDrawer

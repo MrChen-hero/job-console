@@ -333,8 +333,9 @@ test.describe('求职工作台主流程', () => {
   })
 
   test('演示站：链接式演示页（自部署地址 + 逐页要点 + 编辑）', async ({ page }) => {
-    // 用本站自己的静态资源当「外部地址」：断言只关心 src 与嵌入链路，不引入外网依赖
-    const DEMO_URL = 'http://127.0.0.1:4173/favicon.png'
+    // 用拦截响应模拟真正的外部源，避免把本站地址误当作外部地址授予同源权限。
+    const DEMO_URL = 'https://demo.example.test/demo'
+    await page.route(DEMO_URL, (route) => route.fulfill({ contentType: 'text/html', body: '<!doctype html><h1>Demo</h1>' }))
     await page.goto('/#/showcase')
     await expect(page.locator('.el-loading-mask')).toHaveCount(0)
     await page.getByRole('button', { name: '＋ 添加交互演示' }).click()

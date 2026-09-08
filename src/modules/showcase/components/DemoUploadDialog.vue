@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { ElButton, ElDialog, ElInput, ElOption, ElSelect } from 'element-plus'
 import AppIcon from '../../../shared/ui/AppIcon.vue'
+import { isHttpUrl } from '../../../shared/safeUrl'
 import { useDemoStore, type MergedDemo } from '../demoStore'
 import { useProjectStore } from '../projectStore'
 
@@ -125,13 +126,7 @@ function onOpenPanel() {
 /** http/https 之外一律拒掉：javascript: 这类伪协议不能进 iframe src */
 function urlError(raw: string): string {
   if (raw === '') return '请填写演示链接'
-  let parsed: URL
-  try {
-    parsed = new URL(raw)
-  } catch {
-    return '链接格式不对，需形如 https://demo.example.com'
-  }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '只支持 http / https 链接'
+  if (!isHttpUrl(raw)) return '只支持 http / https 链接，需填写完整地址，如 https://demo.example.com'
   return ''
 }
 

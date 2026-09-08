@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onMounted } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 import { ElButton, ElDatePicker, ElDialog, ElInput, ElOption, ElSelect } from 'element-plus'
 import type { Application } from '../../../storage/types'
 import { BATCHES, TRACKS } from '../../../storage/types'
@@ -8,6 +8,7 @@ import { useApplicationForm, type ApplicationFormInput } from '../applicationFor
 const props = defineProps<{
   initial?: Application | null
   presetCompany?: string
+  persist: (input: ApplicationFormInput) => Promise<void>
 }>()
 
 const emit = defineEmits<{
@@ -16,6 +17,7 @@ const emit = defineEmits<{
 
 const visible = defineModel<boolean>({ default: false })
 const { form, error, open, submit } = useApplicationForm()
+const saving = ref(false)
 
 /**
  * ElDatePicker 不转发任意属性，只有声明过的 prop（如 id）能到内层 input，
@@ -46,11 +48,17 @@ function onOpen() {
   void stampDateFields()
 }
 
-function onSave() {
+async function onSave() {
+  if (saving.value) return
   const payload = submit()
   if (!payload) return
-  emit('save', payload)
-  visible.value = false
+  saving.value = true
+  try {
+    await props.persist(payload)
+    emit('save', payload)
+    visible.value = false
+  } catch { error.value = '保存失败，输入已保留，请重试' }
+  finally { saving.value = false }
 }
 </script>
 
@@ -59,9 +67,15 @@ function onSave() {
     v-model="visible"
     :title="initial ? '编辑投递' : '新增投递'"
     width="560px"
+    :show-close="!saving"
+    :close-on-click-modal="!saving"
+    :close-on-press-escape="!saving"
     @open="onOpen"
   >
-    <div class="app-form">
+    <div
+      class="app-form"
+      :inert="saving"
+    >
       <section class="form-group">
         <h3 class="group-title">
           <span>基本信息</span>
@@ -220,12 +234,16 @@ function onSave() {
       </p>
     </div>
     <template #footer>
-      <ElButton @click="visible = false">
+      <ElButton
+        :disabled="saving"
+        @click="visible = false"
+      >
         取消
       </ElButton>
       <ElButton
         type="primary"
         class="app-save"
+        :loading="saving"
         @click="onSave"
       >
         保存

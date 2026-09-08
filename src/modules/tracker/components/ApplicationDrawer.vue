@@ -37,6 +37,17 @@ const isTerminal = computed(() => app.value?.status === '挂' || app.value?.stat
 const ivVisible = ref(false)
 const ivEditingId = ref<string | null>(null)
 const ivError = ref('')
+const saving = ref(false)
+const actionError = ref('')
+
+async function runAction(action: () => Promise<unknown>): Promise<boolean> {
+  if (saving.value) return false
+  saving.value = true
+  actionError.value = ''
+  try { await action(); return true }
+  catch { actionError.value = '操作失败，请重试'; return false }
+  finally { saving.value = false }
+}
 const ivForm = reactive({ round: '', date: '', format: '', questions: '', weak: '', followUp: '' })
 
 watch(ivVisible, (open) => {
@@ -62,7 +73,7 @@ function openIvEdit(record: InterviewRecord) {
 }
 
 async function saveInterview() {
-  if (!app.value) return
+  if (!app.value || saving.value) return
   if (ivForm.round.trim() === '' || ivForm.date.trim() === '') {
     ivError.value = '请填写轮次与日期'
     return
@@ -75,12 +86,13 @@ async function saveInterview() {
     weak: ivForm.weak.trim() || undefined,
     followUp: ivForm.followUp.trim() || undefined,
   }
-  if (ivEditingId.value) {
-    await store.updateInterview(app.value.id, { ...payload, id: ivEditingId.value })
-  } else {
-    await store.addInterview(app.value.id, payload)
-  }
-  ivVisible.value = false
+  const id = app.value.id
+  const interviewId = ivEditingId.value
+  const saved = await runAction(() => interviewId
+    ? store.updateInterview(id, { ...payload, id: interviewId })
+    : store.addInterview(id, payload))
+  if (saved) ivVisible.value = false
+  else ivError.value = '保存失败，输入已保留，请重试'
 }
 
 async function removeInterview(record: InterviewRecord) {
@@ -94,7 +106,8 @@ async function removeInterview(record: InterviewRecord) {
   } catch {
     return
   }
-  await store.removeInterview(app.value.id, record.id)
+  const id = app.value.id
+  await runAction(() => store.removeInterview(id, record.id))
 }
 
 async function removeCurrent() {
@@ -109,8 +122,7 @@ async function removeCurrent() {
     return
   }
   const id = app.value.id
-  emit('update:id', '')
-  await store.removeApplication(id)
+  if (await runAction(() => store.removeApplication(id))) emit('update:id', '')
 }
 </script>
 
@@ -252,25 +264,35 @@ async function removeCurrent() {
         暂无面试记录。
       </p>
 
+      <p
+        v-if="actionError"
+        class="form-alert"
+        role="alert"
+      >
+        {{ actionError }}
+      </p>
       <div class="drawer-actions">
         <ElButton
           v-if="nextStage"
           class="advance-btn"
-          @click="store.advance(app.id)"
+          :disabled="saving"
+          @click="runAction(() => store.advance(id))"
         >
           推进到{{ nextStage }}
         </ElButton>
         <ElButton
           v-if="!isTerminal"
           class="drop-btn"
-          @click="store.markDropped(app.id)"
+          :disabled="saving"
+          @click="runAction(() => store.markDropped(id))"
         >
           标记挂
         </ElButton>
         <ElButton
           v-if="isTerminal"
           class="reopen-btn"
-          @click="store.reopen(app.id)"
+          :disabled="saving"
+          @click="runAction(() => store.reopen(id))"
         >
           重新投递
         </ElButton>

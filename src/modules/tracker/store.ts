@@ -82,10 +82,17 @@ export const useTrackerStore = defineStore('tracker', {
       return this.applications.find((a) => a.id === id)
     },
 
+    /** 在副本上编辑，写入失败时页面仍显示已保存的数据。 */
+    draft(id: string): Application | undefined {
+      const app = this.find(id)
+      return app ? plain(app) : undefined
+    },
+
     async persistApplication(app: Application) {
-      app.updatedAt = nowIso()
-      await db.applications.put(plain(app))
-      await this.load()
+      const saved = plain({ ...app, updatedAt: nowIso() })
+      await db.applications.put(saved)
+      this.applications = [...this.applications.filter((a) => a.id !== saved.id), saved]
+        .sort((a, b) => b.appliedAt.localeCompare(a.appliedAt))
     },
 
     async addApplication(input: NewApplicationInput): Promise<Application> {
@@ -98,13 +105,12 @@ export const useTrackerStore = defineStore('tracker', {
         createdAt: nowIso(),
         updatedAt: nowIso(),
       }
-      await db.applications.put(plain(app))
-      await this.load()
+      await this.persistApplication(app)
       return this.find(app.id)!
     },
 
     async updateApplication(id: string, patch: Partial<Omit<Application, 'id' | 'status' | 'stageHistory' | 'interviews' | 'createdAt'>>) {
-      const app = this.find(id)
+      const app = this.draft(id)
       if (!app) return
       Object.assign(app, patch)
       await this.persistApplication(app)
@@ -112,12 +118,12 @@ export const useTrackerStore = defineStore('tracker', {
 
     async removeApplication(id: string) {
       await db.applications.delete(id)
-      await this.load()
+      this.applications = this.applications.filter((app) => app.id !== id)
     },
 
     /** 状态机唯一写路径：不变量 status === stageHistory 末项 stage */
     async changeStage(id: string, stage: Stage, date?: string, note?: string) {
-      const app = this.find(id)
+      const app = this.draft(id)
       if (!app) return
       app.stageHistory.push({ stage, date: date ?? today(), note })
       app.status = stage
@@ -148,14 +154,14 @@ export const useTrackerStore = defineStore('tracker', {
     },
 
     async addInterview(id: string, input: Omit<InterviewRecord, 'id'>) {
-      const app = this.find(id)
+      const app = this.draft(id)
       if (!app) return
       app.interviews.push({ ...input, id: newId() })
       await this.persistApplication(app)
     },
 
     async updateInterview(id: string, record: InterviewRecord) {
-      const app = this.find(id)
+      const app = this.draft(id)
       if (!app) return
       const index = app.interviews.findIndex((iv) => iv.id === record.id)
       if (index < 0) return
@@ -164,7 +170,7 @@ export const useTrackerStore = defineStore('tracker', {
     },
 
     async removeInterview(id: string, interviewId: string) {
-      const app = this.find(id)
+      const app = this.draft(id)
       if (!app) return
       app.interviews = app.interviews.filter((iv) => iv.id !== interviewId)
       await this.persistApplication(app)
@@ -218,9 +224,9 @@ export const useTrackerStore = defineStore('tracker', {
     async toggleMilestone(id: string) {
       const row = this.milestones.find((m) => m.id === id)
       if (!row) return
-      row.done = row.done ? 0 : 1
-      await db.milestones.put(plain(row))
-      await this.load()
+      const saved: Milestone = { ...row, done: row.done ? 0 : 1 }
+      await db.milestones.put(plain(saved))
+      this.milestones = this.milestones.map((m) => m.id === id ? saved : m)
     },
 
     async removeMilestone(id: string) {

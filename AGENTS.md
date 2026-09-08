@@ -38,10 +38,12 @@
 - Dexie 访问只发生在各模块 store；组件不直接 import `db`。
 - 简历资料池按版本独立（v4 起 Profile.id = versionId）：新建版本复制当前资料池为起点，复制版本连资料池一并复制，删除版本连带删资料池；state.profile 恒为当前激活版本的资料池。
 - 写库前必须用 `plain()`（JSON 克隆）去除 Pinia 响应式 Proxy（结构化克隆不兼容）。
+- 投递与简历编辑先改副本，写入成功后更新 state；失败不污染已保存状态。简历版本创建/复制/删除的版本表与资料池写入必须在同一事务中完成。
 - `Application.status` 不变量：恒等于 `stageHistory` 末项 stage；唯一写路径 `trackerStore.changeStage`，其他 action（advance/markDropped/reopen）都经它。
 - 备份 `BACKUP_SCHEMA_VERSION = 4`，数据含十表（含 runtimeDemos / libraryCategories / runtimeProjects / deletedDocs）；改 schema 必须同步 backup 校验、`snapshots.ts` 的 `normalizeData` 与版本号。runtimeDemos 的 html 只验类型不验非空（内置演示的 hidden 墓碑行 html 恒为空串，链接式演示的内容在 url），非墓碑行改为要求「html 与 url 至少有一个」；`url`/`points` 是可选字段，给了才验类型——都不为此升版本号，升了会让用户手里的旧 v4 备份导不进来。
 - 编译期枚举（`LIBRARY_CATEGORIES` 分类名、`TRACKS` 投向名）改名必须两处都做：Dexie 升级迁移（改本机库存量，v5 迁分类、v6 迁投向）+ 导入归一（`backup.ts` 的 `withMigratedTracks` 一类改写，管旧备份与旧快照）。只做前者，导入一份旧备份就又把旧值灌回来，而旧值在下拉里选不到。
 - 快照：覆盖导入与回退前自动 `createSnapshot`（保留 5 份，`restoreSnapshot` 走 importBackup overwrite，故回退本身也可回退）；旧快照缺新增表由 `normalizeData` 补空数组。
+- `validateBackup` 与 `backupValidation.ts` 检查结构、嵌套条目、重复标识、业务日期、状态历史与资料池所属版本；`importBackup` 自身也在任何写入/快照前校验，不能只依赖上传界面。允许空简历版本、旧投向/主题色和已删除项目遗留的演示引用，避免拒绝正常历史数据。
 - 导出下载统一走 `src/shared/downloadJson.ts`（Blob URL 延后 revoke，避免下载被提前中断）。
 - 测试中操作 Dexie 单例的用例，`beforeEach` 用 `db.delete()` + `db.open()` 重建；组件测试若有「发后即忘」写入，`afterEach` 等待落定（约 25ms），否则 unhandled rejection 会让 test:run 退出码非 0。
 
@@ -56,6 +58,7 @@
 - 演示站项目：runtimeProjects 表，同 id 行覆盖内置项目（hidden:true 为删除墓碑），自建项目直接删行；合并视图在 showcase 模块 projectStore。项目的 `demo: {title, points}` 只作**封面回落**（演示页没自带要点时才用），不在项目表单里编辑——`updateProject` 按「已有行 → 内置原值」原样带过去，别让改标题清空内置项目的封面要点。
 - 交互演示两种来源（RuntimeDemo 二选一，`url` 有值即链接式）：**上传式** html 走 Blob URL + `<iframe sandbox="allow-scripts">`（Blob 继承本站源，绝不能给 allow-same-origin）；**链接式** url 直接进 iframe src，sandbox 放开 `allow-same-origin allow-forms allow-popups`（外部源的同源特权只作用于它自己），并额外给一个「新标签打开」入口兜对方站点的 X-Frame-Options。只收 http/https，伪协议在 `DemoUploadDialog` 就拒掉。
 - 演示要点归**每个演示页**自己（`RuntimeDemo.points`，在「上传交互演示」弹窗里按页填），Deck 侧栏优先取它，为空才回落到项目的 `demo.points`；内置演示（LocalDemo）没有 points，恒走回落。
+- 材料正文、编辑预览与演示要点分别经 `renderMarkdown` / `sanitizeHtml`（DOMPurify）清理后再 `v-html`。不能假设上传/导入内容可信；交互 HTML 原文仅在沙箱 iframe 中执行。演示链接的表单、导入、展示共用 `isHttpUrl`；同站链接不放开 `allow-same-origin`，避免与 `allow-scripts` 组合取得主站权限。
 - Deck 纵向层由 `deck.ts` 的 `deckLayers` 决定：**一个演示页一层，每层 = 媒体位（该 demo 的 iframe）+ 项目基础信息**（eyebrow/标题/简介/技术栈/要点，≥1025px 时要点走右列），所以点进项目的第一页就是第一个演示页；项目无演示页时只出一层 `cover`（媒体位为占位提示）。要点不单独成页（要点小标题取该演示页标题，回落时取 `demo.title`）。非当前项目只渲染一层 cover——同时挂 N 个 sandbox iframe 会让 N 份 demo 一起跑。
 - 演示区两级放大：网页全屏是纯 CSS（`.deck-overlay.page-fs` 藏上下栏与信息区，媒体位铺满视口，Esc 优先退全屏而非关 Deck，期间禁翻页），屏幕全屏对 iframe 调 `requestFullscreen`（退出交给浏览器）。**别用 `position: fixed` 做网页全屏**：`.deck-track` 有 transform，fixed 会以轨道而非视口为包含块；Teleport 又会让 iframe 重挂丢状态。
 
@@ -64,6 +67,7 @@
 - 投递表格与手机卡片复用 filtered/sorted/paged 数据，≤720px 显示卡片；筛选可折叠，数据数量下降时校正当前页码。
 - 材料库搜索与分类共同约束选中文档，分类管理为独立弹窗；DocEditor 通过异步 persist 回调确认保存成功，失败保留输入。离开保护弹窗必须 append-to-body，避免手机导航打开时被主内容 inert 屏蔽。
 - 简历 ≤1180px 切换编辑/预览，以 CSS 隐藏保留输入；缩放同时设置占位宽高，观察器下一帧更新，打印解除缩放与占位限制。
+- 简历通过 ProfileEditor 暴露 dirty/saving/save/discard，版本管理经 beforeChange 回调执行离开保护；保护弹窗 append-to-body，刷新用 beforeunload。打印已保存内容保留草稿，保存后打印先等待保存与视图更新。投递和简历条目表单使用异步 persist 回调，成功后才关闭，失败保留输入。
 - 导入弹窗先展示本机/备份数量，默认合并，覆盖需勾选确认；备份使用 shallowRef 保留普通对象，禁止将响应式 Proxy 交给 IndexedDB。复用既有 importBackup 与覆盖前自动快照。
 - 样式走令牌（var(--xxx)），禁硬编码颜色；亮暗主题双适配。
 - 可交互元素用原生 button/a 或补全 role/tabindex/键盘（Enter/Space）；删除等破坏性操作必须 ElMessageBox 确认；错误提示 role="alert"。
@@ -75,7 +79,7 @@
 
 ## 5. 测试
 
-- 单测与源码就近 `src/**/*.test.ts`；E2E 在 `tests/e2e/job-console.spec.ts` 与 `tests/e2e/ui-improvements.spec.ts`（desktop/tablet/mobile 三视口）。
+- 单测与源码就近 `src/**/*.test.ts`；E2E 在 `tests/e2e/`，包括基础流程、交互改进及 `reliability.spec.ts` 的保存失败/编辑保护/内容清理验证（desktop/tablet/mobile 三视口）。
 - 异步断言涉 Dexie 写链时用 `vi.waitFor`（宏任务，flushPromises 不够）。
 - 同毫秒 updatedAt 排序不稳定：测试定位用业务字段（公司名等）不用数组下标。
 - E2E 中窄视口（≤1024px 侧边栏收为抽屉、transform 轨道内卡片）不可直达元素：侧栏项用 hash 直达路由（抽屉默认收起），transform 内交互用 `dispatchEvent` 派发。

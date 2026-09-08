@@ -61,30 +61,34 @@ export const useResumeStore = defineStore('resume', {
   actions: {
     async load() {
       const versions = await db.resumeVersions.toArray()
-      this.versions = versions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      let activeId = ''
       try {
-        this.activeVersionId = localStorage.getItem(ACTIVE_KEY) ?? ''
+        activeId = localStorage.getItem(ACTIVE_KEY) ?? ''
       } catch {
-        this.activeVersionId = ''
+        /* 当前浏览器可能禁用了 localStorage。 */
       }
-      if (!this.activeVersionId || !this.versions.some((v) => v.id === this.activeVersionId)) {
-        await this.setActive(this.versions[0]?.id ?? '')
-        this.loaded = true
-        return
-      }
-      this.profile = (await db.profile.get(this.activeVersionId)) ?? null
+      versions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      if (!versions.some((v) => v.id === activeId)) activeId = versions[0]?.id ?? ''
+      const profile = activeId ? ((await db.profile.get(activeId)) ?? null) : null
+      this.versions = versions
+      this.activate(activeId, profile)
       this.loaded = true
     },
 
-    /** 切换激活版本并换载该版本的资料池 */
-    async setActive(id: string) {
+    activate(id: string, profile: Profile | null) {
       this.activeVersionId = id
+      this.profile = profile
       try {
         localStorage.setItem(ACTIVE_KEY, id)
       } catch {
         /* 存储不可用时忽略 */
       }
-      this.profile = id ? ((await db.profile.get(id)) ?? null) : null
+    },
+
+    /** 读取成功后才切换版本，失败时保留原版本与资料。 */
+    async setActive(id: string) {
+      const profile = id ? ((await db.profile.get(id)) ?? null) : null
+      this.activate(id, profile)
     },
 
     /** 确保当前版本有资料池；无版本时先建一个默认版本承接（资料池必须挂在版本上） */
@@ -104,62 +108,65 @@ export const useResumeStore = defineStore('resume', {
           selfEvaluation: [],
           updatedAt: nowIso(),
         }
-        this.profile = profile
-        await this.persistProfile()
+        await this.persistProfile(profile)
       }
-      return this.profile
+      return this.profile!
     },
 
-    async persistProfile() {
-      if (!this.profile) return
-      this.profile.updatedAt = nowIso()
-      await db.profile.put(plain({ ...this.profile, id: this.activeVersionId }))
+    async persistProfile(input?: Profile) {
+      const profile = input ?? this.profile
+      if (!profile) return
+      const saved = plain({ ...profile, updatedAt: nowIso() })
+      await db.profile.put(saved)
+      if (this.activeVersionId === saved.id) this.profile = saved
     },
 
     async updateBasic(basic: Profile['basic']) {
       if (!this.profile) return
-      this.profile.basic = { ...basic }
-      await this.persistProfile()
+      await this.persistProfile({ ...this.profile, basic: { ...basic } })
+    },
+
+    /** 离开前同时保存基本信息和自评，避免一部分成功、一部分失败。 */
+    async saveText(basic: Profile['basic'], selfEvaluation: string[]) {
+      if (!this.profile) return
+      await this.persistProfile({ ...this.profile, basic, selfEvaluation })
     },
 
     async upsertEntry(section: EntrySection, entry: EntryItem) {
       if (!this.profile) return
-      const list = this.profile[section] as Array<{ id: string }>
-      const item = entry as { id: string }
-      if (!item.id) {
-        item.id = newId()
-        list.push(item)
-      } else {
-        const index = list.findIndex((x) => x.id === item.id)
-        if (index >= 0) list[index] = item
-        else list.push(item)
-      }
-      await this.persistProfile()
+      const draft = plain(this.profile)
+      const list = draft[section] as EntryItem[]
+      const item = plain({ ...entry, id: entry.id || newId() })
+      const index = list.findIndex((x) => x.id === item.id)
+      if (index >= 0) list[index] = item
+      else list.push(item)
+      await this.persistProfile(draft)
     },
 
     async removeEntry(section: EntrySection, id: string) {
       if (!this.profile) return
-      const list = this.profile[section] as Array<{ id: string }>
+      const draft = plain(this.profile)
+      const list = draft[section] as Array<{ id: string }>
       const index = list.findIndex((x) => x.id === id)
       if (index < 0) return
       list.splice(index, 1)
-      await this.persistProfile()
+      await this.persistProfile(draft)
     },
 
     async moveEntry(section: EntrySection, id: string, dir: -1 | 1) {
       if (!this.profile) return
-      const list = this.profile[section] as Array<{ id: string }>
+      const draft = plain(this.profile)
+      const list = draft[section] as Array<{ id: string }>
       const index = list.findIndex((x) => x.id === id)
       const target = index + dir
       if (index < 0 || target < 0 || target >= list.length) return
       ;[list[index], list[target]] = [list[target]!, list[index]!]
-      await this.persistProfile()
+      await this.persistProfile(draft)
     },
 
     async setSelfEvaluation(items: string[]) {
       if (!this.profile) return
-      this.profile.selfEvaluation = [...items]
-      await this.persistProfile()
+      await this.persistProfile({ ...this.profile, selfEvaluation: [...items] })
     },
 
     /** 新建版本：以当前资料池为起点复制一份（此后各自独立），并激活新版本 */
@@ -173,12 +180,13 @@ export const useResumeStore = defineStore('resume', {
         createdAt: now,
         updatedAt: now,
       }
-      await db.resumeVersions.put(plain(version))
-      if (this.profile) {
-        await db.profile.put(plain({ ...this.profile, id: version.id, updatedAt: now }))
-      }
-      await this.load()
-      await this.setActive(version.id)
+      const profile = this.profile ? plain({ ...this.profile, id: version.id, updatedAt: now }) : null
+      await db.transaction('rw', db.resumeVersions, db.profile, async () => {
+        await db.resumeVersions.put(plain(version))
+        if (profile) await db.profile.put(profile)
+      })
+      this.versions = [version, ...this.versions]
+      this.activate(version.id, profile)
       return version
     },
 
@@ -195,39 +203,45 @@ export const useResumeStore = defineStore('resume', {
         createdAt: now,
         updatedAt: now,
       }
-      await db.resumeVersions.put(plain(copy))
-      const sourceProfile = await db.profile.get(id)
-      if (sourceProfile) {
-        await db.profile.put(plain({ ...sourceProfile, id: copy.id, updatedAt: now }))
-      }
-      await this.load()
-      await this.setActive(copy.id)
+      const profile = await db.transaction('rw', db.resumeVersions, db.profile, async () => {
+        const sourceProfile = await db.profile.get(id)
+        const cloned = sourceProfile ? plain({ ...sourceProfile, id: copy.id, updatedAt: now }) : null
+        await db.resumeVersions.put(plain(copy))
+        if (cloned) await db.profile.put(cloned)
+        return cloned
+      })
+      this.versions = [copy, ...this.versions]
+      this.activate(copy.id, profile)
       return copy
     },
 
     async renameVersion(id: string, name: string) {
       const version = this.versions.find((v) => v.id === id)
       if (!version) return
-      version.name = name
-      version.updatedAt = nowIso()
-      await db.resumeVersions.put(plain(version))
-      await this.load()
+      const saved = plain({ ...version, name, updatedAt: nowIso() })
+      await db.resumeVersions.put(saved)
+      this.versions = this.versions.map((v) => v.id === id ? saved : v).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     },
 
     async updateSections(id: string, sections: ResumeSection[]) {
       const version = this.versions.find((v) => v.id === id)
       if (!version) return
-      version.sections = sections
-      version.updatedAt = nowIso()
-      await db.resumeVersions.put(plain(version))
-      await this.load()
+      const saved = plain({ ...version, sections, updatedAt: nowIso() })
+      await db.resumeVersions.put(saved)
+      this.versions = this.versions.map((v) => v.id === id ? saved : v).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     },
 
     /** 删除版本：其资料池一并删除（各版本资料池独立，删除即彻底清理） */
     async deleteVersion(id: string) {
-      await db.resumeVersions.delete(id)
-      await db.profile.delete(id)
-      await this.load()
+      const versions = this.versions.filter((v) => v.id !== id)
+      const nextId = this.activeVersionId === id ? (versions[0]?.id ?? '') : this.activeVersionId
+      const profile = await db.transaction('rw', db.resumeVersions, db.profile, async () => {
+        await db.resumeVersions.delete(id)
+        await db.profile.delete(id)
+        return nextId ? ((await db.profile.get(nextId)) ?? null) : null
+      })
+      this.versions = versions
+      this.activate(nextId, profile)
     },
   },
 })

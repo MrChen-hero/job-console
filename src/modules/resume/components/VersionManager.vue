@@ -1,9 +1,26 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { ElButton, ElMessageBox } from 'element-plus'
+import { computed, ref } from 'vue'
+import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
 import { useResumeStore } from '../store'
 
 const store = useResumeStore()
+const props = defineProps<{ beforeChange?: () => Promise<boolean> }>()
+const busy = ref(false)
+
+async function change(action: () => Promise<unknown>) {
+  if (busy.value) return
+  busy.value = true
+  try {
+    if (props.beforeChange && !await props.beforeChange()) return
+    await action()
+  } catch { ElMessage.error('版本操作失败，请重试') }
+  finally { busy.value = false }
+}
+
+async function select(id: string) {
+  if (id === store.activeVersionId) return
+  await change(() => store.setActive(id))
+}
 
 const active = computed(() => store.activeVersion)
 
@@ -23,7 +40,7 @@ async function create() {
   } catch {
     return // 用户取消
   }
-  await store.createVersion(value!.trim(), '')
+  await change(() => store.createVersion(value!.trim(), ''))
 }
 
 async function rename(id: string, current: string) {
@@ -39,11 +56,12 @@ async function rename(id: string, current: string) {
   } catch {
     return // 用户取消
   }
-  await store.renameVersion(id, value!.trim())
+  try { await store.renameVersion(id, value!.trim()) }
+  catch { ElMessage.error('重命名失败，请重试') }
 }
 
 async function duplicate(id: string) {
-  await store.duplicateVersion(id)
+  await change(() => store.duplicateVersion(id))
 }
 
 async function remove(id: string, name: string) {
@@ -56,7 +74,7 @@ async function remove(id: string, name: string) {
   } catch {
     return
   }
-  await store.deleteVersion(id)
+  await change(() => store.deleteVersion(id))
 }
 
 </script>
@@ -78,9 +96,10 @@ async function remove(id: string, name: string) {
         role="button"
         tabindex="0"
         :aria-pressed="v.id === store.activeVersionId"
-        @click="store.setActive(v.id)"
-        @keydown.enter.prevent="store.setActive(v.id)"
-        @keydown.space.prevent="store.setActive(v.id)"
+        :disabled="busy"
+        @click="select(v.id)"
+        @keydown.enter.prevent="select(v.id)"
+        @keydown.space.prevent="select(v.id)"
       >
         {{ v.name }}
       </button>
