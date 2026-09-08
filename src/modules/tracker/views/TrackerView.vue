@@ -23,6 +23,11 @@ const channelFilter = ref('')
 const trackFilter = ref<Track | ''>('')
 const starredOnly = ref(false)
 const query = ref('')
+const searchInput = ref<HTMLInputElement | null>(null)
+function clearSearch() {
+  query.value = ''
+  searchInput.value?.focus()
+}
 const filtersOpen = ref(false)
 const filterCount = computed(() => [stageFilter.value !== '全部', Boolean(channelFilter.value), Boolean(trackFilter.value), starredOnly.value].filter(Boolean).length)
 function clearFilters() {
@@ -229,13 +234,26 @@ const STAGES_FOR_FILTER = ['已投递', '笔试', '一面', '二面', 'HR面', '
             清空筛选
           </button>
         </div>
-        <input
-          v-model="query"
-          class="search-input"
-          placeholder="搜索公司 / 职位 / 备注"
-          aria-label="搜索投递"
-          data-field="search"
-        >
+        <div class="search-field">
+          <input
+            ref="searchInput"
+            v-model="query"
+            class="search-input"
+            placeholder="搜索公司 / 职位 / 备注"
+            aria-label="搜索投递"
+            data-field="search"
+          >
+          <button
+            v-if="query"
+            type="button"
+            class="search-clear"
+            aria-label="清空搜索"
+            title="清空搜索"
+            @click="clearSearch"
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
       </template>
 
       <div class="toolbar-right">
@@ -371,12 +389,17 @@ const STAGES_FOR_FILTER = ['已投递', '笔试', '一面', '二面', 'HR面', '
   gap: 10px;
   align-items: center;
 }
+.search-field {
+  position: relative;
+  width: 220px;
+  min-width: 0;
+}
 .search-input {
-  padding: 7px 12px;
+  padding: 7px 32px 7px 12px;
   border: 1px solid var(--control);
   border-radius: var(--r-sm);
   background: var(--card);
-  width: 220px;
+  width: 100%;
   outline: none;
   font-size: 13px;
 }
@@ -387,12 +410,34 @@ const STAGES_FOR_FILTER = ['已投递', '笔试', '一面', '二面', 'HR面', '
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-soft);
 }
+.search-clear {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  font-size: 18px;
+  line-height: 1;
+  border-radius: var(--r-sm);
+  color: var(--muted);
+}
+.search-clear:hover {
+  color: var(--text);
+  background: var(--surface-muted);
+}
+.search-clear:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
 @media (max-width: 1024px) {
   .toolbar-right {
     margin-left: 0;
     width: 100%;
   }
-  .search-input {
+  .search-field {
     flex: 1;
     width: auto;
   }
@@ -401,7 +446,7 @@ const STAGES_FOR_FILTER = ['已投递', '笔试', '一面', '二面', 'HR面', '
   .filter-toggle { display: block; min-height: 40px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-sm); }
   .tracker-filters { display: none; width: 100%; order: 4; padding-top: 10px; border-top: 1px solid var(--border); }
   .tracker-filters.expanded { display: flex; }
-  .search-input { flex-basis: 100%; }
+  .search-field { flex-basis: 100%; }
   .tracker-toolbar .toolbar-right { width: auto; margin-left: auto; }
   .mode-btn { padding: 0 10px; }
 }
