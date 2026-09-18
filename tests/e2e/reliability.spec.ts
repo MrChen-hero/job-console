@@ -36,7 +36,7 @@ test('简历：版本切换、离开、刷新保护与打印选择', async ({ pa
     const modulePath = '/src/modules/resume/store.ts'
     const { useResumeStore } = await import(/* @vite-ignore */ modulePath)
     await useResumeStore().createVersion('第二版本', '')
-    window.print = () => { document.documentElement.dataset.printed = document.querySelector('.sheet')?.textContent ?? '' }
+    window.print = () => { document.documentElement.dataset.printed = document.querySelector('.sheet-stack')?.textContent ?? '' }
   })
   const name = page.locator('input[data-field="name"]')
   await name.fill('待保存姓名')
@@ -80,10 +80,10 @@ test('简历：基本信息和条目保存失败保留输入，可直接重试',
   await page.locator('.basic-save').click()
   await expect(page.locator('.resume-current')).toContainText('保存失败')
   await expect(name).toHaveValue('新姓名')
-  await expect(page.locator('.sheet')).toContainText('已保存姓名')
+  await expect(page.locator('.sheet-stack')).toContainText('已保存姓名')
   await page.locator('.basic-save').click()
   await expect(page.locator('.resume-current')).toContainText('已保存到本机')
-  await expect(page.locator('.sheet')).toContainText('新姓名')
+  await expect(page.locator('.sheet-stack')).toContainText('新姓名')
 
   await page.getByRole('button', { name: /教育背景/ }).click()
   await page.locator('.add-entry').click()

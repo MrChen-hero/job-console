@@ -180,7 +180,7 @@ avatarCrop?: { x: number; y: number; w: number; h: number }  // 归一化裁剪�
 - [x] Checkpoint 3：`ResumeView` 缩放与打印 CSS 适配完成，`@page margin:0` + 纸面自带 18mm/17mm，打印页数与预览页数一致
 - [x] Checkpoint 4：`avatarCrop.ts` + `AvatarDialog.vue` 完成（拖拽 / 滚轮 / 滑杆 / 键盘四路缩放平移，已有头像可直接重裁并还原现场），`ProfileEditor` 的 `saveBasic`/`save`/`discard` 显式携带 `avatar` 与 `avatarCrop`，纸面右上角按 25×35mm 百分比定位渲染
 - [x] Checkpoint 5：`types.ts` / `backupValidation.ts` / `safeUrl.ts` 三处兼容改动完成，旧 v4 备份仍可导入，非法头像值或越界裁剪框不阻断导入
-- [ ] Checkpoint 6：补齐单测与一条 E2E，三件套（`npm run lint && npm run test:run && npm run build`）全绿且退出码显式核对，AGENTS.md 与 tech-debt.md 同步
+- [x] Checkpoint 6：补齐单测与一条 E2E，三件套（`npm run lint && npm run test:run && npm run build`）全绿且退出码显式核对，AGENTS.md 与 tech-debt.md 同步
 
 ## 7. 验证
 
@@ -194,4 +194,6 @@ avatarCrop?: { x: number; y: number; w: number; h: number }  // 归一化裁剪�
 
 **三件套**：`npm run lint && npm run test:run && npm run build` 全绿并显式核对退出码；`git diff --check` 无输出；新文件 UTF-8 无 BOM。
 
-**人工确认（无法自动化）**：Chrome 打印预览页数与界面页数一致、无空白尾页。这一项在交付说明中标注验证状态。
+**打印页数实测（已在真实浏览器完成）**：`page.pdf({ preferCSSPageSize: true })` 导出后数 PDF 的 `/Type /Page` 对象。示例数据 + 12 条项目 + 头像时，**预览 3 页 = PDF 3 页**，无空白尾页；无头像时同样 3 = 3。验证用临时 spec 跑完即删，未留在仓库里。
+
+**遗留**：Chromium 以外的浏览器（Firefox / Safari）打印分页未实测。`break-after: page` 与 `@page size` 均为标准属性，但各引擎对 `height:auto` 纸面的舍入处理可能不同。

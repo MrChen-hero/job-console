@@ -40,7 +40,7 @@
 - 写库前必须用 `plain()`（JSON 克隆）去除 Pinia 响应式 Proxy（结构化克隆不兼容）。
 - 投递与简历编辑先改副本，写入成功后更新 state；失败不污染已保存状态。简历版本创建/复制/删除的版本表与资料池写入必须在同一事务中完成。
 - `Application.status` 不变量：恒等于 `stageHistory` 末项 stage；唯一写路径 `trackerStore.changeStage`，其他 action（advance/markDropped/reopen）都经它。
-- 备份 `BACKUP_SCHEMA_VERSION = 4`，数据含十表（含 runtimeDemos / libraryCategories / runtimeProjects / deletedDocs）；改 schema 必须同步 backup 校验、`snapshots.ts` 的 `normalizeData` 与版本号。runtimeDemos 的 html 只验类型不验非空（内置演示的 hidden 墓碑行 html 恒为空串，链接式演示的内容在 url），非墓碑行改为要求「html 与 url 至少有一个」；`url`/`points` 是可选字段，给了才验类型——都不为此升版本号，升了会让用户手里的旧 v4 备份导不进来。
+- 备份 `BACKUP_SCHEMA_VERSION = 4`，数据含十表（含 runtimeDemos / libraryCategories / runtimeProjects / deletedDocs）；改 schema 必须同步 backup 校验、`snapshots.ts` 的 `normalizeData` 与版本号。runtimeDemos 的 html 只验类型不验非空（内置演示的 hidden 墓碑行 html 恒为空串，链接式演示的内容在 url），非墓碑行改为要求「html 与 url 至少有一个」；`url`/`points` 是可选字段，给了才验类型——都不为此升版本号，升了会让用户手里的旧 v4 备份导不进来。`BasicInfo.avatar`/`avatarCrop` 与 `ResumeSection.subtitle` 同理：只补可选键校验，头像格式非法即静默删除（非字符串也不例外，故不进 `strings` 的可选列表）、裁剪框越界只丢裁剪参数，都不阻断整份备份导入。
 - 编译期枚举（`LIBRARY_CATEGORIES` 分类名、`TRACKS` 投向名）改名必须两处都做：Dexie 升级迁移（改本机库存量，v5 迁分类、v6 迁投向）+ 导入归一（`backup.ts` 的 `withMigratedTracks` 一类改写，管旧备份与旧快照）。只做前者，导入一份旧备份就又把旧值灌回来，而旧值在下拉里选不到。
 - 快照：覆盖导入与回退前自动 `createSnapshot`（保留 5 份，`restoreSnapshot` 走 importBackup overwrite，故回退本身也可回退）；旧快照缺新增表由 `normalizeData` 补空数组。
 - `validateBackup` 与 `backupValidation.ts` 检查结构、嵌套条目、重复标识、业务日期、状态历史与资料池所属版本；`importBackup` 自身也在任何写入/快照前校验，不能只依赖上传界面。允许空简历版本、旧投向/主题色和已删除项目遗留的演示引用，避免拒绝正常历史数据。
@@ -73,6 +73,8 @@
 - 材料库搜索与分类共同约束选中文档，分类管理为独立弹窗；DocEditor 与项目 ProjectEditor 通过异步 persist 回调确认保存成功，失败保留输入。项目保存期间禁止重复提交与关闭弹窗。离开保护弹窗必须 append-to-body，避免手机导航打开时被主内容 inert 屏蔽。
 - 简历 ≤1180px 切换编辑/预览，以 CSS 隐藏保留输入；缩放同时设置占位宽高，观察器下一帧更新，打印解除缩放与占位限制。
 - 简历通过 ProfileEditor 暴露 dirty/saving/save/discard，版本管理经 beforeChange 回调执行离开保护；保护弹窗 append-to-body，刷新用 beforeunload。打印已保存内容保留草稿，保存后打印先等待保存与视图更新。投递和简历条目表单使用异步 persist 回调，成功后才关闭，失败保留输入。
+- 简历资料池：区块标题（中/英）在「区块编排」态内联编辑，`@change` 即时落库，不进 dirty；编辑框与整行拖拽冲突，故 `draggable` 只挂在 grip 把手上。头像存**原图 + 归一化裁剪框**（`avatar` / `avatarCrop`）而非裁剪成品，重裁无需重新选图；二者不在 `BASIC_FIELDS`，`saveBasic`/`save`/`discard` 必须显式携带，否则保存一次就抹掉。
+- 简历纸面先建块（`sheet/blocks.ts`）→ 隐藏测量层量高 → 纯函数分页（`sheet/paginate.ts`）→ 多页堆叠渲染，测量层与每页共用 `SheetBlock`。高度按相邻块 `offsetTop` 差值取（避开预览 scale 对 rect 的影响）。**分页必须是单趟 for**：jsdom 无布局、窄屏编辑态下纸面 display:none，高度全 0 时退化为单页，写成 while 会死循环。打印 `@page margin:0`，页边距全由纸面 18mm/17mm padding 承担，多叠一层就会超页。
 - 导入弹窗先展示本机/备份数量，默认合并，覆盖需勾选确认；备份使用 shallowRef 保留普通对象，禁止将响应式 Proxy 交给 IndexedDB。复用既有 importBackup 与覆盖前自动快照。
 - 样式走令牌（var(--xxx)），禁硬编码颜色；亮暗主题双适配。
 - 可交互元素用原生 button/a 或补全 role/tabindex/键盘（Enter/Space）；删除等破坏性操作必须 ElMessageBox 确认；错误提示 role="alert"。
