@@ -6,6 +6,21 @@ export interface AvatarCrop {
   w: number
   h: number
 }
+
+/**
+ * 裁剪框的形状校验（四个 0–1 有限数，宽高为正，且不越出原图）。
+ * 放在实体旁边而非 resume 模块里：storage 不该反向依赖业务模块。
+ */
+export function isValidAvatarCrop(value: unknown): value is AvatarCrop {
+  if (value === null || typeof value !== 'object') return false
+  const crop = value as Record<string, unknown>
+  const nums = [crop.x, crop.y, crop.w, crop.h]
+  if (!nums.every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1)) return false
+  return (crop.w as number) > 0 && (crop.h as number) > 0
+    && (crop.x as number) + (crop.w as number) <= 1.0001
+    && (crop.y as number) + (crop.h as number) <= 1.0001
+}
+
 export interface BasicInfo {
   name: string
   gender?: string

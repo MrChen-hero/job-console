@@ -1,5 +1,5 @@
-import { BATCHES, LEGACY_TRACKS, RESUME_SECTION_TYPES, STAGES, TRACKS } from './types'
-import { isHttpUrl } from '../shared/safeUrl'
+import { BATCHES, LEGACY_TRACKS, RESUME_SECTION_TYPES, STAGES, TRACKS, isValidAvatarCrop } from './types'
+import { isHttpUrl, isImageDataUrl } from '../shared/safeUrl'
 import type { ConfigIssue } from './backup'
 
 type Row = Record<string, unknown>
@@ -72,7 +72,18 @@ export function validateBackupDetails(data: Row, issues: ConfigIssue[]): void {
   })
   rows(data.profile, '$.data.profile', (row, path) => {
     strings(row, path, ['updatedAt'])
-    if (isRow(row.basic)) strings(row.basic, `${path}.basic`, ['name'], ['gender', 'degree', 'school', 'graduation', 'phone', 'email', 'summary'])
+    if (isRow(row.basic)) {
+      // avatar 不出现在 strings 的可选列表里：它由下面的格式校验统一兜底，
+      // 否则一个非字符串头像会先被记成 issue 从而挡下整份备份，与「非法即当没有」自相矛盾。
+      strings(row.basic, `${path}.basic`, ['name'], ['gender', 'degree', 'school', 'graduation', 'phone', 'email', 'summary'])
+      // 与纸面同一条规则：格式不对就当没有头像，不阻断整份备份
+      if (row.basic.avatar !== undefined && !isImageDataUrl(row.basic.avatar)) {
+        delete row.basic.avatar
+        delete row.basic.avatarCrop
+      }
+      // 裁剪框不合规时只丢裁剪参数，avatar 保留——渲染端会退回居中 cover
+      if (row.basic.avatarCrop !== undefined && !isValidAvatarCrop(row.basic.avatarCrop)) delete row.basic.avatarCrop
+    }
     const entryFields: Record<string, [string[], string[]]> = {
       education: [['school', 'degree', 'time'], ['courses']],
       skills: [['group', 'detail'], []],
@@ -92,7 +103,7 @@ export function validateBackupDetails(data: Row, issues: ConfigIssue[]): void {
     strings(row, path, ['targetRole', 'createdAt', 'updatedAt'])
     rows(row.sections, `${path}.sections`, (section, sectionPath) => {
       oneOf(section.type, RESUME_SECTION_TYPES, `${sectionPath}.type`)
-      strings(section, sectionPath, ['title'])
+      strings(section, sectionPath, ['title'], ['subtitle'])
       if (!Number.isInteger(section.order) || Number(section.order) < 0) issue(`${sectionPath}.order`, '必须是非负整数')
       if (section.excludedIds !== undefined) stringArray(section.excludedIds, `${sectionPath}.excludedIds`)
     }, 'type')

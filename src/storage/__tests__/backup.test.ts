@@ -194,6 +194,73 @@ describe('exportBackup', () => {
       expect(result.issues.map((i) => i.path)).toContain('$.data.runtimeProjects[0].id')
     }
   })
+
+  /* ---------- 头像与区块副标题（v4 内的可选字段，不升版本号） ---------- */
+
+  const AVATAR = 'data:image/jpeg;base64,AAAA'
+  const profileFile = (basic: Record<string, unknown>, section: Record<string, unknown> = {}) => ({
+    schemaVersion: BACKUP_SCHEMA_VERSION,
+    exportedAt: '2026-09-18T00:00:00.000Z',
+    data: {
+      profile: [{
+        id: 'v1',
+        basic: { name: '王小明', ...basic },
+        education: [], skills: [], experiences: [], projects: [], awards: [],
+        selfEvaluation: [], updatedAt: '2026-09-18',
+      }],
+      resumeVersions: [{
+        id: 'v1', name: '默认版本', targetRole: '',
+        sections: [{ type: 'skills', title: '专业技能', order: 0, ...section }],
+        createdAt: '2026-09-18', updatedAt: '2026-09-18',
+      }],
+      applications: [], companyPool: [], libraryDocs: [], milestones: [], runtimeDemos: [],
+      libraryCategories: [], runtimeProjects: [], deletedDocs: [],
+    },
+  })
+
+  it('旧 v4 备份（无 avatar / subtitle）仍能通过校验', () => {
+    expect(validateBackup(profileFile({})).ok).toBe(true)
+  })
+
+  it('合法的头像与裁剪框通过校验', () => {
+    const file = profileFile(
+      { avatar: AVATAR, avatarCrop: { x: 0.1, y: 0, w: 0.5, h: 0.5 } },
+      { subtitle: 'SKILLS' },
+    )
+    expect(validateBackup(file).ok).toBe(true)
+  })
+
+  it('头像格式非法时静默丢弃，不阻断整份备份导入', () => {
+    for (const bad of ['javascript:alert(1)', 42, { data: 'x' }]) {
+      const file = profileFile({ avatar: bad, avatarCrop: { x: 0, y: 0, w: 0.5, h: 0.5 } })
+      const result = validateBackup(file)
+      expect(result.ok).toBe(true) // 不因头像报错——否则用户导不回自己的备份
+      if (result.ok) {
+        const basic = result.file.data.profile[0]!.basic as unknown as Record<string, unknown>
+        expect(basic.avatar).toBeUndefined()
+        expect(basic.avatarCrop).toBeUndefined()
+      }
+    }
+  })
+
+  it('裁剪框越界时只丢裁剪参数，avatar 保留（渲染端回落居中 cover）', () => {
+    const file = profileFile({ avatar: AVATAR, avatarCrop: { x: 0.8, y: 0, w: 0.5, h: 1 } })
+    const result = validateBackup(file)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      const basic = result.file.data.profile[0]!.basic as unknown as Record<string, unknown>
+      expect(basic.avatar).toBe(AVATAR)
+      expect(basic.avatarCrop).toBeUndefined()
+    }
+  })
+
+  it('subtitle 类型不对时被拒绝', () => {
+    const result = validateBackup(profileFile({}, { subtitle: 42 }))
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.issues.map((i) => i.path)).toContain('$.data.resumeVersions[0].sections[0].subtitle')
+    }
+  })
 })
 
 describe('importBackup', () => {

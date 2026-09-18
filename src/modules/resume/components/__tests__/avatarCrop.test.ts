@@ -9,10 +9,10 @@ import {
   cropStyle,
   defaultView,
   fromCrop,
-  isValidCrop,
   toCrop,
   zoomTo,
 } from '../avatarCrop'
+import { isValidAvatarCrop as isValidCrop } from '../../../../storage/types'
 
 const BOX: [number, number] = [BOX_WIDTH, BOX_HEIGHT]
 /** 裁剪框在原图像素上的宽高比，必须恒等于取景框的 5:7 */

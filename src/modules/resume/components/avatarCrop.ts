@@ -91,8 +91,7 @@ export function fromCrop(crop: AvatarCrop | null | undefined, imgW: number, imgH
   return clampView(imgW, imgH, boxW, boxH, { scale, x: -crop.x * dw, y: -crop.y * dh })
 }
 
-/**
- * 裁剪框 → 定位样式。纯百分比相对容器解析，因此分辨率无关：
+/** 裁剪框 → 定位样式。纯百分比相对容器解析，因此分辨率无关：
  * 预览缩放态、100% 态与打印态共用同一套参数，构图完全一致。
  */
 export function cropStyle(crop: AvatarCrop | null | undefined): Record<string, string> {
@@ -107,15 +106,4 @@ export function cropStyle(crop: AvatarCrop | null | undefined): Record<string, s
     top: `${(-crop.y / crop.h) * 100}%`,
     objectFit: 'fill',
   }
-}
-
-/** 备份导入时的范围校验：四个分量都是 0–1 的有限数，且裁剪框不越出原图 */
-export function isValidCrop(value: unknown): value is AvatarCrop {
-  if (value === null || typeof value !== 'object') return false
-  const crop = value as Record<string, unknown>
-  const nums = [crop.x, crop.y, crop.w, crop.h]
-  if (!nums.every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1)) return false
-  return (crop.w as number) > 0 && (crop.h as number) > 0
-    && (crop.x as number) + (crop.w as number) <= 1.0001
-    && (crop.y as number) + (crop.h as number) <= 1.0001
 }
