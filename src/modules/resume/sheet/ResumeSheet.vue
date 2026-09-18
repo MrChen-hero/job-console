@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useResumeStore } from '../store'
+import { subtitleOf } from '../profileSchema'
 import type { ResumeSectionType } from '../../../storage/types'
 import './sheet.css'
 
@@ -75,7 +76,7 @@ const metaLine = computed(() => {
         class="r-section"
       >
         <div class="r-sec-title">
-          {{ section.title }}<em>EDUCATION</em>
+          {{ section.title }}<em v-if="subtitleOf(section)">{{ subtitleOf(section) }}</em>
         </div>
         <div
           v-for="e in listFor('education', store.profile.education)"
@@ -100,7 +101,7 @@ const metaLine = computed(() => {
         class="r-section"
       >
         <div class="r-sec-title">
-          {{ section.title }}<em>SKILLS</em>
+          {{ section.title }}<em v-if="subtitleOf(section)">{{ subtitleOf(section) }}</em>
         </div>
         <div class="r-skills">
           <template
@@ -118,7 +119,7 @@ const metaLine = computed(() => {
         class="r-section"
       >
         <div class="r-sec-title">
-          {{ section.title }}<em>INTERNSHIP</em>
+          {{ section.title }}<em v-if="subtitleOf(section)">{{ subtitleOf(section) }}</em>
         </div>
         <div
           v-for="x in listFor('experiences', store.profile.experiences)"
@@ -153,7 +154,7 @@ const metaLine = computed(() => {
         class="r-section"
       >
         <div class="r-sec-title">
-          {{ section.title }}<em>PROJECTS</em>
+          {{ section.title }}<em v-if="subtitleOf(section)">{{ subtitleOf(section) }}</em>
         </div>
         <div
           v-for="p in listFor('projects', store.profile.projects)"
@@ -188,7 +189,7 @@ const metaLine = computed(() => {
         class="r-section"
       >
         <div class="r-sec-title">
-          {{ section.title }}<em>HONORS</em>
+          {{ section.title }}<em v-if="subtitleOf(section)">{{ subtitleOf(section) }}</em>
         </div>
         <ul class="r-list">
           <li
@@ -206,7 +207,7 @@ const metaLine = computed(() => {
         class="r-section"
       >
         <div class="r-sec-title">
-          {{ section.title }}<em>SUMMARY</em>
+          {{ section.title }}<em v-if="subtitleOf(section)">{{ subtitleOf(section) }}</em>
         </div>
         <ul class="r-list">
           <li

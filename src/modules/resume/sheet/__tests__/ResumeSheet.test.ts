@@ -79,4 +79,30 @@ describe('ResumeSheet', () => {
     const html = wrapper.find('[data-testid="resume-sheet"]').html()
     expect(html.indexOf('专业技能')).toBeLessThan(html.indexOf('教育背景'))
   })
+
+  it('自定义标题与英文副标题渲染到纸面', async () => {
+    const { store, wrapper } = await setupWithExample()
+    const version = store.versions[0]!
+    const sections = [...version.sections].map((s) =>
+      s.type === 'experiences' ? { ...s, title: '工作经历', subtitle: 'WORK' } : { ...s },
+    )
+    await store.updateSections(version.id, sections)
+    await wrapper.vm.$nextTick()
+    const text = wrapper.find('[data-testid="resume-sheet"]').text()
+    expect(text).toContain('工作经历')
+    expect(text).toContain('WORK')
+    expect(text).not.toContain('INTERNSHIP')
+  })
+
+  it('subtitle 为空串时不渲染英文，未设置时回落默认值', async () => {
+    const { store, wrapper } = await setupWithExample()
+    expect(wrapper.find('[data-testid="resume-sheet"]').text()).toContain('SKILLS')
+    const version = store.versions[0]!
+    const sections = [...version.sections].map((s) =>
+      s.type === 'skills' ? { ...s, subtitle: '' } : { ...s },
+    )
+    await store.updateSections(version.id, sections)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="resume-sheet"]').text()).not.toContain('SKILLS')
+  })
 })

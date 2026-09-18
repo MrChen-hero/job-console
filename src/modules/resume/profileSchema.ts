@@ -1,4 +1,11 @@
-import type { AwardEntry, EducationEntry, ExperienceEntry, ProjectEntry, SkillGroup } from '../../storage/types'
+import type {
+  AwardEntry,
+  EducationEntry,
+  ExperienceEntry,
+  ProjectEntry,
+  ResumeSectionType,
+  SkillGroup,
+} from '../../storage/types'
 
 export type FieldType = 'text' | 'textarea' | 'bullets'
 
@@ -11,6 +18,22 @@ export interface FieldDef {
 }
 
 export type SectionKey = 'basic' | 'education' | 'skills' | 'experiences' | 'projects' | 'awards' | 'selfEvaluation'
+
+/** 纸面区块标题旁的英文副标题默认值；各版本可经 ResumeSection.subtitle 改写或清空。 */
+export const DEFAULT_SUBTITLE: Record<ResumeSectionType, string> = {
+  basic: '',
+  education: 'EDUCATION',
+  skills: 'SKILLS',
+  experiences: 'INTERNSHIP',
+  projects: 'PROJECTS',
+  awards: 'HONORS',
+  selfEvaluation: 'SUMMARY',
+}
+
+/** undefined 回落默认值（兼容未存过该字段的旧版本），'' 表示用户显式清空 */
+export function subtitleOf(section: { type: ResumeSectionType; subtitle?: string }): string {
+  return section.subtitle ?? DEFAULT_SUBTITLE[section.type]
+}
 
 export interface SectionDef {
   key: SectionKey

@@ -1,4 +1,4 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { flushPromises, mount, type DOMWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { ElMessageBox } from 'element-plus'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -19,6 +19,20 @@ async function setup() {
 function fillInput(wrapper: ReturnType<typeof mount>, selector: string, value: string) {
   const input = wrapper.find(selector)
   return input.setValue(value)
+}
+
+/* 编排态的标题已是输入框，行文本里读不到，统一从 input.value 取 */
+function titleValue(row: DOMWrapper<Element>): string {
+  return (row.find('.title-input input').element as HTMLInputElement).value
+}
+function subtitleValue(row: DOMWrapper<Element>): string {
+  return (row.find('.subtitle-input input').element as HTMLInputElement).value
+}
+
+/** setValue 只派发 input 事件；即时落库挂在 change 上（blur / Enter），需显式补一次 */
+async function commit(field: DOMWrapper<Element>, value: string) {
+  await field.setValue(value)
+  await field.trigger('change')
 }
 
 describe('ProfileEditor', () => {
@@ -223,9 +237,11 @@ describe('ProfileEditor', () => {
     expect(rows).toHaveLength(7)
     expect(rows[0]!.text()).toContain('基本信息')
     expect(rows[0]!.find('.grip').exists()).toBe(false)
-    expect(rows[0]!.attributes('draggable')).not.toBe('true')
+    expect(rows[0]!.find('.grip-handle').exists()).toBe(false)
     expect(rows[1]!.find('.grip').exists()).toBe(true)
-    expect(rows[1]!.attributes('draggable')).toBe('true')
+    // 把手落在图标上而非整行：整行 draggable 会让行内标题输入框无法拖选文字
+    expect(rows[1]!.attributes('draggable')).not.toBe('true')
+    expect(rows[1]!.find('.grip-handle').attributes('draggable')).toBe('true')
   })
 
   it('区块排序：下移后与相邻区块交换 order', async () => {
@@ -249,7 +265,7 @@ describe('ProfileEditor', () => {
   it('拖拽落到首位被拒绝，basic 仍在 order 0', async () => {
     const { store, wrapper } = await setupArranging()
     const rows = wrapper.findAll('.section-row')
-    await rows[1]!.trigger('dragstart')
+    await rows[1]!.find('.grip-handle').trigger('dragstart')
     await rows[0]!.trigger('drop')
     await flushPromises()
     expect(store.versions[0]!.sections.find((s) => s.type === 'basic')!.order).toBe(0)
@@ -259,16 +275,52 @@ describe('ProfileEditor', () => {
   it('拖拽换位：把项目经历拖到教育背景上', async () => {
     const { store, wrapper } = await setupArranging()
     const rows = wrapper.findAll('.section-row')
-    const projects = rows.find((r) => r.text().includes('项目经历'))!
-    const education = rows.find((r) => r.text().includes('教育背景'))!
-    await projects.trigger('dragstart')
+    // 默认顺序：基本信息 / 教育背景 / 专业技能 / 实习经历 / 项目经历 / 竞赛与荣誉 / 自我评价
+    const projects = rows[4]!
+    const education = rows[1]!
+    expect(titleValue(projects)).toBe('项目经历')
+    expect(titleValue(education)).toBe('教育背景')
+    await projects.find('.grip-handle').trigger('dragstart')
     await education.trigger('drop')
     await vi.waitFor(() => expect(store.versions[0]!.sections.find((s) => s.type === 'projects')!.order).toBe(1))
     expect(store.versions[0]!.sections.find((s) => s.type === 'education')!.order).toBe(4)
   })
 
-  it('条目勾选排除生效', async () => {
-    const { store, wrapper } = await setup()
+  it('改区块标题：即时落库，手风琴组头同步显示新标题', async () => {
+    const { store, wrapper } = await setupArranging()
+    const row = wrapper.findAll('.section-row')[2]! // 专业技能
+    expect(titleValue(row)).toBe('专业技能')
+    await commit(row.find('.title-input input'), '核心技能')
+    await vi.waitFor(() => expect(store.versions[0]!.sections.find((s) => s.type === 'skills')!.title).toBe('核心技能'))
+    await wrapper.find('.pool-arrange').trigger('click')
+    expect(wrapper.findAll('.tab-btn').some((b) => b.text() === '核心技能')).toBe(true)
+  })
+
+  it('区块标题不能为空：拒绝写入并把输入框回填为已落库的值', async () => {
+    const { store, wrapper } = await setupArranging()
+    const row = wrapper.findAll('.section-row')[2]!
+    await commit(row.find('.title-input input'), '   ')
+    await flushPromises()
+    expect(store.versions[0]!.sections.find((s) => s.type === 'skills')!.title).toBe('专业技能')
+    expect(titleValue(row)).toBe('专业技能')
+  })
+
+  it('英文副标题：预填默认值，清空后落库为空串', async () => {
+    const { store, wrapper } = await setupArranging()
+    const row = wrapper.findAll('.section-row')[2]!
+    expect(subtitleValue(row)).toBe('SKILLS')
+    await commit(row.find('.subtitle-input input'), '')
+    await vi.waitFor(() => expect(store.versions[0]!.sections.find((s) => s.type === 'skills')!.subtitle).toBe(''))
+  })
+
+  it('基本信息行不提供标题编辑', async () => {
+    const { wrapper } = await setupArranging()
+    const row = wrapper.findAll('.section-row')[0]!
+    expect(row.find('.title-input').exists()).toBe(false)
+    expect(row.find('.subtitle-input').exists()).toBe(false)
+  })
+
+  it('条目勾选排除生效', async () => {    const { store, wrapper } = await setup()
     await store.createVersion('V', '')
     await store.upsertEntry('education', {
       id: 'edu-1', school: '甲', degree: '硕士', time: 't',

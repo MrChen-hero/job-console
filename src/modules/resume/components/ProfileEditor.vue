@@ -4,7 +4,9 @@ import { ElButton, ElCheckbox, ElInput, ElMessage, ElMessageBox } from 'element-
 import { useResumeStore, type EntrySection } from '../store'
 import {
   BASIC_FIELDS,
+  DEFAULT_SUBTITLE,
   SECTION_DEFS,
+  subtitleOf,
   type FieldDef,
   type SectionKey,
 } from '../profileSchema'
@@ -69,13 +71,54 @@ const arranging = ref(false)
 const dragKey = ref<SectionKey | null>(null)
 const active = computed(() => store.activeVersion)
 
-/** 按当前版本的 order 排；没有版本时退回 TABS 的静态顺序 */
+/** 按当前版本的 order 排，标题取版本内的自定义值；没有版本时退回 TABS 的静态顺序与文案 */
 const orderedTabs = computed(() => {
   const sections = active.value?.sections
   if (!sections?.length) return TABS
-  const rank = new Map(sections.map((s) => [s.type as SectionKey, s.order]))
-  return [...TABS].sort((a, b) => (rank.get(a.key) ?? 0) - (rank.get(b.key) ?? 0))
+  const byType = new Map(sections.map((s) => [s.type as SectionKey, s]))
+  return [...TABS]
+    .map((t) => ({ ...t, label: byType.get(t.key)?.title || t.label }))
+    .sort((a, b) => (byType.get(a.key)?.order ?? 0) - (byType.get(b.key)?.order ?? 0))
 })
+
+/* ---------- 区块标题 ---------- */
+
+const titleDrafts = reactive<Record<string, string>>({})
+const subtitleDrafts = reactive<Record<string, string>>({})
+
+/** 草稿恒以 store 为准：切换版本、保存成功与保存失败都用它把输入框拉回已落库的值 */
+function syncSectionDrafts() {
+  for (const tab of TABS) {
+    const section = active.value?.sections.find((s) => s.type === tab.key)
+    titleDrafts[tab.key] = section?.title ?? tab.label
+    subtitleDrafts[tab.key] = section ? subtitleOf(section) : DEFAULT_SUBTITLE[tab.key]
+  }
+}
+watch(() => active.value?.sections, syncSectionDrafts, { immediate: true, deep: true })
+
+/** 与排序、条目勾选一致：即时落库，不进入 dirty。@change 只在 blur 或 Enter 触发，不逐字符写库。 */
+async function saveSectionTitle(key: SectionKey) {
+  const version = active.value
+  const section = version?.sections.find((s) => s.type === key)
+  if (!version || !section) return
+  const title = (titleDrafts[key] ?? '').trim()
+  const subtitle = (subtitleDrafts[key] ?? '').trim()
+  if (!title) {
+    ElMessage.error('区块标题不能为空')
+    syncSectionDrafts()
+    return
+  }
+  if (title === section.title && subtitle === subtitleOf(section)) return
+  const sections = [...version.sections]
+    .sort((a, b) => a.order - b.order)
+    .map((s) => (s.type === key ? { ...s, title, subtitle } : { ...s }))
+  try {
+    await store.updateSections(version.id, sections)
+  } catch {
+    ElMessage.error('区块标题保存失败，请重试')
+    syncSectionDrafts()
+  }
+}
 
 /** 把编排结果写回版本；order 按数组下标重排，避免出现空洞 */
 function persistOrder(keys: SectionKey[]) {
@@ -304,7 +347,7 @@ defineExpose({ dirty, saving: busy, save, discard })
       v-if="active"
       class="pool-toolbar"
     >
-      <span class="pool-hint">{{ arranging ? '拖动 :: 调整区块顺序，基本信息固定首位' : '资料池' }}</span>
+      <span class="pool-hint">{{ arranging ? '拖动 :: 调整顺序，可直接改区块标题；基本信息固定首位' : '资料池' }}</span>
       <ElButton
         size="small"
         :type="arranging ? 'primary' : undefined"
@@ -326,24 +369,47 @@ defineExpose({ dirty, saving: busy, save, discard })
         :key="tab.key"
         class="section-row"
         :class="{ pinned: tab.key === PINNED_KEY, dragging: dragKey === tab.key }"
-        :draggable="tab.key !== PINNED_KEY"
-        @dragstart="onDragStart(tab.key)"
         @dragover.prevent
         @drop.prevent="onDrop(tab.key)"
       >
         <div class="section-head">
-          <AppIcon
+          <!-- 把手只落在图标上：整行 draggable 会让行内输入框无法拖选文字 -->
+          <span
             v-if="tab.key !== PINNED_KEY"
-            name="grip"
-            :size="15"
-            class="grip solid"
-          />
+            class="grip-handle"
+            draggable="true"
+            @dragstart="onDragStart(tab.key)"
+            @dragend="dragKey = null"
+          >
+            <AppIcon
+              name="grip"
+              :size="15"
+              class="grip solid"
+            />
+          </span>
           <span
             v-else
             class="grip-placeholder"
             aria-hidden="true"
           />
-          <b>{{ tab.label }}</b>
+          <b v-if="tab.key === PINNED_KEY">{{ tab.label }}</b>
+          <template v-else>
+            <ElInput
+              v-model="titleDrafts[tab.key]"
+              size="small"
+              class="title-input"
+              :aria-label="`${tab.label} 区块标题`"
+              @change="saveSectionTitle(tab.key)"
+            />
+            <ElInput
+              v-model="subtitleDrafts[tab.key]"
+              size="small"
+              class="subtitle-input"
+              placeholder="留空则不显示"
+              :aria-label="`${tab.label} 英文副标题`"
+              @change="saveSectionTitle(tab.key)"
+            />
+          </template>
           <span
             v-if="tab.key === PINNED_KEY"
             class="pin-tag"
@@ -581,9 +647,6 @@ defineExpose({ dirty, saving: busy, save, discard })
   border-radius: var(--r);
   background: var(--card2);
 }
-.section-row[draggable='true'] {
-  cursor: grab;
-}
 .section-row.dragging {
   opacity: 0.5;
 }
@@ -605,6 +668,29 @@ defineExpose({ dirty, saving: busy, save, discard })
 .grip {
   color: var(--muted);
   cursor: grab;
+}
+.grip-handle {
+  display: inline-flex;
+  flex-shrink: 0;
+  cursor: grab;
+}
+.grip-handle:active {
+  cursor: grabbing;
+}
+/* 标题与英文副标题共用一行，靠 min-width:0 收进轨道，不挤走上下移按钮 */
+.title-input {
+  flex: 1 1 110px;
+  min-width: 0;
+  max-width: 160px;
+}
+.subtitle-input {
+  flex: 1 1 90px;
+  min-width: 0;
+  max-width: 140px;
+}
+.subtitle-input :deep(.el-input__inner) {
+  font-family: var(--mono);
+  font-size: 11.5px;
 }
 .pin-tag {
   padding: 1px 6px;

@@ -120,6 +120,8 @@ export type ResumeSectionType = (typeof RESUME_SECTION_TYPES)[number]
 export interface ResumeSection {
   type: ResumeSectionType
   title: string
+  /** 纸面标题旁的英文副标题；undefined 回落到默认值，'' 表示不显示 */
+  subtitle?: string
   excludedIds?: string[]
   order: number
 }
