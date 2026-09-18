@@ -12,6 +12,51 @@
   font-size: 12.2px;
   line-height: 1.62;
 }
+
+/* 分页堆叠：一页一张 A4，页间留间隙并在页下标页码 */
+.sheet-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.sheet-page-label {
+  margin: 6px 0 14px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.sheet-page-label:last-child {
+  margin-bottom: 0;
+}
+
+/* 测量层：参与布局但不可见（visibility:hidden 而非 display:none——后者没有布局也就没有高度），
+   整体移出视口，绝对定位因此不影响页面堆叠。 */
+.sheet-measure-wrap {
+  position: absolute;
+  top: 0;
+  left: -10000px;
+  width: 210mm;
+  visibility: hidden;
+  pointer-events: none;
+}
+.sheet-measure {
+  min-height: 0;
+  box-shadow: none;
+}
+/* flow-root 挡住首块外边距向外折叠，使 offsetTop 差值与块在页内的真实占位一致；
+   position:relative 让它成为子块的 offsetParent。 */
+.sheet-measure-inner {
+  display: flow-root;
+  position: relative;
+}
+.sheet-probe {
+  width: 1px;
+  height: 261mm; /* 297mm 纸高减去上下各 18mm 内边距，即单页可用内容高度 */
+}
+@media print {
+  .sheet-measure-wrap {
+    display: none !important;
+  }
+}
 .sheet .r-name {
   font-family: var(--font-display);
   font-size: 27px;
@@ -41,9 +86,7 @@
   color: #78716c;
   margin-top: 8px;
 }
-.sheet .r-section {
-  margin-top: 15px;
-}
+/* 区块标题自带上间距：分页后不再有 .r-section 容器承载它 */
 .sheet .r-sec-title {
   font-family: var(--font-display);
   font-size: 14.5px;
@@ -52,7 +95,7 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  margin-bottom: 8px;
+  margin: 15px 0 8px;
 }
 .sheet .r-sec-title::after {
   content: '';
@@ -101,13 +144,15 @@
 .sheet .r-item li {
   margin-bottom: 2.5px;
 }
-.sheet .r-skills {
+/* 每组技能独立成块：整块 grid 无法被分页切开，技能组多时会整体跳页 */
+.sheet .r-skill-row {
   display: grid;
   grid-template-columns: 64px 1fr;
-  gap: 3px 10px;
+  gap: 0 10px;
   font-size: 11.8px;
+  margin-bottom: 3px;
 }
-.sheet .r-skills b {
+.sheet .r-skill-row b {
   color: #1c1917;
 }
 .sheet .r-edu {

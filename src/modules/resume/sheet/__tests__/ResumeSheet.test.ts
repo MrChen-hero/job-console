@@ -105,4 +105,24 @@ describe('ResumeSheet', () => {
     await wrapper.vm.$nextTick()
     expect(wrapper.find('[data-testid="resume-sheet"]').text()).not.toContain('SKILLS')
   })
+
+  it('jsdom 无布局（高度全 0）时退化为单页且不报错', async () => {
+    const { wrapper } = await setupWithExample()
+    expect(wrapper.findAll('.sheet-page')).toHaveLength(1)
+    expect(wrapper.find('.sheet-page-label').text()).toBe('第 1 / 1 页')
+  })
+
+  it('测量层渲染全部块但不在 data-testid 容器内，避免文本被读重', async () => {
+    const { wrapper } = await setupWithExample()
+    const measure = wrapper.find('.sheet-measure-inner')
+    expect(measure.exists()).toBe(true)
+    expect(measure.findAll('[data-block-id]').length).toBeGreaterThan(0)
+    expect(wrapper.find('.sheet-measure-wrap').attributes('aria-hidden')).toBe('true')
+    expect(wrapper.find('[data-testid="resume-sheet"]').find('.sheet-measure-inner').exists()).toBe(false)
+    // 纸面上每个块只出现一次；测量层的同名块不能被算进来
+    const stack = wrapper.find('[data-testid="resume-sheet"]')
+    expect(stack.findAll('.r-head')).toHaveLength(1)
+    expect(stack.findAll('.r-sec-title')).toHaveLength(6)
+    expect(wrapper.findAll('.r-head')).toHaveLength(2) // 纸面 1 份 + 测量层 1 份
+  })
 })

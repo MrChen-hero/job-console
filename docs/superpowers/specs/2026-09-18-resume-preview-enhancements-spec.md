@@ -176,7 +176,7 @@ avatarCrop?: { x: number; y: number; w: number; h: number }  // 归一化裁剪�
 ## 6. Execution Checkpoints
 
 - [x] Checkpoint 1：`ResumeSection.subtitle` + `DEFAULT_SUBTITLE` 落地，「区块编排」内联编辑中英标题并即时落库，手风琴组头与 A4 纸面同步生效，空标题拦截与保存失败回滚可用
-- [ ] Checkpoint 2：`blocks.ts` / `paginate.ts` / `SheetBlock.vue` 完成，`ResumeSheet` 改为测量 + 分页 + 多页堆叠渲染，jsdom（高度全 0）下退化为单页且不报错
+- [x] Checkpoint 2：`blocks.ts` / `paginate.ts` / `SheetBlock.vue` 完成，`ResumeSheet` 改为测量 + 分页 + 多页堆叠渲染，jsdom（高度全 0）下退化为单页且不报错
 - [ ] Checkpoint 3：`ResumeView` 缩放与打印 CSS 适配完成，`@page margin:0` + 纸面自带 18mm/17mm，打印页数与预览页数一致
 - [ ] Checkpoint 4：`avatarCrop.ts` + `AvatarDialog.vue` 完成（拖拽 / 滚轮 / 滑杆 / 键盘四路缩放平移，已有头像可直接重裁并还原现场），`ProfileEditor` 的 `saveBasic`/`save`/`discard` 显式携带 `avatar` 与 `avatarCrop`，纸面右上角按 25×35mm 百分比定位渲染
 - [ ] Checkpoint 5：`types.ts` / `backupValidation.ts` / `safeUrl.ts` 三处兼容改动完成，旧 v4 备份仍可导入，非法头像值或越界裁剪框不阻断导入

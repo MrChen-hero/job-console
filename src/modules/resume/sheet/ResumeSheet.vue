@@ -1,37 +1,71 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useResumeStore } from '../store'
-import { subtitleOf } from '../profileSchema'
-import type { ResumeSectionType } from '../../../storage/types'
+import { buildBlocks } from './blocks'
+import { paginate } from './paginate'
+import SheetBlock from './SheetBlock.vue'
 import './sheet.css'
 
 const store = useResumeStore()
 
-const sortedSections = computed(() => {
-  if (!store.activeVersion) return []
-  return [...store.activeVersion.sections].sort((a, b) => a.order - b.order)
-})
+const blocks = computed(() => buildBlocks(store.profile, store.activeVersion))
 
-function excluded(sectionType: ResumeSectionType): Set<string> {
-  return new Set(store.activeVersion?.sections.find((s) => s.type === sectionType)?.excludedIds ?? [])
+/* 测量 → 分页 → 渲染。测量容器渲染全部块（隐藏、不可见但参与布局），
+   每页只渲染分到自己名下的块，两者共用 SheetBlock，量的就是画的。 */
+const measureEl = ref<HTMLElement | null>(null)
+const probeEl = ref<HTMLElement | null>(null)
+const heights = ref<Record<string, number>>({})
+const pageHeight = ref(0)
+let observer: ResizeObserver | null = null
+
+const pages = computed(() => paginate(blocks.value, heights.value, pageHeight.value))
+
+/**
+ * 高度按「相邻块 offsetTop 差值」取，最后一块用容器高度收尾——这样块间外边距
+ * （含折叠后的实际值）自然算进上一块，比逐块 offsetHeight + margin 准确。
+ * 用 offsetTop/offsetHeight 而非 getBoundingClientRect：预览区带 scale 变换，
+ * rect 会被缩放，offset 系列是布局值不受影响。
+ */
+function measure(): void {
+  const el = measureEl.value
+  if (!el) return
+  pageHeight.value = probeEl.value?.offsetHeight ?? 0
+  const nodes = Array.from(el.querySelectorAll<HTMLElement>('[data-block-id]'))
+  const total = el.offsetHeight
+  const next: Record<string, number> = {}
+  nodes.forEach((node, i) => {
+    const id = node.dataset.blockId
+    if (!id) return
+    const bottom = i + 1 < nodes.length ? nodes[i + 1]!.offsetTop : total
+    next[id] = Math.max(0, bottom - node.offsetTop)
+  })
+  heights.value = next
 }
 
-function listFor<T extends { id: string }>(sectionType: ResumeSectionType, list: T[] | undefined): T[] {
-  if (!list) return []
-  const hidden = excluded(sectionType)
-  return list.filter((item) => !hidden.has(item.id))
-}
-
-const contactLine = computed(() => {
-  const b = store.profile?.basic
-  if (!b) return ''
-  return [b.phone, b.email, b.graduation].filter(Boolean).join(' · ')
+onMounted(() => {
+  measure()
+  // jsdom 没有 ResizeObserver / document.fonts，缺了就只做一次同步测量
+  if (typeof ResizeObserver !== 'undefined') {
+    observer = new ResizeObserver(() => measure())
+    if (measureEl.value) observer.observe(measureEl.value)
+  }
+  void document.fonts?.ready.then(measure)
 })
 
-const metaLine = computed(() => {
-  const b = store.profile?.basic
-  if (!b) return ''
-  return [b.gender, b.degree, b.school].filter(Boolean).join(' · ')
+watch(blocks, async () => {
+  await nextTick()
+  measure()
+})
+
+watch(measureEl, (el) => {
+  if (!observer) return
+  observer.disconnect()
+  if (el) observer.observe(el)
+})
+
+onBeforeUnmount(() => {
+  observer?.disconnect()
+  observer = null
 })
 </script>
 
@@ -42,184 +76,52 @@ const metaLine = computed(() => {
   >
     <p>完善资料池并创建简历版本后，这里会实时渲染 A4 预览。</p>
   </div>
-  <div
-    v-else
-    class="sheet"
-    data-testid="resume-sheet"
-  >
-    <!-- 基本信息 -->
+  <template v-else>
     <div
-      v-if="!excluded('basic').has('main')"
-      class="r-head"
+      class="sheet-stack"
+      data-testid="resume-sheet"
     >
-      <div>
-        <div class="r-name">
-          {{ store.profile.basic.name }}
+      <template
+        v-for="(page, index) in pages"
+        :key="index"
+      >
+        <div class="sheet sheet-page">
+          <SheetBlock
+            v-for="block in page"
+            :key="block.id"
+            :block="block"
+          />
         </div>
-        <div class="r-meta">
-          {{ metaLine }}
-        </div>
-      </div>
-      <div class="r-contact">
-        <div>{{ store.activeVersion.targetRole }}</div>
-        <div>{{ contactLine }}</div>
-      </div>
+        <p class="sheet-page-label no-print mono">
+          第 {{ index + 1 }} / {{ pages.length }} 页
+        </p>
+      </template>
     </div>
 
-    <template
-      v-for="section in sortedSections"
-      :key="section.type"
+    <!-- 测量层：与 .sheet-stack 平级而非其子节点，否则 data-testid 的 text() 会读到重复内容 -->
+    <div
+      class="sheet-measure-wrap"
+      aria-hidden="true"
     >
-      <!-- 教育 -->
-      <div
-        v-if="section.type === 'education'"
-        class="r-section"
-      >
-        <div class="r-sec-title">
-          {{ section.title }}<em v-if="subtitleOf(section)">{{ subtitleOf(section) }}</em>
-        </div>
+      <div class="sheet sheet-measure">
         <div
-          v-for="e in listFor('education', store.profile.education)"
-          :key="e.id"
-          class="r-item"
+          ref="measureEl"
+          class="sheet-measure-inner"
         >
-          <div class="r-edu">
-            <b>{{ e.school }} · {{ e.degree }}</b><span class="r-time">{{ e.time }}</span>
-          </div>
-          <div
-            v-if="e.courses"
-            class="r-courses"
-          >
-            {{ e.courses }}
-          </div>
+          <SheetBlock
+            v-for="block in blocks"
+            :key="block.id"
+            :data-block-id="block.id"
+            :block="block"
+          />
         </div>
       </div>
-
-      <!-- 技能 -->
       <div
-        v-else-if="section.type === 'skills'"
-        class="r-section"
-      >
-        <div class="r-sec-title">
-          {{ section.title }}<em v-if="subtitleOf(section)">{{ subtitleOf(section) }}</em>
-        </div>
-        <div class="r-skills">
-          <template
-            v-for="s in listFor('skills', store.profile.skills)"
-            :key="s.id"
-          >
-            <b>{{ s.group }}</b><span>{{ s.detail }}</span>
-          </template>
-        </div>
-      </div>
-
-      <!-- 实习 -->
-      <div
-        v-else-if="section.type === 'experiences'"
-        class="r-section"
-      >
-        <div class="r-sec-title">
-          {{ section.title }}<em v-if="subtitleOf(section)">{{ subtitleOf(section) }}</em>
-        </div>
-        <div
-          v-for="x in listFor('experiences', store.profile.experiences)"
-          :key="x.id"
-          class="r-item"
-        >
-          <div class="r-item-hd">
-            <b>{{ x.org }}</b>
-            <span class="r-role">{{ x.role }}</span>
-            <span class="r-time">{{ x.time }}</span>
-          </div>
-          <div
-            v-if="x.stack"
-            class="r-stack"
-          >
-            技术栈：{{ x.stack }}
-          </div>
-          <ul>
-            <li
-              v-for="(b, i) in x.bullets"
-              :key="i"
-            >
-              {{ b }}
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- 项目 -->
-      <div
-        v-else-if="section.type === 'projects'"
-        class="r-section"
-      >
-        <div class="r-sec-title">
-          {{ section.title }}<em v-if="subtitleOf(section)">{{ subtitleOf(section) }}</em>
-        </div>
-        <div
-          v-for="p in listFor('projects', store.profile.projects)"
-          :key="p.id"
-          class="r-item"
-        >
-          <div class="r-item-hd">
-            <b>{{ p.name }}</b>
-            <span class="r-role">{{ p.role }}</span>
-            <span class="r-time">{{ p.time }}</span>
-          </div>
-          <div
-            v-if="p.stack"
-            class="r-stack"
-          >
-            技术栈：{{ p.stack }}
-          </div>
-          <ul>
-            <li
-              v-for="(b, i) in p.bullets"
-              :key="i"
-            >
-              {{ b }}
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- 荣誉 -->
-      <div
-        v-else-if="section.type === 'awards'"
-        class="r-section"
-      >
-        <div class="r-sec-title">
-          {{ section.title }}<em v-if="subtitleOf(section)">{{ subtitleOf(section) }}</em>
-        </div>
-        <ul class="r-list">
-          <li
-            v-for="a in listFor('awards', store.profile.awards)"
-            :key="a.id"
-          >
-            {{ a.text }}
-          </li>
-        </ul>
-      </div>
-
-      <!-- 自评 -->
-      <div
-        v-else-if="section.type === 'selfEvaluation'"
-        class="r-section"
-      >
-        <div class="r-sec-title">
-          {{ section.title }}<em v-if="subtitleOf(section)">{{ subtitleOf(section) }}</em>
-        </div>
-        <ul class="r-list">
-          <li
-            v-for="(s, i) in store.profile.selfEvaluation"
-            :key="i"
-          >
-            {{ s }}
-          </li>
-        </ul>
-      </div>
-    </template>
-  </div>
+        ref="probeEl"
+        class="sheet-probe"
+      />
+    </div>
+  </template>
 </template>
 
 <style scoped>
