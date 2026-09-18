@@ -53,8 +53,27 @@
   height: 261mm; /* 297mm 纸高减去上下各 18mm 内边距，即单页可用内容高度 */
 }
 @media print {
-  .sheet-measure-wrap {
+  .sheet-measure-wrap,
+  .sheet-page-label {
     display: none !important;
+  }
+  /* flex 容器的分页行为各引擎差异大，打印时退回块级流 */
+  .sheet-stack {
+    display: block;
+  }
+  /* 纸面不再撑满 297mm：只要内容不超过 261mm 可用高度，
+     height:auto + break-after 就既不会溢出到下一张、也不会多出空白页。 */
+  .sheet {
+    width: 210mm;
+    height: auto;
+    min-height: 0;
+    padding: 18mm 17mm;
+    box-shadow: none;
+    border-radius: 0;
+    break-after: page;
+  }
+  .sheet:last-of-type {
+    break-after: auto;
   }
 }
 .sheet .r-name {

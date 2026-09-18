@@ -81,12 +81,14 @@ const A4_WIDTH_PX = 794 // 210mm 在 96dpi 下的像素值
 function measurePreview(): void {
   const el = previewEl.value
   if (!el) return
-  const paper = el.querySelector<HTMLElement>('.sheet')
-  if (!paper || !el.clientWidth) return
+  // 宽度取第一张纸（恒为 210mm），高度取整个页堆叠——纸张数量会随内容增减
+  const paper = el.querySelector<HTMLElement>('.sheet-page')
+  const stack = el.querySelector<HTMLElement>('.sheet-stack')
+  if (!paper || !stack || !el.clientWidth) return
   const style = getComputedStyle(el)
   const available = el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
   sheetWidth.value = paper.offsetWidth || A4_WIDTH_PX
-  sheetHeight.value = paper.offsetHeight
+  sheetHeight.value = stack.offsetHeight
   sheetScale.value = Math.min(1, Math.max(0, available) / sheetWidth.value)
 }
 
@@ -101,8 +103,8 @@ watch(previewEl, (el) => {
     measureFrame = requestAnimationFrame(measurePreview)
   })
   previewObserver.observe(el)
-  const paper = el.querySelector('.sheet')
-  if (paper) previewObserver.observe(paper)
+  const stack = el.querySelector('.sheet-stack')
+  if (stack) previewObserver.observe(stack)
 })
 watch(viewMode, async () => { await nextTick(); measurePreview() })
 
@@ -365,7 +367,8 @@ async function startBlank() {
   }
 }
 
-/* 打印：仅输出 A4 纸面 */
+/* 打印：仅输出 A4 纸面。纸张自身的尺寸与页边距由 sheet.css 的 @media print 负责，
+   这里只负责把外壳、缩放与占位让开。 */
 @media print {
   :global(.sidebar),
   :global(.topbar),
@@ -394,6 +397,7 @@ async function startBlank() {
     overflow: visible !important;
   }
   .resume-main { display: block !important; }
+  /* 宽高是 JS 写的内联样式，必须 !important 才盖得住 */
   .sheet-scaler {
     width: auto !important;
     height: auto !important;
@@ -403,21 +407,15 @@ async function startBlank() {
     transform: none !important;
     width: auto !important;
   }
-  .sheet {
-    width: auto !important;
-    min-height: auto !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-    padding: 0 !important;
-  }
 }
 </style>
 
 <style>
 @media print {
+  /* 页边距归零：纸面自带 18mm/17mm padding，再叠浏览器页边距就会超页 */
   @page {
     size: A4;
-    margin: 12mm;
+    margin: 0;
   }
   body {
     background: #fff !important;

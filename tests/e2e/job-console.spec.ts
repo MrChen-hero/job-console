@@ -168,7 +168,7 @@ test.describe('求职工作台主流程', () => {
     await page.goto('/#/resume')
     await page.getByRole('button', { name: '一键填入示例资料' }).click()
     await expect(page.locator('[data-testid="resume-sheet"]')).toContainText('王小明')
-    await expect(page.locator('.sheet')).toContainText('专业技能')
+    await expect(page.locator('.sheet-page').first()).toContainText('专业技能')
     await expect(page.getByRole('button', { name: '打印 / 导出 PDF' })).toBeVisible()
   })
 
