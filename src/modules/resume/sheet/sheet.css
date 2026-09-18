@@ -100,6 +100,24 @@
   text-align: right;
   line-height: 1.7;
 }
+/* 一寸证件照 25×35mm，贴基本信息区右上角。
+   图片用百分比定位（见 avatarCrop.cropStyle），分辨率无关，预览与打印构图一致；
+   用 <img> 而非 background-image，浏览器关掉「打印背景图形」时头像仍会打印。 */
+.sheet .r-photo {
+  position: relative;
+  flex-shrink: 0;
+  align-self: flex-start;
+  width: 25mm;
+  height: 35mm;
+  margin-left: 14px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #f5f5f4;
+}
+.sheet .r-photo img {
+  position: absolute;
+  display: block;
+}
 .sheet .r-target {
   font-size: 11px;
   color: #78716c;

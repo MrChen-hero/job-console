@@ -1,4 +1,11 @@
 /* 资料池 */
+/** 头像裁剪框：原图的归一化比例（0–1），恒满足 w·imgW : h·imgH = 5 : 7（一寸证件照） */
+export interface AvatarCrop {
+  x: number
+  y: number
+  w: number
+  h: number
+}
 export interface BasicInfo {
   name: string
   gender?: string
@@ -8,6 +15,9 @@ export interface BasicInfo {
   phone?: string
   email?: string
   summary?: string
+  /** 缩放后的原图 data URL；裁剪参数分开存，因此随时可重裁 */
+  avatar?: string
+  avatarCrop?: AvatarCrop
 }
 export interface EducationEntry {
   id: string

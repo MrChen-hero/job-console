@@ -11,6 +11,9 @@ import {
   type SectionKey,
 } from '../profileSchema'
 import AppIcon from '../../../shared/ui/AppIcon.vue'
+import AvatarDialog from './AvatarDialog.vue'
+import { cropStyle } from './avatarCrop'
+import type { AvatarCrop } from '../../../storage/types'
 import EntryCard from './EntryCard.vue'
 import EntryDialog from './EntryDialog.vue'
 
@@ -38,9 +41,18 @@ const basicError = ref('')
 const selfEvalText = ref('')
 const basicOriginal = ref('')
 const selfOriginal = ref('')
+/* 头像不是文本字段，单独承载；avatarCrop 是对象，塞进 basicForm 会把它的 string 类型污染掉 */
+const avatar = ref('')
+const avatarCrop = ref<AvatarCrop | null>(null)
+const avatarOriginal = ref('')
+const avatarOpen = ref(false)
+const avatarStyle = computed(() => cropStyle(avatarCrop.value))
+function avatarKey(): string {
+  return JSON.stringify([avatar.value, avatarCrop.value])
+}
 const saving = ref(false)
 const saveError = ref('')
-const dirty = computed(() => JSON.stringify(basicForm) !== basicOriginal.value || selfEvalText.value !== selfOriginal.value || Boolean(entryEditor.value?.dirty))
+const dirty = computed(() => JSON.stringify(basicForm) !== basicOriginal.value || avatarKey() !== avatarOriginal.value || selfEvalText.value !== selfOriginal.value || Boolean(entryEditor.value?.dirty))
 const busy = computed(() => saving.value || Boolean(entryEditor.value?.saving))
 watch([dirty, busy, saveError], () => emit('save-state', busy.value ? '正在保存…' : saveError.value ? '保存失败，修改已保留' : dirty.value ? '有未保存修改' : '已保存到本机'), { immediate: true })
 
@@ -199,6 +211,9 @@ const entries = computed<Array<Record<string, unknown>>>(() => {
 
 function discard() {
   dialogVisible.value = false
+  avatarOpen.value = false
+  avatar.value = store.profile?.basic.avatar ?? ''
+  avatarCrop.value = store.profile?.basic.avatarCrop ?? null
   if (store.profile) {
     for (const f of BASIC_FIELDS) {
       const raw = store.profile.basic[f.key as keyof typeof store.profile.basic]
@@ -208,10 +223,33 @@ function discard() {
   }
   basicOriginal.value = JSON.stringify(basicForm)
   selfOriginal.value = selfEvalText.value
+  avatarOriginal.value = avatarKey()
   saveError.value = ''
   basicError.value = ''
 }
 watch(() => store.profile?.id, discard, { immediate: true })
+
+/**
+ * avatar / avatarCrop 不在 BASIC_FIELDS（它们不是文本输入框），每条保存路径都必须
+ * 显式带上，否则保存一次就把头像抹掉了。清空头像时不写这两个键，basic 整体替换即删除。
+ */
+function withAvatar(record: Record<string, unknown>): Record<string, unknown> {
+  if (avatar.value) {
+    record.avatar = avatar.value
+    if (avatarCrop.value) record.avatarCrop = { ...avatarCrop.value }
+  }
+  return record
+}
+
+function onAvatarConfirm(value: { avatar: string; avatarCrop: AvatarCrop }) {
+  avatar.value = value.avatar
+  avatarCrop.value = value.avatarCrop
+}
+
+function clearAvatar() {
+  avatar.value = ''
+  avatarCrop.value = null
+}
 
 function openCreate() {
   const def = currentSection.value
@@ -279,9 +317,11 @@ async function saveBasic() {
   saving.value = true
   saveError.value = ''
   const original = JSON.stringify(basicForm)
+  const originalAvatar = avatarKey()
   try {
-    await store.updateBasic(record as never)
+    await store.updateBasic(withAvatar(record) as never)
     basicOriginal.value = original
+    avatarOriginal.value = originalAvatar
   } catch { saveError.value = '保存失败，请重试'; basicError.value = saveError.value }
   finally { saving.value = false }
 }
@@ -312,14 +352,16 @@ async function save(): Promise<boolean> {
   }
   const originalBasic = JSON.stringify(basicForm)
   const originalSelf = selfEvalText.value
+  const originalAvatar = avatarKey()
   saving.value = true
   saveError.value = ''
   basicError.value = ''
   try {
     if (entryEditor.value?.dirty && !await entryEditor.value.save()) return false
-    await store.saveText(basic as { name: string }, originalSelf.split('\n').map((s) => s.trim()).filter(Boolean))
+    await store.saveText(withAvatar(basic) as { name: string }, originalSelf.split('\n').map((s) => s.trim()).filter(Boolean))
     basicOriginal.value = originalBasic
     selfOriginal.value = originalSelf
+    avatarOriginal.value = originalAvatar
     return true
   } catch {
     saveError.value = '保存失败，请重试'
@@ -489,6 +531,43 @@ defineExpose({ dirty, saving: busy, save, discard })
             v-if="tab.key === 'basic'"
             class="basic-form"
           >
+            <div class="avatar-field">
+              <div
+                class="avatar-box"
+                :class="{ empty: !avatar }"
+              >
+                <img
+                  v-if="avatar"
+                  :src="avatar"
+                  :style="avatarStyle"
+                  alt="简历头像"
+                >
+                <span v-else>未设置</span>
+              </div>
+              <div class="avatar-ops">
+                <label>头像</label>
+                <p class="avatar-note">
+                  一寸证件照比例（25×35mm），原图与裁剪参数分开保存，可随时重新裁剪。
+                </p>
+                <div class="avatar-btns">
+                  <ElButton
+                    size="small"
+                    class="avatar-edit"
+                    @click="avatarOpen = true"
+                  >
+                    {{ avatar ? '重新裁剪' : '上传头像' }}
+                  </ElButton>
+                  <ElButton
+                    v-if="avatar"
+                    size="small"
+                    class="avatar-clear"
+                    @click="clearAvatar"
+                  >
+                    清除
+                  </ElButton>
+                </div>
+              </div>
+            </div>
             <div
               v-for="f in BASIC_FIELDS"
               :key="f.key"
@@ -609,6 +688,12 @@ defineExpose({ dirty, saving: busy, save, discard })
       :fields="dialogFields"
       :initial="dialogInitial"
       :persist="onDialogSave"
+    />
+    <AvatarDialog
+      v-model="avatarOpen"
+      :initial-src="avatar"
+      :initial-crop="avatarCrop"
+      @confirm="onAvatarConfirm"
     />
   </div>
 </template>
@@ -824,7 +909,56 @@ defineExpose({ dirty, saving: busy, save, discard })
   gap: 0 14px;
   padding: 10px 14px 6px;
 }
-.basic-form .entry-field:first-child {
+/* 头像块固定排在姓名字段之前，姓名靠相邻兄弟选择器继续占满整行 */
+.avatar-field {
+  grid-column: span 2;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.avatar-box {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 70px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-muted);
+  color: var(--muted);
+  font-size: 11px;
+}
+.avatar-box img {
+  position: absolute;
+  display: block;
+}
+.avatar-ops {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.avatar-ops label {
+  font-size: 12px;
+  font-weight: var(--fw-semibold);
+  color: var(--text2);
+}
+.avatar-note {
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+.avatar-btns {
+  display: flex;
+  gap: 8px;
+}
+.avatar-btns .el-button + .el-button {
+  margin-left: 0;
+}
+.basic-form .avatar-field + .entry-field {
   grid-column: span 2;
 }
 .basic-form .basic-save {
@@ -835,7 +969,8 @@ defineExpose({ dirty, saving: busy, save, discard })
   .basic-form {
     grid-template-columns: 1fr;
   }
-  .basic-form .entry-field:first-child,
+  .basic-form .avatar-field,
+  .basic-form .avatar-field + .entry-field,
   .basic-form .basic-save {
     grid-column: span 1;
   }

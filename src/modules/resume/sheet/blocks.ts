@@ -1,4 +1,5 @@
 import type {
+  AvatarCrop,
   EducationEntry,
   ExperienceEntry,
   Profile,
@@ -7,6 +8,7 @@ import type {
   ResumeVersion,
   SkillGroup,
 } from '../../../storage/types'
+import { isImageDataUrl } from '../../../shared/safeUrl'
 import { subtitleOf } from '../profileSchema'
 
 /**
@@ -14,7 +16,7 @@ import { subtitleOf } from '../profileSchema'
  * 分页只在块之间发生，不会把一块从中间切开。
  */
 export type SheetBlock =
-  | { id: string; kind: 'head'; name: string; meta: string; targetRole: string; contact: string }
+  | { id: string; kind: 'head'; name: string; meta: string; targetRole: string; contact: string; avatar: string; avatarCrop: AvatarCrop | null }
   | { id: string; kind: 'title'; title: string; subtitle: string }
   | { id: string; kind: 'edu'; entry: EducationEntry }
   | { id: string; kind: 'skill'; entry: SkillGroup }
@@ -58,6 +60,9 @@ export function buildBlocks(
       meta: join([basic.gender, basic.degree, basic.school]),
       targetRole: version.targetRole,
       contact: join([basic.phone, basic.email, basic.graduation]),
+      // 导入的备份不可信：头像非法就当作没有，不影响其余内容渲染
+      avatar: isImageDataUrl(basic.avatar) ? basic.avatar : '',
+      avatarCrop: basic.avatarCrop ?? null,
     })
   }
 

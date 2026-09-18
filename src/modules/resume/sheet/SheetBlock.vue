@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { cropStyle } from '../components/avatarCrop'
 import type { SheetBlock } from './blocks'
 
 /** 单块渲染。测量容器与每一页共用本组件，保证「量的就是画的」。 */
@@ -21,6 +22,16 @@ defineProps<{ block: SheetBlock }>()
     <div class="r-contact">
       <div>{{ block.targetRole }}</div>
       <div>{{ block.contact }}</div>
+    </div>
+    <div
+      v-if="block.avatar"
+      class="r-photo"
+    >
+      <img
+        :src="block.avatar"
+        :style="cropStyle(block.avatarCrop)"
+        alt="证件照"
+      >
     </div>
   </div>
 

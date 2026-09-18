@@ -4,6 +4,7 @@ import { ElMessageBox } from 'element-plus'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../../../storage/db'
 import { useResumeStore } from '../../store'
+import AvatarDialog from '../AvatarDialog.vue'
 import ProfileEditor from '../ProfileEditor.vue'
 
 async function setup() {
@@ -66,8 +67,58 @@ describe('ProfileEditor', () => {
     expect(store.profile?.basic.name).toBe('王小明')
   })
 
-  it('教育条目：添加 → 列表出现', async () => {
+  /* ---------- 头像 ---------- */
+
+  const AVATAR = 'data:image/jpeg;base64,AAAA'
+  const CROP = { x: 0.1, y: 0.2, w: 0.5, h: 0.5 }
+
+  it('裁剪确认后随基本信息一起落库', async () => {
     const { store, wrapper } = await setup()
+    wrapper.findComponent(AvatarDialog).vm.$emit('confirm', { avatar: AVATAR, avatarCrop: CROP })
+    await flushPromises()
+    await wrapper.find('.basic-save').trigger('click')
+    await vi.waitFor(() => expect(store.profile?.basic.avatar).toBe(AVATAR))
+    expect(store.profile?.basic.avatarCrop).toEqual(CROP)
+  })
+
+  it('已有头像时改文本字段再保存，头像不被 BASIC_FIELDS 组装抹掉', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const store = useResumeStore()
+    await store.load()
+    await store.ensureProfile('王小明')
+    await store.updateBasic({ name: '王小明', avatar: AVATAR, avatarCrop: CROP })
+    const wrapper = mount(ProfileEditor, { global: { plugins: [pinia] } })
+    await flushPromises()
+    await fillInput(wrapper, 'input[data-field="email"]', 'c@example.com')
+    await wrapper.find('.basic-save').trigger('click')
+    await vi.waitFor(() => expect(store.profile?.basic.email).toBe('c@example.com'))
+    expect(store.profile?.basic.avatar).toBe(AVATAR)
+    expect(store.profile?.basic.avatarCrop).toEqual(CROP)
+  })
+
+  it('清除头像后保存，库里不再留下 avatar 字段', async () => {
+    const { store, wrapper } = await setup()
+    wrapper.findComponent(AvatarDialog).vm.$emit('confirm', { avatar: AVATAR, avatarCrop: CROP })
+    await flushPromises()
+    await wrapper.find('.basic-save').trigger('click')
+    await vi.waitFor(() => expect(store.profile?.basic.avatar).toBe(AVATAR))
+    await wrapper.find('.avatar-clear').trigger('click')
+    await wrapper.find('.basic-save').trigger('click')
+    await vi.waitFor(() => expect(store.profile?.basic.avatar).toBeUndefined())
+    expect(store.profile?.basic.avatarCrop).toBeUndefined()
+  })
+
+  it('头像改动计入未保存状态', async () => {
+    const { wrapper } = await setup()
+    const vm = wrapper.vm as unknown as { dirty: boolean }
+    expect(vm.dirty).toBe(false)
+    wrapper.findComponent(AvatarDialog).vm.$emit('confirm', { avatar: AVATAR, avatarCrop: CROP })
+    await flushPromises()
+    expect(vm.dirty).toBe(true)
+  })
+
+  it('教育条目：添加 → 列表出现', async () => {    const { store, wrapper } = await setup()
     await wrapper.findAll('.tab-btn').find((b) => b.text() === '教育背景')!.trigger('click')
     await wrapper.find('.add-entry').trigger('click')
     await fillInput(wrapper, '.entry-dialog input[data-field="school"]', '云南大学')

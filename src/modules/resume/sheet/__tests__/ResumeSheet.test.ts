@@ -125,4 +125,29 @@ describe('ResumeSheet', () => {
     expect(stack.findAll('.r-sec-title')).toHaveLength(6)
     expect(wrapper.findAll('.r-head')).toHaveLength(2) // 纸面 1 份 + 测量层 1 份
   })
+
+  it('有头像时按裁剪参数渲染证件照，无头像时不渲染', async () => {
+    const { store, wrapper } = await setupWithExample()
+    const stack = () => wrapper.find('[data-testid="resume-sheet"]')
+    expect(stack().find('.r-photo').exists()).toBe(false)
+    await store.updateBasic({
+      ...store.profile!.basic,
+      avatar: 'data:image/jpeg;base64,AAAA',
+      avatarCrop: { x: 0.1, y: 0, w: 0.5, h: 0.5 },
+    })
+    await wrapper.vm.$nextTick()
+    const img = stack().find('.r-photo img')
+    expect(img.exists()).toBe(true)
+    const style = img.attributes('style') ?? ''
+    expect(style).toContain('width: 200%') // 100 / 0.5
+    expect(style).toContain('left: -20%') // -0.1 / 0.5 * 100
+  })
+
+  it('非法头像值当作没有头像，不阻断其余内容渲染', async () => {
+    const { store, wrapper } = await setupWithExample()
+    await store.updateBasic({ ...store.profile!.basic, avatar: 'javascript:alert(1)' })
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.r-photo').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="resume-sheet"]').text()).toContain('王小明')
+  })
 })
