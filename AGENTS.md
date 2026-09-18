@@ -73,8 +73,8 @@
 - 材料库搜索与分类共同约束选中文档，分类管理为独立弹窗；DocEditor 与项目 ProjectEditor 通过异步 persist 回调确认保存成功，失败保留输入。项目保存期间禁止重复提交与关闭弹窗。离开保护弹窗必须 append-to-body，避免手机导航打开时被主内容 inert 屏蔽。
 - 简历 ≤1180px 切换编辑/预览，以 CSS 隐藏保留输入；缩放同时设置占位宽高，观察器下一帧更新，打印解除缩放与占位限制。
 - 简历通过 ProfileEditor 暴露 dirty/saving/save/discard，版本管理经 beforeChange 回调执行离开保护；保护弹窗 append-to-body，刷新用 beforeunload。打印已保存内容保留草稿，保存后打印先等待保存与视图更新。投递和简历条目表单使用异步 persist 回调，成功后才关闭，失败保留输入。
-- 简历资料池：区块标题（中/英）在「区块编排」态内联编辑，`@change` 即时落库，不进 dirty；编辑框与整行拖拽冲突，故 `draggable` 只挂在 grip 把手上。头像存**原图 + 归一化裁剪框**（`avatar` / `avatarCrop`）而非裁剪成品，重裁无需重新选图；二者不在 `BASIC_FIELDS`，`saveBasic`/`save`/`discard` 必须显式携带，否则保存一次就抹掉。
-- 简历纸面先建块（`sheet/blocks.ts`）→ 隐藏测量层量高 → 纯函数分页（`sheet/paginate.ts`）→ 多页堆叠渲染，测量层与每页共用 `SheetBlock`。高度按相邻块 `offsetTop` 差值取（避开预览 scale 对 rect 的影响）。**分页必须是单趟 for**：jsdom 无布局、窄屏编辑态下纸面 display:none，高度全 0 时退化为单页，写成 while 会死循环。打印 `@page margin:0`，页边距全由纸面 18mm/17mm padding 承担，多叠一层就会超页。
+- 简历资料池：区块标题（中/英）在「区块编排」态内联编辑，`@change` 即时落库，不进 dirty；编辑框与整行拖拽冲突，故 `draggable` 只挂在 grip 把手上。头像存**原图 + 归一化裁剪框**（`avatar` / `avatarCrop`）而非裁剪成品，重裁无需重新选图；上传弹窗支持点击/拖放单张 PNG/JPEG/WebP，统一 10MB 校验与压缩；关闭或卸载使在途读取失效，失败保留已载入照片。资料池干净时同步同版本后续写入，存在草稿时不覆盖。二者不在 `BASIC_FIELDS`，`saveBasic`/`save`/`discard` 必须显式携带，否则保存一次就抹掉。
+- 简历纸面先建块（`sheet/blocks.ts`）→ 隐藏测量层量高 → 纯函数分页（`sheet/paginate.ts`）→ 多页堆叠渲染，测量层与每页共用 `SheetBlock`。高度按相邻块 `offsetTop` 差值取。测量层 Teleport 到 body 的零尺寸裁切容器内，窄屏编辑态和打印态都保留布局，禁止打印时 display:none；无效零测量不得覆盖有效分页。**分页必须是单趟 for**：初始/jsdom 高度全 0 时退化为单页。标题与首条内容（含连续标题）整体放置，组合超高时独占一页并允许溢出，不另生标题页。打印 `@page margin:0`，页边距全由纸面上下 14mm / 左右 15mm padding 承担，探针共用同一 CSS 变量计算 269mm 可用高度。空区块不输出标题，正文保持 12px，通过间距优化优先单页，长内容仍分页。
 - 导入弹窗先展示本机/备份数量，默认合并，覆盖需勾选确认；备份使用 shallowRef 保留普通对象，禁止将响应式 Proxy 交给 IndexedDB。复用既有 importBackup 与覆盖前自动快照。
 - 样式走令牌（var(--xxx)），禁硬编码颜色；亮暗主题双适配。
 - 可交互元素用原生 button/a 或补全 role/tabindex/键盘（Enter/Space）；删除等破坏性操作必须 ElMessageBox 确认；错误提示 role="alert"。

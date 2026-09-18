@@ -1,16 +1,23 @@
-/* A4 简历纸面（Editorial 排版）——从 design-demo/index.html 的 .sheet 区移植。
-   非 scoped：打印场景需要全局可达。 */
+/* 预览与打印共用 A4 几何；纸面固定墨色，界面主题不改变打印输出。 */
+.sheet, .sheet-probe {
+  --paper-inset-y: 14mm;
+  --paper-inset-x: 15mm;
+  --paper-bg: #fff;
+  --paper-ink: #172033;
+  --paper-muted: #4c5a6e;
+  --paper-rule: #c3cfdd;
+}
 .sheet {
   width: 210mm;
   min-height: 297mm;
-  background: #fff;
-  color: #1c1917;
+  background: var(--paper-bg);
+  color: var(--paper-ink);
   border-radius: 4px;
   box-shadow: var(--shadow-lg);
-  padding: 18mm 17mm;
+  padding: var(--paper-inset-y) var(--paper-inset-x);
   font-family: var(--font);
-  font-size: 12.2px;
-  line-height: 1.62;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 /* 分页堆叠：一页一张 A4，页间留间隙并在页下标页码 */
@@ -28,13 +35,15 @@
   margin-bottom: 0;
 }
 
-/* 测量层：参与布局但不可见（visibility:hidden 而非 display:none——后者没有布局也就没有高度），
-   整体移出视口，绝对定位因此不影响页面堆叠。 */
+/* 测量层 Teleport 到 body，避开窄屏编辑态的 display:none。
+   零尺寸固定容器裁掉输出，内部仍参与布局；打印时同样保留测量，不能设 display:none。 */
 .sheet-measure-wrap {
-  position: absolute;
+  position: fixed;
   top: 0;
-  left: -10000px;
-  width: 210mm;
+  left: 0;
+  width: 0;
+  height: 0;
+  overflow: hidden;
   visibility: hidden;
   pointer-events: none;
 }
@@ -50,10 +59,9 @@
 }
 .sheet-probe {
   width: 1px;
-  height: 261mm; /* 297mm 纸高减去上下各 18mm 内边距，即单页可用内容高度 */
+  height: calc(297mm - var(--paper-inset-y) * 2);
 }
 @media print {
-  .sheet-measure-wrap,
   .sheet-page-label {
     display: none !important;
   }
@@ -61,18 +69,21 @@
   .sheet-stack {
     display: block;
   }
-  /* 纸面不再撑满 297mm：只要内容不超过 261mm 可用高度，
+  /* 纸面不再撑满 297mm：只要内容不超过纸面可用高度，
      height:auto + break-after 就既不会溢出到下一张、也不会多出空白页。 */
   .sheet {
     width: 210mm;
     height: auto;
     min-height: 0;
-    padding: 18mm 17mm;
+    padding: var(--paper-inset-y) var(--paper-inset-x);
     box-shadow: none;
     border-radius: 0;
     break-after: page;
   }
   .sheet:last-of-type {
+    break-after: auto;
+  }
+  .sheet-measure {
     break-after: auto;
   }
 }
@@ -85,20 +96,20 @@
 .sheet .r-head {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  border-bottom: 2.5px solid #1c1917;
-  padding-bottom: 10px;
+  align-items: center;
+  border-bottom: 1.5px solid var(--paper-ink);
+  padding-bottom: 8px;
 }
 .sheet .r-meta {
   font-size: 12px;
-  color: #57534e;
+  color: var(--paper-muted);
   margin-top: 3px;
 }
 .sheet .r-contact {
   font-size: 11px;
-  color: #57534e;
-  text-align: right;
-  line-height: 1.7;
+  color: var(--paper-muted);
+  text-align: left;
+  line-height: 1.5;
 }
 /* 一寸证件照 25×35mm，贴基本信息区右上角。
    图片用百分比定位（见 avatarCrop.cropStyle），分辨率无关，预览与打印构图一致；
@@ -112,7 +123,7 @@
   margin-left: 14px;
   overflow: hidden;
   border-radius: 2px;
-  background: #f5f5f4;
+  background: var(--paper-bg);
 }
 .sheet .r-photo img {
   position: absolute;
@@ -120,8 +131,8 @@
 }
 .sheet .r-target {
   font-size: 11px;
-  color: #78716c;
-  margin-top: 8px;
+  color: var(--paper-muted);
+  margin-top: 5px;
 }
 /* 区块标题自带上间距：分页后不再有 .r-section 容器承载它 */
 .sheet .r-sec-title {
@@ -132,23 +143,23 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  margin: 15px 0 8px;
+  margin: 8px 0 4px;
 }
 .sheet .r-sec-title::after {
   content: '';
   flex: 1;
   height: 1px;
-  background: #d6d3d1;
+  background: var(--paper-rule);
 }
 .sheet .r-sec-title em {
   font-style: normal;
   font-size: 10px;
-  color: #78716c;
+  color: var(--paper-muted);
   letter-spacing: 1px;
   font-weight: 600;
 }
 .sheet .r-item {
-  margin-bottom: 9px;
+  margin-bottom: 4px;
 }
 .sheet .r-item-hd {
   display: flex;
@@ -161,25 +172,25 @@
 }
 .sheet .r-role {
   font-weight: 600;
-  color: #4f46e5;
+  color: var(--paper-ink);
   font-size: 12px;
 }
 .sheet .r-time {
   font-size: 11px;
-  color: #78716c;
+  color: var(--paper-muted);
   font-variant-numeric: tabular-nums;
   margin-left: auto;
 }
 .sheet .r-stack {
   font-size: 10.8px;
-  color: #0d9488;
-  margin: 1px 0 3px;
+  color: var(--paper-muted);
+  margin: 1px 0 2px;
 }
 .sheet .r-item ul {
   margin-left: 16px;
 }
 .sheet .r-item li {
-  margin-bottom: 2.5px;
+  margin-bottom: 0;
 }
 /* 每组技能独立成块：整块 grid 无法被分页切开，技能组多时会整体跳页 */
 .sheet .r-skill-row {
@@ -190,7 +201,7 @@
   margin-bottom: 3px;
 }
 .sheet .r-skill-row b {
-  color: #1c1917;
+  color: var(--paper-ink);
 }
 .sheet .r-edu {
   display: flex;
@@ -203,15 +214,22 @@
 }
 .sheet .r-courses {
   font-size: 11px;
-  color: #57534e;
+  color: var(--paper-muted);
 }
 .sheet .r-list {
   margin-left: 16px;
 }
 .sheet .r-list li {
-  margin-bottom: 2.5px;
+  margin-bottom: 0;
 }
 .sheet .r-empty {
-  color: #a8a29e;
+  color: var(--paper-muted);
   font-size: 11px;
 }
+
+.sheet .r-identity { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.sheet .r-contact { margin-top: 4px; }
+.sheet .r-time { flex-shrink: 0; }
+.sheet .r-item-hd { flex-wrap: wrap; column-gap: 10px; row-gap: 1px; }
+.sheet .r-item-hd b { flex: 1; min-width: 0; }
+.sheet .r-item, .sheet .r-skill-row, .sheet .r-list { overflow-wrap: anywhere; }

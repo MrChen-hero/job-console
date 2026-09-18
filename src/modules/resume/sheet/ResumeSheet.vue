@@ -29,7 +29,10 @@ const pages = computed(() => paginate(blocks.value, heights.value, pageHeight.va
 function measure(): void {
   const el = measureEl.value
   if (!el) return
-  pageHeight.value = probeEl.value?.offsetHeight ?? 0
+  const measuredHeight = probeEl.value?.offsetHeight ?? 0
+  // 隐藏/卸载期间的零尺寸不是新的纸面几何，不能冲掉已测分页。
+  if (!(measuredHeight > 0)) return
+  pageHeight.value = measuredHeight
   const nodes = Array.from(el.querySelectorAll<HTMLElement>('[data-block-id]'))
   const total = el.offsetHeight
   const next: Record<string, number> = {}
@@ -98,29 +101,31 @@ onBeforeUnmount(() => {
       </template>
     </div>
 
-    <!-- 测量层：与 .sheet-stack 平级而非其子节点，否则 data-testid 的 text() 会读到重复内容 -->
-    <div
-      class="sheet-measure-wrap"
-      aria-hidden="true"
-    >
-      <div class="sheet sheet-measure">
-        <div
-          ref="measureEl"
-          class="sheet-measure-inner"
-        >
-          <SheetBlock
-            v-for="block in blocks"
-            :key="block.id"
-            :data-block-id="block.id"
-            :block="block"
-          />
-        </div>
-      </div>
+    <!-- 脱离窄屏编辑态的 display:none 与预览缩放，打印前也能测到完整内容。 -->
+    <Teleport to="body">
       <div
-        ref="probeEl"
-        class="sheet-probe"
-      />
-    </div>
+        class="sheet-measure-wrap"
+        aria-hidden="true"
+      >
+        <div class="sheet sheet-measure">
+          <div
+            ref="measureEl"
+            class="sheet-measure-inner"
+          >
+            <SheetBlock
+              v-for="block in blocks"
+              :key="block.id"
+              :data-block-id="block.id"
+              :block="block"
+            />
+          </div>
+        </div>
+        <div
+          ref="probeEl"
+          class="sheet-probe"
+        />
+      </div>
+    </Teleport>
   </template>
 </template>
 

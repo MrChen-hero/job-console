@@ -35,6 +35,23 @@ describe('paginate', () => {
     expect(ids(paginate(blocks, { a: 40, b: 40 }, 0))).toEqual([['a', 'b']])
   })
 
+  it('标题与首条合计超高时同页溢出，不产生只有标题的额外页', () => {
+    const blocks = [line('a'), title('t'), line('b'), line('c')]
+    expect(ids(paginate(blocks, { a: 950, t: 40, b: 960, c: 10 }, 986)))
+      .toEqual([['a'], ['t', 'b'], ['c']])
+  })
+
+  it('连续标题与首条作为整体换页，顺序和内容不丢失', () => {
+    const blocks = [line('a'), title('t1'), title('t2'), line('b')]
+    expect(ids(paginate(blocks, { a: 60, t1: 20, t2: 20, b: 50 }, 100)))
+      .toEqual([['a'], ['t1', 't2', 'b']])
+  })
+
+  it('标题与首条恰好填满一页，不产生空页', () => {
+    expect(ids(paginate([title('t'), line('b')], { t: 20, b: 80 }, 100)))
+      .toEqual([['t', 'b']])
+  })
+
   it('高度全为 0（jsdom 无布局）时全部落在第 1 页并正常返回', () => {
     const blocks = [line('a'), title('t'), line('b'), line('c')]
     expect(ids(paginate(blocks, {}, 986))).toEqual([['a', 't', 'b', 'c']])

@@ -21,22 +21,26 @@ export function paginate(
   const pages: SheetBlock[][] = []
   let current: SheetBlock[] = []
   let used = 0
+  let group: SheetBlock[] = []
+  let groupHeight = 0
 
   for (let i = 0; i < blocks.length; i += 1) {
     const block = blocks[i]!
-    const height = heights[block.id] ?? 0
-    // 标题块按「自身 + 下一块」一起判断能否放下，避免标题独自留在页尾
-    const next = blocks[i + 1]
-    const needed = keepsWithNext(block) && next ? height + (heights[next.id] ?? 0) : height
+    group.push(block)
+    groupHeight += heights[block.id] ?? 0
+    // 延迟放置标题，直到首条内容到齐；连续标题也不会在下一轮被重新拆开。
+    if (keepsWithNext(block) && i + 1 < blocks.length) continue
 
-    // current 为空时不换页：单块高过一整页也要有地方放，让它独占一页并允许溢出
-    if (current.length && used + needed > pageHeight) {
+    // 超高组合与超高条目一样独占一页并允许溢出，不额外制造标题页。
+    if (current.length && used + groupHeight > pageHeight) {
       pages.push(current)
       current = []
       used = 0
     }
-    current.push(block)
-    used += height
+    current.push(...group)
+    used += groupHeight
+    group = []
+    groupHeight = 0
   }
   if (current.length) pages.push(current)
   return pages

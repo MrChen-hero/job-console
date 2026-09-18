@@ -12,7 +12,7 @@ async function setupWithExample() {
   const store = useResumeStore()
   await store.load()
   await applyExampleProfile(store)
-  const wrapper = mount(ResumeSheet, { global: { plugins: [pinia] } })
+  const wrapper = mount(ResumeSheet, { global: { plugins: [pinia], stubs: { Teleport: true } } })
   return { store, wrapper }
 }
 
@@ -149,5 +149,18 @@ describe('ResumeSheet', () => {
     await wrapper.vm.$nextTick()
     expect(wrapper.find('.r-photo').exists()).toBe(false)
     expect(wrapper.find('[data-testid="resume-sheet"]').text()).toContain('王小明')
+  })
+
+  it('空区块不占标题空间，有内容后恢复自定义标题', async () => {
+    const { store, wrapper } = await setupWithExample()
+    const version = store.activeVersion!
+    await store.updateSections(version.id, version.sections.map((s) => s.type === 'education'
+      ? { ...s, title: '学习经历', excludedIds: store.profile!.education.map((e) => e.id) } : s))
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="resume-sheet"]').text()).not.toContain('学习经历')
+    await store.updateSections(version.id, store.activeVersion!.sections.map((s) => s.type === 'education'
+      ? { ...s, excludedIds: [] } : s))
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="resume-sheet"]').text()).toContain('学习经历')
   })
 })

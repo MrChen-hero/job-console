@@ -67,6 +67,18 @@ describe('ProfileEditor', () => {
     expect(store.profile?.basic.name).toBe('王小明')
   })
 
+  it('同资料池后续写入同步到干净表单，但不会覆盖正在编辑的草稿', async () => {
+    const { store, wrapper } = await setup()
+    await store.updateBasic({ name: '王小明', school: '示例大学' })
+    await flushPromises()
+    expect((wrapper.find('input[data-field="school"]').element as HTMLInputElement).value).toBe('示例大学')
+    await fillInput(wrapper, 'input[data-field="school"]', '未保存学校')
+    await store.upsertEntry('education', { id: 'sync-edu', school: '另一学校', degree: '硕士', time: '2026' })
+    await flushPromises()
+    expect((wrapper.find('input[data-field="school"]').element as HTMLInputElement).value).toBe('未保存学校')
+    expect((wrapper.vm as unknown as { dirty: boolean }).dirty).toBe(true)
+  })
+
   /* ---------- 头像 ---------- */
 
   const AVATAR = 'data:image/jpeg;base64,AAAA'

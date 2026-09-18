@@ -36,6 +36,10 @@ const dialogInitial = ref<Record<string, unknown> | null>(null)
 const editingSection = ref<EntrySection>('education')
 const editingId = ref<string | null>(null)
 
+const basicGroups = [
+  { title: '身份与教育', keys: ['name', 'gender', 'school', 'degree', 'graduation'] },
+  { title: '联系方式与定位', keys: ['phone', 'email', 'summary'] },
+].map((group) => ({ ...group, fields: group.keys.map((key) => BASIC_FIELDS.find((field) => field.key === key)!) }))
 const basicForm = reactive<Record<string, string>>({})
 const basicError = ref('')
 const selfEvalText = ref('')
@@ -228,6 +232,10 @@ function discard() {
   basicError.value = ''
 }
 watch(() => store.profile?.id, discard, { immediate: true })
+// 示例资料分多次写入同一个资料池；仅在没有草稿时同步后续写入，避免表单停留在初始化空值。
+watch(() => store.profile, () => {
+  if (!dirty.value && !busy.value) discard()
+})
 
 /**
  * avatar / avatarCrop 不在 BASIC_FIELDS（它们不是文本输入框），每条保存路径都必须
@@ -542,12 +550,16 @@ defineExpose({ dirty, saving: busy, save, discard })
                   :style="avatarStyle"
                   alt="简历头像"
                 >
-                <span v-else>未设置</span>
+                <AppIcon
+                  v-else
+                  name="user"
+                  :size="26"
+                />
               </div>
               <div class="avatar-ops">
-                <label>头像</label>
+                <strong>简历照片 <span class="avatar-optional">选填</span></strong>
                 <p class="avatar-note">
-                  一寸证件照比例（25×35mm），原图与裁剪参数分开保存，可随时重新裁剪。
+                  一寸证件照 · 可随时重新裁剪
                 </p>
                 <div class="avatar-btns">
                   <ElButton
@@ -568,32 +580,34 @@ defineExpose({ dirty, saving: busy, save, discard })
                 </div>
               </div>
             </div>
-            <div
-              v-for="f in BASIC_FIELDS"
-              :key="f.key"
-              class="entry-field"
+            <fieldset
+              v-for="group in basicGroups"
+              :key="group.title"
+              class="basic-group"
             >
-              <label>
-                {{ f.label }}<span
-                  v-if="f.required"
-                  class="req"
-                > *</span>
-              </label>
-              <ElInput
-                v-if="f.type === 'text'"
-                v-model="basicForm[f.key]"
-                :placeholder="f.placeholder"
-                :data-field="f.key"
-              />
-              <ElInput
-                v-else
-                v-model="basicForm[f.key]"
-                type="textarea"
-                :rows="2"
-                :placeholder="f.placeholder"
-                :data-field="f.key"
-              />
-            </div>
+              <legend>{{ group.title }}</legend>
+              <div class="basic-fields">
+                <div
+                  v-for="f in group.fields"
+                  :key="f.key"
+                  class="entry-field"
+                  :class="{ wide: ['school', 'email', 'summary'].includes(f.key) }"
+                >
+                  <label :for="`basic-${f.key}`">{{ f.label }}<span
+                    v-if="f.required"
+                    class="req"
+                  > *</span></label>
+                  <ElInput
+                    :id="`basic-${f.key}`"
+                    v-model="basicForm[f.key]"
+                    :type="f.type === 'textarea' ? 'textarea' : 'text'"
+                    :rows="2"
+                    :placeholder="f.placeholder"
+                    :data-field="f.key"
+                  />
+                </div>
+              </div>
+            </fieldset>
             <p
               v-if="basicError"
               class="entry-error"
@@ -601,14 +615,17 @@ defineExpose({ dirty, saving: busy, save, discard })
             >
               {{ basicError }}
             </p>
-            <ElButton
-              type="primary"
-              class="basic-save"
-              :loading="saving"
-              @click="saveBasic"
-            >
-              保存基本信息
-            </ElButton>
+            <div class="basic-actions">
+              <span>保存后同步到右侧预览</span>
+              <ElButton
+                type="primary"
+                class="basic-save"
+                :loading="saving"
+                @click="saveBasic"
+              >
+                保存基本信息
+              </ElButton>
+            </div>
           </div>
 
           <!-- 自我评价 -->
@@ -903,76 +920,27 @@ defineExpose({ dirty, saving: busy, save, discard })
   text-align: center;
   padding: 20px 0;
 }
-.basic-form {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 14px;
-  padding: 10px 14px 6px;
-}
-/* 头像块固定排在姓名字段之前，姓名靠相邻兄弟选择器继续占满整行 */
-.avatar-field {
-  grid-column: span 2;
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  margin-bottom: 14px;
-}
-.avatar-box {
-  position: relative;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 50px;
-  height: 70px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  background: var(--surface-muted);
-  color: var(--muted);
-  font-size: 11px;
-}
-.avatar-box img {
-  position: absolute;
-  display: block;
-}
-.avatar-ops {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-.avatar-ops label {
-  font-size: 12px;
-  font-weight: var(--fw-semibold);
-  color: var(--text2);
-}
-.avatar-note {
-  color: var(--muted);
-  font-size: 11.5px;
-  line-height: 1.6;
-}
-.avatar-btns {
-  display: flex;
-  gap: 8px;
-}
-.avatar-btns .el-button + .el-button {
-  margin-left: 0;
-}
-.basic-form .avatar-field + .entry-field {
-  grid-column: span 2;
-}
-.basic-form .basic-save {
-  grid-column: span 2;
-  justify-self: start;
-}
-@media (max-width: 860px) {
-  .basic-form {
-    grid-template-columns: 1fr;
-  }
-  .basic-form .avatar-field,
-  .basic-form .avatar-field + .entry-field,
-  .basic-form .basic-save {
-    grid-column: span 1;
-  }
+.basic-form { display: grid; gap: 20px; padding: 12px 16px 16px; }
+.avatar-field { display: flex; align-items: center; gap: 14px; padding: 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--card2); }
+.avatar-box { position: relative; flex-shrink: 0; display: grid; place-items: center; width: 50px; height: 70px; overflow: hidden; border: 1px solid var(--border2); border-radius: var(--r-sm); background: var(--surface-muted); color: var(--muted); }
+.avatar-box img { position: absolute; display: block; }
+.avatar-ops { display: grid; gap: 5px; min-width: 0; }
+.avatar-ops strong { display: flex; gap: 8px; align-items: center; font-size: 13px; font-weight: var(--fw-semibold); }
+.avatar-optional { font-size: 10px; font-weight: var(--fw-normal); color: var(--muted); }
+.avatar-note { color: var(--muted); font-size: 11px; }
+.avatar-btns { display: flex; gap: 8px; margin-top: 3px; }
+.avatar-btns .el-button + .el-button { margin-left: 0; }
+.basic-group { min-width: 0; border: 0; padding: 0; }
+.basic-group legend { width: 100%; padding: 0 0 10px; margin-bottom: 12px; border-bottom: 1px solid var(--border); font-size: 12px; font-weight: var(--fw-semibold); color: var(--text2); }
+.basic-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; }
+.basic-fields .entry-field { min-width: 0; margin: 0; }
+.basic-fields .wide { grid-column: 1 / -1; }
+.basic-fields :deep(.el-input__wrapper) { min-height: 36px; }
+.basic-fields :deep(.el-textarea__inner) { line-height: 1.7; padding-top: 8px; padding-bottom: 8px; }
+.basic-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding-top: 14px; border-top: 1px solid var(--border); }
+.basic-actions > span { color: var(--muted); font-size: 11px; }
+@media (max-width: 560px) {
+  .basic-form { padding: 12px; }
+  .basic-fields { grid-template-columns: 1fr; }
 }
 </style>

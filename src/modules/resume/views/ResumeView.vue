@@ -412,7 +412,7 @@ async function startBlank() {
 
 <style>
 @media print {
-  /* 页边距归零：纸面自带 18mm/17mm padding，再叠浏览器页边距就会超页 */
+  /* 页边距归零：纸面自带 14mm/15mm padding，再叠浏览器页边距就会超页 */
   @page {
     size: A4;
     margin: 0;

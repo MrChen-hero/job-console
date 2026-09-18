@@ -68,6 +68,7 @@ export function buildBlocks(
 
   for (const section of [...version.sections].sort((a, b) => a.order - b.order)) {
     if (section.type === 'basic') continue
+    const start = blocks.length
     blocks.push({
       id: `title:${section.type}`,
       kind: 'title',
@@ -107,6 +108,8 @@ export function buildBlocks(
         })
         break
     }
+    // 空区块不占用纸面，编排与标题仍保存在版本中，新增条目后自动恢复展示。
+    if (blocks.length === start + 1) blocks.pop()
   }
   return blocks
 }

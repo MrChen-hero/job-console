@@ -11,17 +11,25 @@ defineProps<{ block: SheetBlock }>()
     v-if="block.kind === 'head'"
     class="r-head"
   >
-    <div>
+    <div class="r-identity">
       <div class="r-name">
         {{ block.name }}
       </div>
       <div class="r-meta">
         {{ block.meta }}
       </div>
-    </div>
-    <div class="r-contact">
-      <div>{{ block.targetRole }}</div>
-      <div>{{ block.contact }}</div>
+      <div
+        v-if="block.targetRole"
+        class="r-target"
+      >
+        {{ block.targetRole }}
+      </div>
+      <div
+        v-if="block.contact"
+        class="r-contact"
+      >
+        {{ block.contact }}
+      </div>
     </div>
     <div
       v-if="block.avatar"
