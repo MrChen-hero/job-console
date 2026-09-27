@@ -173,6 +173,6 @@ describe('tracker store', () => {
     const staleDate = new Date(Date.now() - 40 * 24 * 3600 * 1000).toISOString().slice(0, 10)
     expect(isStale('无消息', staleDate)).toBe(true)
     expect(isStale('已投递', staleDate)).toBe(false)
-    expect(isStale('无消息', '2026-08-28')).toBe(false)
+    expect(isStale('无消息', '2026-08-28', new Date('2026-09-27T00:00:00Z'))).toBe(false)
   })
 })

@@ -1,60 +1,188 @@
 # 求职工作台
 
-面向求职者的个人信息管理系统：投递进度、简历管理、材料库、项目演示，一个页面全搞定。
+一个把投递跟踪、简历编辑、求职材料和项目演示放在一起的纯前端工具。
 
-纯前端应用，无后端、无账号体系——**所有数据只存在你自己的浏览器（IndexedDB）里**，支持一键导出/导入 JSON 备份。
+[在线体验](https://mrchen-hero.github.io/job-console/) · [使用教程](#第一次使用) · [部署到自己的站点](#一键部署) · [反馈问题](https://github.com/MrChen-hero/job-console/issues)
 
-## 功能
+[![Quality checks](https://github.com/MrChen-hero/job-console/actions/workflows/ci.yml/badge.svg)](https://github.com/MrChen-hero/job-console/actions/workflows/ci.yml)
+[![Deploy GitHub Pages](https://github.com/MrChen-hero/job-console/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/MrChen-hero/job-console/actions/workflows/deploy-pages.yml)
 
-| 模块 | 能做什么 |
+它不需要账号和后端服务。你的简历、投递记录、面试记录和材料只保存在当前浏览器的 IndexedDB 中，支持 JSON 导出和导入。
+
+> 适合个人使用、作品集展示和二次开发。默认示例数据是虚构内容。
+
+## 页面一览
+
+| 工作台 | 投递管理 |
 |---|---|
-| 工作台 | 投递漏斗与进度统计；待办按日期排序，以日期块颜色区分已逾期、今天、后续，未排期置底；支持完成（10 秒内撤销）、延期、编辑与直达投递详情，默认全部展示并支持滚动；日期提示跨天自动刷新；手机统计两列、待办优先；求职里程碑与快捷入口 |
-| 投递管理 | 投递台账（表格/看板双视图）：新增/编辑/删除，按状态/渠道/投向筛选与关键词搜索，阶段流转（投递→笔试→一面→二面→HR面→Offer，挂/无消息可重开），每条投递可记面试纪（问到的题、答得不好的、要补的），目标公司候选池（可一键转投递） |
-| 简历管理 | 多版本简历（**各版本独立资料池**），区块与条目自由编排；保存状态提示，失败保留输入；切换版本、离开与刷新时保护未保存修改；中英区块标题编辑，头像点击/拖放上传与重裁；一页优先的 A4 真分页预览、浏览器打印导出 PDF；打印前可选择保存后打印或打印已保存内容；窄屏可切换编辑与预览 |
-| 材料库 | 搜索标题、正文与标签；独立分类管理，新增与编辑均可选择图标，保存失败保留输入、删除失败提示重试；内置与自建文档均可编辑/删除；支持上传 .md 与页面内新建；未保存文档离开时可保存、放弃或继续编辑，刷新时有浏览器提示 |
-| 项目演示 | 对外展示的门户 + 双轴幻灯片（横向翻项目、纵向翻演示页，键盘/拖拽/导航点）；**每页都是「交互演示 + 该项目基础信息」**，演示可网页全屏或屏幕全屏；项目卡片可新增/编辑/删除，保存成功后关闭弹窗、失败保留输入，示例与自建项目统一编辑和删除，默认演示要点可修改或清空；可上传交互式 HTML 页面作为演示，内置演示页与上传的演示页均可查看、编辑、删除 |
+| ![工作台：投递统计、漏斗和待办清单](docs/screenshots/dashboard.webp) | ![投递管理：表格、筛选和下一步动作](docs/screenshots/tracker.webp) |
 
-## 快速开始
+| 简历管理 | 材料库 |
+|---|---|
+| ![简历管理：资料池与 A4 预览](docs/screenshots/resume.webp) | ![材料库：分类、搜索和 Markdown 预览](docs/screenshots/library.webp) |
 
-投递管理在手机上显示卡片列表，筛选条件可展开、清空；桌面保持表格与看板。项目卡片显示交互演示数量，可添加网页文件或演示链接。
+| 项目演示 | 移动端 |
+|---|---|
+| ![项目演示：项目卡片和交互演示入口](docs/screenshots/showcase.webp) | ![移动端工作台：响应式布局](docs/screenshots/mobile-dashboard.webp) |
 
-待办右侧「⋯」菜单可完成、延期或编辑下一步；完成只清除下一步及其日期，不改变投递阶段。撤销入口在当前工作台保留 10 秒，离开或刷新后消失。标记「挂」时可选择清除或保留待办，关闭提示则取消阶段变更；进入 Offer 保留待办。
+## 能做什么
 
-需要 Node.js 24+。
-
-```bash
-npm install
-npm run dev        # 本地开发 http://localhost:5173
-npm run build      # 构建到 dist/
-npm run preview    # 预览构建产物
-npm run lint       # ESLint
-npm run test:run   # 单元测试
-npm run test:e2e   # Playwright 端到端测试
-```
+- **工作台**：查看投递总数、进行中阶段、Offer、漏斗和待办；待办可以完成、编辑、延期或直达投递详情。
+- **投递管理**：用表格或看板管理投递，记录渠道、投向、岗位信息、阶段历史和面试纪要。
+- **简历管理**：建立多个独立简历版本，编排区块和条目，上传并重裁头像，预览 A4 分页并打印为 PDF。
+- **材料库**：管理自我介绍、常见问题和项目深挖材料；支持 Markdown、搜索、标签和自定义分类。
+- **项目演示**：管理项目卡片，上传单文件 HTML 或添加 HTTP(S) 演示链接，在双轴 Deck 中展示项目和交互页面。
 
 ## 数据与隐私
 
-- 数据保存在浏览器 IndexedDB（库名 `job-console`），**不上传任何服务器**；部署到公开的 GitHub Pages 也没有关系，别人打开是空的。
-- 换浏览器/换电脑：侧边栏「导出数据」下载 JSON，在新设备「导入数据」核对本机与备份数量，再选择合并或覆盖。合并时同一记录以备份为准；覆盖需要明确勾选确认，执行前自动保存快照，最多保留 5 份。弹窗的「取消」不会导入。
-- 导入前检查记录标识、嵌套字段、业务日期、投递状态与阶段历史、简历资料归属及演示链接；不合法的备份会显示具体字段错误，拒绝写入。继续兼容合法 v4 备份及旧投向名称。
-- 材料正文、编辑预览和演示要点统一清理 HTML 中的脚本、事件属性等内容；上传的交互 HTML 仍在隔离的演示框架中运行。
-- 投递和简历在数据库写入成功后更新页面；简历版本创建、复制、删除涉及的记录一起成功或一起回滚。
-- 简历、投递记录等隐私内容**永不写入代码仓库**；仓库里只有内置材料与演示配置。
-- 隐私模式（无痕窗口）下 IndexedDB 不可用时，页面顶部会出现持久警告，此时数据关闭即失。
+- 应用本身没有后端，不会把本地数据上传到项目维护者的服务器。
+- 数据保存在浏览器 IndexedDB。清理浏览器站点数据、换浏览器或使用隐私窗口可能导致数据不可用。
+- 换设备前，请在侧边栏使用「导出数据」；在新设备使用「导入数据」恢复。
+- 导入支持合并和覆盖。覆盖前会自动保存快照，最多保留 5 份。
+- Markdown 正文和演示要点会清理危险 HTML；上传的交互 HTML 在沙箱 iframe 中运行。
+- 你主动添加的外部演示链接会由浏览器访问第三方站点，这部分请求遵循对方网站的隐私政策。
 
-## 内容双通道（材料库与演示）
+不要把真实简历、电话、邮箱或投递记录提交到 Git 仓库。许可证见 [LICENSE](LICENSE)。
 
-- **编译时通道**：把 md 放进 `src/content/library/`、交互 HTML 放进 `src/content/demos/`（文件名以 `项目id--` 为前缀），构建时自动收录。
-- **运行时通道**：页面上传 .md / .html 或添加演示链接，存入浏览器并与内置内容合并。示例与普通录入内容共用编辑、删除操作，不提供“恢复示例 / 恢复默认分类”；来源标签仅作说明。
+## 本地运行
 
-## 部署（GitHub Pages）
+使用 Node.js 24.x；仓库通过 `.node-version` 和 `package.json` 固定主版本。
 
-推送 `main` 分支后，`.github/workflows/deploy-pages.yml` 自动执行 lint → 单测 → 构建 → 部署。首次启用需在仓库 Settings → Pages 把 Source 设为 GitHub Actions。构建使用相对路径（`base: './'`），用户主页与项目仓库子路径均可直接使用。
+```bash
+git clone https://github.com/MrChen-hero/job-console.git
+cd job-console
+npm ci
+npm run dev
+```
 
-## 常见问题
+开发服务器默认地址为 <http://localhost:5173>。
 
-- **换浏览器后数据没了？** 数据在本机浏览器里，跨设备请走「导出数据 / 导入数据」。
-- **打印 PDF 排版不对？** 用 Chrome/Edge 的「打印 → 另存为 PDF」，纸张 A4、边距默认即可。
-- **上传的演示页白屏？** 交互 HTML 需单文件自包含（内联 CSS/JS），不允许依赖本地同目录资源。
+常用命令：
 
-架构与开发约定见 [AGENTS.md](AGENTS.md)，视觉设计系统（令牌、层级、动效尺度）见 [DESIGN.md](DESIGN.md)，未决事项见 [docs/tech-debt.md](docs/tech-debt.md)。
+```bash
+npm run dev        # 启动开发服务器
+npm run build      # 类型检查并构建 dist/
+npm run preview    # 预览构建产物
+npm run lint       # ESLint
+npm run test:run   # Vitest 单元测试
+npm run test:e2e   # Playwright 端到端测试
+npm run shots      # 开发服务器运行时生成 README 截图
+```
+
+生成截图前先运行 `npm run dev`，然后在另一个终端执行 `npm run shots`。脚本只使用虚构数据，图片写入 `docs/screenshots/`。
+
+首次运行截图或端到端测试前，执行 `npx playwright install chromium` 安装测试浏览器。截图使用独立临时浏览器，不读取或清空日常浏览器数据。
+
+## 一键部署
+
+项目是静态 Vite 应用，构建输出目录统一为 `dist`，使用 Hash 路由，因此不需要额外的服务端重写规则。
+
+### GitHub Pages
+
+推送 `main` 分支后，GitHub Actions 会执行质量检查、构建并发布 Pages。
+
+1. 打开仓库 Settings → Pages。
+2. 将 Source 设置为 GitHub Actions。
+3. 推送 `main`，等待 [Deploy GitHub Pages workflow](.github/workflows/deploy-pages.yml) 完成。
+
+### Vercel
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/MrChen-hero/job-console)
+
+```text
+Install command: npm ci
+Build command: npm run build
+Output directory: dist
+Node.js: 24
+```
+
+仓库中的 [vercel.json](vercel.json) 包含构建设置，Node 版本由 `package.json` 指定。按钮会引导登录、复制仓库和创建站点；首次部署仍需平台授权。
+
+### Cloudflare Pages
+
+在 Cloudflare Pages 中选择「Connect to Git」：
+
+先 Fork 本仓库，再从 Workers & Pages 中选择创建 **Pages** 项目并连接你的仓库；这是 Git 导入流程，不是 Workers 部署按钮。
+
+```text
+Framework preset: Vite
+Build command: npm run build
+Build output directory: dist
+Node.js: 24
+```
+
+在构建环境中设置 `NODE_VERSION=24`。构建命令在 Pages 控制台配置，`wrangler.toml` 只声明项目名、兼容日期和输出目录，不执行构建。CLI（命令行工具）部署使用：
+
+```bash
+npm ci
+npm run build
+npx wrangler login
+npx wrangler pages deploy dist
+```
+
+### Netlify
+
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/MrChen-hero/job-console)
+
+```text
+Build command: npm run build
+Publish directory: dist
+Node version: 24
+```
+
+对应配置见 [netlify.toml](netlify.toml)。
+
+更换域名、协议或端口后，浏览器会使用另一份本地数据库。迁移站点前导出备份，再在新地址导入；发布网站不会发布你的本地简历和投递数据。
+
+## 第一次使用
+
+1. 打开「简历管理」，点击「一键填入示例资料」了解编辑和预览布局，再替换为自己的资料。
+2. 在「简历版本」中创建面向不同岗位的版本；每个版本都有独立资料池。
+3. 在「投递管理」中新增一条投递，填写公司、职位、渠道和下一步动作。
+4. 通过阶段流转记录笔试、面试、Offer 或挂起状态；面试抽屉可以保存问题和复盘。
+5. 在「材料库」中上传 Markdown，或直接新建材料，并用分类和标签整理。
+6. 在「项目演示」中编辑项目卡片，上传单文件 HTML 或填写自部署演示链接。
+7. 定期从侧边栏导出 JSON 备份。恢复数据时先确认当前库和备份数量，再选择合并或覆盖。
+
+## 项目结构
+
+```text
+src/storage/       Dexie 数据库、实体类型、备份校验和快照
+src/shared/        布局壳、通用 UI、Markdown 工具和导入导出
+src/app/           路由、导航、主题和入口装配
+src/modules/       dashboard、tracker、resume、library、showcase 业务模块
+src/content/       编译时内置 Markdown 和交互演示
+src/config/        内置项目展示配置
+src/styles/        Cool Slate 设计令牌和全局样式
+tests/e2e/         Playwright 端到端测试
+```
+
+更完整的架构约定见 [AGENTS.md](AGENTS.md)，视觉设计见 [DESIGN.md](DESIGN.md)，已知限制见 [docs/tech-debt.md](docs/tech-debt.md)。
+
+## 开发与贡献
+
+提交修改前建议执行：
+
+```bash
+npm run lint
+npm run test:run
+npm run build
+npm run test:e2e
+git diff --check
+```
+
+Pull Request 会自动执行 lint、单元测试、构建和 E2E。请不要提交真实个人资料、导出的备份、浏览器测试产物或包含本机路径的截图。
+
+贡献步骤见 [CONTRIBUTING.md](CONTRIBUTING.md)，安全问题见 [SECURITY.md](SECURITY.md)。`private: true` 仅防止误发到 npm，不影响 MIT 授权和自行部署。
+
+## 已知限制
+
+- 数据只在当前浏览器中，不提供账号登录和云同步。
+- 浏览器禁用 IndexedDB 时，读取和保存可能失败；应用没有内存存储兜底。建议使用普通窗口并定期导出备份。
+- 外部演示页面是否允许被 iframe 嵌入取决于对方站点的响应头；页面提供新标签打开入口。
+- 简历分页按内容块切分，单个内容块超过一页时不会从中间截断。
+- 内置演示页会随前端构建产物发布，数量较多时会增加初始资源体积。
+
+## 许可证
+
+本项目使用 [MIT License](LICENSE)。

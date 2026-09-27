@@ -2,6 +2,16 @@
   "name": "job-console",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT",
+  "engines": { "node": "24.x" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MrChen-hero/job-console.git"
+  },
+  "homepage": "https://mrchen-hero.github.io/job-console/",
+  "bugs": {
+    "url": "https://github.com/MrChen-hero/job-console/issues"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +20,8 @@
     "lint": "eslint .",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "shots": "node scripts/readme-shots.mjs"
   },
   "dependencies": {
     "dexie": "^4.4.5",
