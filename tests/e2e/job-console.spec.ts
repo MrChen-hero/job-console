@@ -539,7 +539,8 @@ test.describe('求职工作台主流程', () => {
     await page.goto('/')
     expect(await overflow()).toBe(false)
     // 投递工具栏有三个筛选下拉 + 搜索框，是窄屏最容易顶宽的一处（表格自身在卡片内横向滚动）
-    await page.goto('/#/tracker')
+    await page.locator('.nav-item').filter({ hasText: '投递管理' }).dispatchEvent('click')
+    await expect(page).toHaveURL(/#\/tracker/)
     await expect(page.locator('.tracker-toolbar')).toBeVisible()
     expect(await overflow()).toBe(false)
   })
