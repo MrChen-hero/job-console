@@ -94,6 +94,7 @@
   letter-spacing: 1px;
 }
 .sheet .r-head {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -115,7 +116,9 @@
    图片用百分比定位（见 avatarCrop.cropStyle），分辨率无关，预览与打印构图一致；
    用 <img> 而非 background-image，浏览器关掉「打印背景图形」时头像仍会打印。 */
 .sheet .r-photo {
-  position: relative;
+  position: absolute;
+  top: 0;
+  right: 0;
   flex-shrink: 0;
   align-self: flex-start;
   width: 25mm;
@@ -228,6 +231,7 @@
 }
 
 .sheet .r-identity { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.sheet .r-head.has-photo .r-identity { padding-right: calc(25mm + 14px); }
 .sheet .r-contact { margin-top: 4px; }
 .sheet .r-time { flex-shrink: 0; }
 .sheet .r-item-hd { flex-wrap: wrap; column-gap: 10px; row-gap: 1px; }

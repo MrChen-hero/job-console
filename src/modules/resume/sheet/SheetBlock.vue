@@ -9,7 +9,7 @@ defineProps<{ block: SheetBlock }>()
 <template>
   <div
     v-if="block.kind === 'head'"
-    class="r-head"
+    :class="['r-head', { 'has-photo': block.avatar }]"
   >
     <div class="r-identity">
       <div class="r-name">
