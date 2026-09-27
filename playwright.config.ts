@@ -1,9 +1,15 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const runtime = globalThis as typeof globalThis & {
+  process?: { env?: Record<string, string | undefined> }
+}
+const isCI = Boolean(runtime.process?.env?.CI)
+
 export default defineConfig({
   testDir: './tests/e2e',
   outputDir: 'test-results',
   fullyParallel: true,
+  retries: isCI ? 2 : 0,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: 'http://127.0.0.1:4173',
