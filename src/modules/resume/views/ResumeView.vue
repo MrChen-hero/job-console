@@ -11,6 +11,7 @@ import ResumeSheet from '../sheet/ResumeSheet.vue'
 
 const store = useResumeStore()
 const preparing = ref(true)
+const fillingExample = ref(false)
 const viewMode = ref<'edit' | 'preview'>('edit')
 const saveState = ref('已保存到本机')
 const loadError = ref('')
@@ -123,10 +124,13 @@ async function printResume() {
 }
 
 async function fillExample() {
+  if (fillingExample.value) return
+  fillingExample.value = true
   try {
     await applyExampleProfile(store)
     ElMessage.success('已生成示例资料，可继续在下方编辑')
   } catch { ElMessage.error('示例资料保存失败，请重试') }
+  finally { fillingExample.value = false }
 }
 async function startBlank() {
   try { await store.ensureProfile('你的姓名') }
@@ -157,7 +161,7 @@ async function startBlank() {
       </ElButton>
     </div>
     <div
-      v-else-if="!store.profile"
+      v-else-if="!store.profile || fillingExample"
       class="resume-empty no-print"
     >
       <h3>开始建立你的简历</h3>
@@ -166,6 +170,7 @@ async function startBlank() {
         <ElButton
           type="primary"
           class="example-btn"
+          :loading="fillingExample"
           @click="fillExample"
         >
           一键填入示例资料

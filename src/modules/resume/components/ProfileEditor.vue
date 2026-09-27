@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { ElButton, ElCheckbox, ElInput, ElMessage, ElMessageBox } from 'element-plus'
 import { useResumeStore, type EntrySection } from '../store'
 import {
@@ -328,6 +328,7 @@ async function saveBasic() {
   const originalAvatar = avatarKey()
   try {
     await store.updateBasic(withAvatar(record) as never)
+    await nextTick()
     basicOriginal.value = original
     avatarOriginal.value = originalAvatar
   } catch { saveError.value = '保存失败，请重试'; basicError.value = saveError.value }
